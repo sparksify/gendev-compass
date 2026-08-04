@@ -42,7 +42,7 @@ export function InvestmentSnapshot({
               alt={`${profile.name} logo`}
               width={132}
               height={40}
-              className="mt-3 h-10 w-auto"
+              className="mt-3 h-12 w-auto"
             />
           )}
         </div>

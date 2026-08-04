@@ -39,7 +39,7 @@ export function VideoCard({
             alt={brandLogo.alt}
             width={132}
             height={40}
-            className="h-8 w-auto shrink-0"
+            className="h-9 w-auto shrink-0"
           />
         )}
       </div>

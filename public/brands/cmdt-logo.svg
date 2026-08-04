@@ -1,5 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132 40" width="132" height="40" role="img" aria-label="Complete Mobile Drug Testing">
-  <!-- Interim wordmark; replace this file with the brand's supplied logo. -->
-  <text x="0" y="27" font-family="'DM Sans', system-ui, sans-serif" font-size="21" font-weight="700" letter-spacing="2" fill="#101828">CMDT</text>
-  <rect x="0" y="34" width="66" height="2.5" fill="#2563eb"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 393" width="920" height="393" role="img" aria-label="CMD Testing">
+  <!-- Blue capsule: left curve forms the C, right curve closes the D. -->
+  <path d="M272 23 H155 A125 125 0 0 0 155 273 H765 A125 125 0 0 0 765 23 H688" fill="none" stroke="#1c64a9" stroke-width="30"/>
+  <!-- D stem -->
+  <path d="M673 8 V236" fill="none" stroke="#1c64a9" stroke-width="30"/>
+  <!-- Gray M -->
+  <path d="M310 236 V10 L455 158 L600 10 V236" fill="none" stroke="#b9babc" stroke-width="30"/>
+  <text x="475" y="375" text-anchor="middle" font-family="'DM Sans', system-ui, sans-serif" font-size="52" font-weight="500" letter-spacing="30" fill="#1d2430">Testing</text>
 </svg>
