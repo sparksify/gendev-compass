@@ -35,14 +35,17 @@ const WEIGHTS = { application: 15, video: 35, questionnaire: 25, consultation: 2
 const EFFORT = { video: 22, questionnaire: 15, schedule: 2 };
 
 export function deriveJourney(state: PortalState): JourneySummary {
-  const videoFraction = state.videoCompleted ? 1 : Math.min(1, state.videoPercent / 100);
+  // The overview is an optional educational path: completing the
+  // questionnaire (fast track) satisfies the milestone as well.
+  const overviewSatisfied = state.videoCompleted || state.questionnaireCompleted;
+  const videoFraction = overviewSatisfied ? 1 : Math.min(1, state.videoPercent / 100);
 
   const milestones: JourneyMilestone[] = [
     { key: "application", label: "Initial Application", status: "completed" },
     {
       key: "overview",
       label: "Investor Overview",
-      status: state.videoCompleted ? "completed" : "active",
+      status: overviewSatisfied ? "completed" : "active",
     },
     {
       key: "questionnaire",

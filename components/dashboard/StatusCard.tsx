@@ -41,15 +41,14 @@ export function StatusCard({ token, state, journey }: StatusCardProps) {
     ctaLabel = "Schedule Consultation";
   } else if (state.videoCompleted) {
     headline = "Investor Overview Completed";
-    supporting =
-      "Your qualification questionnaire is now available. It takes about 15 minutes to complete.";
+    supporting = `A few questions about your goals and experience help ${brand.advisorName} prepare a consultation tailored to you. Most investors finish in about 3–5 minutes.`;
     ctaHref = `${base}/questionnaire`;
-    ctaLabel = "Start Questionnaire";
+    ctaLabel = "Begin Qualification";
   } else {
     headline = "Initial Application Received";
     supporting = state.videoStarted
-      ? `You're currently reviewing the Investor Overview. Complete this step to unlock your private consultation with ${brand.advisorName}.`
-      : `Your next step is the Investor Overview. Complete it to unlock your private consultation with ${brand.advisorName}.`;
+      ? `You're currently reviewing the Investor Overview. ${brand.advisorName} will be ready to tailor your consultation when you are.`
+      : `Your next step is the Investor Overview — or begin qualification directly if you're already experienced with franchise investing.`;
     ctaHref = `${base}/overview`;
     ctaLabel = state.videoStarted ? "Resume Investor Overview" : "Begin Investor Overview";
   }

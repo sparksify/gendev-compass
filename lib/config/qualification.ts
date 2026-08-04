@@ -58,12 +58,12 @@ function intFromEnv(name: string, fallback: number): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-/** Score at or above which the calendar unlocks (informational for MVP). */
+/** Score at or above which a lead is auto-qualified (informational for MVP). */
 export function getScoreThreshold(): number {
   return intFromEnv("QUALIFICATION_SCORE_THRESHOLD", 60);
 }
 
-/** Percent of the video (0–100) that must be watched to unlock the questionnaire. */
+/** Percent of the video (0–100) that must be watched to complete the overview step. */
 export function getVideoCompletionThreshold(): number {
   const value = intFromEnv("VIDEO_COMPLETION_THRESHOLD", 85);
   return Math.min(100, Math.max(1, value));

@@ -11,8 +11,9 @@ export const dynamic = "force-dynamic";
 
 /**
  * Saves questionnaire responses and runs server-side qualification.
- * The video-completion gate is enforced here as well as in the UI —
- * a prospect cannot submit by calling the API directly.
+ * The questionnaire is open to every prospect — the investor overview is
+ * an optional educational path, and experienced investors may fast-track
+ * directly to qualification. Video completion still feeds the score.
  */
 export async function POST(
   request: Request,
@@ -28,16 +29,6 @@ export async function POST(
 
   const videoProgress = await store.getVideoProgress(lead.id);
   const videoCompleted = Boolean(videoProgress?.completed) || Boolean(lead.video_completed_at);
-  if (!videoCompleted) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Please finish the investor overview before submitting the questionnaire.",
-        nextUrl: `${base}/overview`,
-      },
-      { status: 403 },
-    );
-  }
 
   const existing = await store.getQuestionnaire(lead.id);
   if (existing) {

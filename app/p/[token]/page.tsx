@@ -1,4 +1,5 @@
 import { StatusCard } from "@/components/dashboard/StatusCard";
+import { PathChooser } from "@/components/dashboard/PathChooser";
 import { ProgressTimeline } from "@/components/dashboard/ProgressTimeline";
 import { VideoCard } from "@/components/dashboard/VideoCard";
 import { FAQAccordion } from "@/components/dashboard/FAQAccordion";
@@ -33,12 +34,24 @@ export default async function PortalDashboardPage({
           Your {profile.shortName} Investment Journey
         </h1>
         <p className="mt-3 max-w-[38rem] text-[13.5px] leading-[1.65] text-muted-foreground">
-          Track your progress through our investor qualification process. Complete each milestone
-          to unlock your private consultation and access additional investment materials.
+          Evaluate this opportunity at your own pace. Everything you share here helps your advisor
+          prepare a consultation tailored to your goals and experience.
         </p>
       </div>
 
-      <StatusCard token={token} state={state} journey={journey} />
+      {!state.videoCompleted &&
+      !state.questionnaireCompleted &&
+      !state.qualified &&
+      !state.reviewRequired &&
+      !state.booked ? (
+        <PathChooser
+          token={token}
+          videoStarted={state.videoStarted}
+          videoPercent={state.videoPercent}
+        />
+      ) : (
+        <StatusCard token={token} state={state} journey={journey} />
+      )}
 
       <section id="progress" className="overflow-x-auto px-1 pb-0.5 pt-1.5">
         <ProgressTimeline milestones={journey.milestones} />

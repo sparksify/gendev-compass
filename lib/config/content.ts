@@ -13,7 +13,7 @@ export const FAQ_ITEMS: FaqItem[] = [
   {
     question: "What happens after qualification?",
     answer:
-      "Once you complete the investor overview and questionnaire, your responses are reviewed and — when the criteria are met — your consultation unlocks immediately so you can pick a time that suits you. Your advisor reviews your answers before the call so the conversation focuses on your specific goals.",
+      "Once you complete the qualification process, you can schedule your consultation immediately — pick a time that suits you. Your advisor reviews your answers before the call so the conversation focuses on your specific goals.",
   },
   {
     question: "How are opportunities evaluated?",

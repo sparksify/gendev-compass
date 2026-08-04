@@ -152,12 +152,16 @@ The endpoint is rate-limited (20/min/IP) and validated with Zod.
 Qualification runs **server-side only** when the questionnaire is submitted
 (`lib/portal/qualification.ts`), and is never trusted from the client.
 
-Hard gate (all required to unlock the calendar):
+The landing page offers two equal paths: the educational journey (investor
+overview video) or a fast track straight to qualification for experienced
+investors. The video is no longer a qualification requirement — completing
+it still contributes to the informational score.
 
-1. Video completed (server-tracked, threshold-gated)
-2. Questionnaire completed
-3. Liquid capital ≥ $250,000
-4. Investment timeline is not "Researching for the future"
+Hard gate (all required for the calendar):
+
+1. Questionnaire completed
+2. Liquid capital ≥ $250,000
+3. Investment timeline is not "Researching for the future"
 
 A score (0–100+) is also computed for future analysis — weights in
 `lib/config/qualification.ts`, threshold via `QUALIFICATION_SCORE_THRESHOLD`

@@ -69,8 +69,11 @@ export function evaluateQualification(
     reasons.push("Detailed question submitted");
   }
 
-  // Hard gate (spec §13): video + questionnaire + capital minimum + timeline.
-  const qualified = videoCompleted && capitalMeetsMinimum && timelineAcceptable;
+  // Hard gate: questionnaire + capital minimum + timeline. The investor
+  // overview is an educational path, not a qualification requirement —
+  // experienced investors may fast-track directly to the questionnaire.
+  // Video completion still contributes to the informational score above.
+  const qualified = capitalMeetsMinimum && timelineAcceptable;
 
   reasons.push(`Score ${score} (threshold ${getScoreThreshold()})`);
 

@@ -12,7 +12,7 @@ interface RightSidebarProps {
 export function RightSidebar({ token, state }: RightSidebarProps) {
   return (
     <div className="space-y-[18px]">
-      <AdvisorCard token={token} scheduleUnlocked={state.qualified} booked={state.booked} />
+      <AdvisorCard token={token} state={state} />
       <InvestmentSnapshot profile={getOpportunityProfile()} />
     </div>
   );

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Lock } from "lucide-react";
+import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { VideoCard } from "@/components/dashboard/VideoCard";
@@ -62,11 +62,12 @@ export default async function OverviewPage({ params }: { params: Promise<{ token
             {!state.questionnaireCompleted ? (
               <>
                 <p className="text-sm text-muted-foreground">
-                  Your qualification questionnaire is now available.
+                  A few questions about your goals and experience will help {brand.advisorName}{" "}
+                  prepare for your consultation.
                 </p>
                 <Button asChild size="lg">
                   <Link href={`/p/${token}/questionnaire`}>
-                    Continue to Qualification <ArrowRight />
+                    Begin Qualification <ArrowRight />
                   </Link>
                 </Button>
               </>
@@ -80,16 +81,23 @@ export default async function OverviewPage({ params }: { params: Promise<{ token
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardContent className="space-y-2">
-            <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <Lock className="size-4 text-muted-foreground" /> Qualification Questionnaire
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Unlocks once you&apos;ve watched the investor overview.
-            </p>
-          </CardContent>
-        </Card>
+        !state.questionnaireCompleted && (
+          <Card>
+            <CardContent className="space-y-2">
+              <p className="text-sm font-semibold text-foreground">
+                Experienced with franchise investing?
+              </p>
+              <p className="text-sm text-muted-foreground">
+                You can begin qualification at any time — the overview will remain available here.
+              </p>
+              <Button asChild variant="secondary">
+                <Link href={`/p/${token}/questionnaire`}>
+                  Begin Qualification <ArrowRight />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )
       )}
     </div>
   );

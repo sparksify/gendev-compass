@@ -18,10 +18,10 @@ export default async function QuestionnairePage({
 
   const { lead, state } = context;
 
-  // Locked until the video is complete; already-submitted prospects move on.
+  // Open to every prospect (the overview is optional); already-submitted
+  // prospects move on to their state-appropriate page.
   if (state.booked || state.reviewRequired) redirect(`/p/${token}/complete`);
   if (state.qualified) redirect(`/p/${token}/schedule`);
-  if (!state.videoCompleted) redirect(`/p/${token}/overview`);
   if (state.questionnaireCompleted) redirect(`/p/${token}`);
 
   await trackEvent(lead, "questionnaire_opened", null, "questionnaire");
@@ -30,12 +30,12 @@ export default async function QuestionnairePage({
     <div className="space-y-8">
       <div>
         <h1 className="font-serif text-4xl font-normal leading-[1.1] tracking-[-0.01em] text-foreground sm:text-[42px]">
-          Qualification Questionnaire
+          Prepare for Your Consultation
         </h1>
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
-          {lead.first_name}, your next step is ready. Your answers help us prepare a consultation
-          focused on your specific goals. All responses are confidential. This takes about 15
-          minutes.
+          {lead.first_name}, these questions help your advisor prepare a personalized consultation
+          focused on your investment objectives and experience. All responses are confidential.
+          Most investors complete this in about 3–5 minutes.
         </p>
       </div>
 

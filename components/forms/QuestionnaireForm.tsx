@@ -199,7 +199,7 @@ export function QuestionnaireForm({ token }: QuestionnaireFormProps) {
 
       <Button type="submit" size="lg" disabled={isSubmitting} className="w-full sm:w-auto">
         {isSubmitting && <Loader2 className="animate-spin" />}
-        {isSubmitting ? "Submitting…" : "Submit Questionnaire"}
+        {isSubmitting ? "Submitting…" : "Submit &amp; Prepare My Consultation"}
       </Button>
     </form>
   );

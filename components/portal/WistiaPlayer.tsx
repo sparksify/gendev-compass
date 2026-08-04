@@ -202,18 +202,19 @@ export function WistiaPlayer({
         >
           <p className="flex items-center gap-2.5 text-[13.5px] font-medium text-foreground">
             <CheckCircleSolid className="size-[19px] shrink-0" />
-            Investor Overview completed — your qualification questionnaire is unlocked.
+            Investor Overview completed. A few questions will help your advisor prepare for your
+            consultation.
           </p>
           <Button asChild size="md">
             <Link href={`/p/${token}/questionnaire`}>
-              Continue to Questionnaire <ArrowRight />
+              Begin Qualification <ArrowRight />
             </Link>
           </Button>
         </div>
       ) : (
         <p className="mt-3 text-sm text-muted-foreground" aria-live="polite">
           Overview Progress: <span className="font-semibold text-foreground">{percent}%</span>
-          <span className="ml-2 text-xs">(unlocks at {completionThreshold}%)</span>
+          <span className="ml-2 text-xs">(marks complete at {completionThreshold}%)</span>
         </p>
       )}
     </div>
