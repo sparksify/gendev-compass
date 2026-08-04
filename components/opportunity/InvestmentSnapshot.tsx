@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { BadgeCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,14 +11,41 @@ import type { OpportunityProfile } from "@/lib/config/opportunity";
  * display-size figures.
  */
 export function InvestmentSnapshot({
-  snapshot,
+  profile,
 }: {
-  snapshot: OpportunityProfile["snapshot"];
+  profile: Pick<
+    OpportunityProfile,
+    "name" | "websiteUrl" | "websiteLabel" | "logoPath" | "snapshot"
+  >;
 }) {
+  const { snapshot } = profile;
   return (
     <Card>
       <CardContent>
         <h2 className="text-[15.5px] font-bold text-foreground">Investment Snapshot</h2>
+
+        <div className="mt-3.5 border-b border-border-soft pb-3.5">
+          <p className="text-[13.5px] font-medium text-foreground">{profile.name}</p>
+          {profile.websiteUrl && (
+            <a
+              href={profile.websiteUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-0.5 inline-block text-[12.5px] text-primary hover:text-primary-hover"
+            >
+              {profile.websiteLabel ?? profile.websiteUrl}
+            </a>
+          )}
+          {profile.logoPath && (
+            <Image
+              src={profile.logoPath}
+              alt={`${profile.name} logo`}
+              width={132}
+              height={40}
+              className="mt-3 h-10 w-auto"
+            />
+          )}
+        </div>
 
         <dl className="mt-1">
           {snapshot.entries.map((entry) => (

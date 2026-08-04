@@ -55,9 +55,15 @@ export interface OpportunityDocument {
 export interface OpportunityProfile {
   slug: string;
   name: string;
+  /** Compact brand abbreviation used in headings, e.g. "CMDT". */
+  shortName: string;
   subtitle: string;
   tags: string[];
+  /** Brand logo path under /public; rendered in the snapshot and hero. */
+  logoPath?: string;
   websiteUrl?: string;
+  /** Human-readable website label, e.g. "www.completemobiledrugtesting.com". */
+  websiteLabel?: string;
   /** Download target for the header's "Download Opportunity Overview". */
   overviewDownloadUrl?: string;
   /** Business Overview paragraphs (investment-memo tone). */
@@ -82,10 +88,14 @@ export interface OpportunityProfile {
 export const CMDT_PROFILE: OpportunityProfile = {
   slug: "cmdt",
   name: "Complete Mobile Drug Testing",
+  shortName: "CMDT",
   subtitle:
     "A mobile compliance-driven business providing drug testing, alcohol testing, DNA testing, background screening and workforce compliance services for employers and regulated industries.",
   tags: ["B2B", "Healthcare", "Mobile Service", "Home-Based", "Office-Based"],
-  websiteUrl: process.env.NEXT_PUBLIC_CMDT_WEBSITE_URL,
+  logoPath: "/brands/cmdt-logo.svg",
+  websiteUrl:
+    process.env.NEXT_PUBLIC_CMDT_WEBSITE_URL ?? "https://www.completemobiledrugtesting.com/",
+  websiteLabel: "www.completemobiledrugtesting.com",
   overviewDownloadUrl: process.env.NEXT_PUBLIC_CMDT_OVERVIEW_PDF_URL,
   overview: [
     "Complete Mobile Drug Testing (CMDT) is a compliance-driven services business providing mobile and in-office drug testing, alcohol testing, DNA testing, and background screening. Services are delivered on-site at client locations or from a home- or office-based operation, allowing the business to run with a lean physical footprint.",

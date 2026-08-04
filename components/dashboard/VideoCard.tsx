@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Clock } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { SectionHeader } from "@/components/dashboard/SectionHeader";
@@ -14,6 +15,8 @@ interface VideoCardProps {
   mediaId: string | null;
   completionThreshold: number;
   showDevTools: boolean;
+  /** Featured brand's logo, shown at the right of the card header. */
+  brandLogo?: { src: string; alt: string };
 }
 
 /** The Investor Overview player with live, server-tracked watch progress. */
@@ -24,11 +27,21 @@ export function VideoCard({
   mediaId,
   completionThreshold,
   showDevTools,
+  brandLogo,
 }: VideoCardProps) {
   return (
     <Card className="overflow-hidden">
-      <div className="px-5 py-[18px]">
+      <div className="flex items-center justify-between gap-4 px-5 py-[18px]">
         <SectionHeader number={1} title="Investor Overview" />
+        {brandLogo && (
+          <Image
+            src={brandLogo.src}
+            alt={brandLogo.alt}
+            width={132}
+            height={40}
+            className="h-8 w-auto shrink-0"
+          />
+        )}
       </div>
 
       <div className="px-5">

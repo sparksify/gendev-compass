@@ -5,6 +5,7 @@ import { FAQAccordion } from "@/components/dashboard/FAQAccordion";
 import { InvalidPortal } from "@/components/portal/InvalidPortal";
 import { loadPortalContext } from "@/lib/portal/context";
 import { deriveJourney } from "@/lib/portal/journey";
+import { getOpportunityProfile } from "@/lib/config/opportunity";
 import { devToolsEnabled, getWistiaMediaId } from "@/lib/config/env";
 import { getVideoCompletionThreshold } from "@/lib/config/qualification";
 
@@ -22,12 +23,13 @@ export default async function PortalDashboardPage({
 
   const { state, videoProgress } = context;
   const journey = deriveJourney(state);
+  const profile = getOpportunityProfile();
 
   return (
     <div className="space-y-[18px]">
       <div>
         <h1 className="font-serif text-4xl font-normal leading-[1.1] tracking-[-0.01em] text-foreground sm:text-[42px]">
-          Your Investment Journey
+          Your {profile.shortName} Investment Journey
         </h1>
         <p className="mt-3 max-w-[380px] text-[13.5px] leading-[1.65] text-muted-foreground">
           Track your progress through our investor qualification process. Complete each milestone
@@ -48,6 +50,9 @@ export default async function PortalDashboardPage({
         mediaId={getWistiaMediaId()}
         completionThreshold={getVideoCompletionThreshold()}
         showDevTools={devToolsEnabled()}
+        brandLogo={
+          profile.logoPath ? { src: profile.logoPath, alt: `${profile.name} logo` } : undefined
+        }
       />
 
       <FAQAccordion />

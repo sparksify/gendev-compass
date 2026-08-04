@@ -13,7 +13,7 @@ export function RightSidebar({ token, state }: RightSidebarProps) {
   return (
     <div className="space-y-[18px]">
       <AdvisorCard token={token} scheduleUnlocked={state.qualified} booked={state.booked} />
-      <InvestmentSnapshot snapshot={getOpportunityProfile().snapshot} />
+      <InvestmentSnapshot profile={getOpportunityProfile()} />
     </div>
   );
 }
