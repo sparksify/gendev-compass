@@ -27,9 +27,9 @@ export default async function PortalDashboardPage({
   const journey = deriveJourney(state);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+        <h1 className="font-serif text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
           Your Investment Journey
         </h1>
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
@@ -41,12 +41,12 @@ export default async function PortalDashboardPage({
       <StatusCard token={token} state={state} journey={journey} />
 
       <Card id="progress">
-        <CardContent>
+        <CardContent className="overflow-x-auto p-6 sm:px-8 sm:py-7">
           <ProgressTimeline milestones={journey.milestones} />
         </CardContent>
       </Card>
 
-      <div className="grid gap-8 2xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div className="grid gap-6 2xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <VideoCard
           token={token}
           state={state}

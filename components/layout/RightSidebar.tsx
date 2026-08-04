@@ -20,8 +20,8 @@ export function RightSidebar({ token, state, journey }: RightSidebarProps) {
       <ProgressSummaryCard journey={journey} />
 
       <Card id="resources">
-        <CardContent className="space-y-3">
-          <h2 className="text-sm font-semibold text-foreground">Resource Library</h2>
+        <CardContent className="space-y-4">
+          <h2 className="text-base font-semibold text-foreground">Resource Library</h2>
           <div className="space-y-2">
             {RESOURCE_LIBRARY.map((item) => (
               <DocumentCard key={item.key} item={item} />
@@ -31,8 +31,8 @@ export function RightSidebar({ token, state, journey }: RightSidebarProps) {
       </Card>
 
       <Card>
-        <CardContent className="space-y-3">
-          <h2 className="text-sm font-semibold text-foreground">Coming Soon</h2>
+        <CardContent className="space-y-4">
+          <h2 className="text-base font-semibold text-foreground">Coming Soon</h2>
           <div className="space-y-2">
             {COMING_SOON.map((item) => (
               <ComingSoonCard key={item.key} item={item} />

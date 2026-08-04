@@ -70,14 +70,14 @@ export function Checklist({ token, state }: ChecklistProps) {
 
         <ul className="divide-y divide-border">
           {entries.map((entry) => (
-            <li key={entry.key} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+            <li key={entry.key} className="flex items-center gap-3.5 py-3.5 first:pt-0 last:pb-0">
               <span
                 aria-hidden
                 className={cn(
-                  "flex size-7 shrink-0 items-center justify-center rounded-full border-2",
-                  entry.status === "completed" && "border-success bg-success text-white",
-                  entry.status === "active" && "border-primary text-primary",
-                  entry.status === "locked" && "border-border text-muted-foreground/50",
+                  "flex size-7 shrink-0 items-center justify-center rounded-full",
+                  entry.status === "completed" && "bg-success text-white",
+                  entry.status === "active" && "border-2 border-primary text-primary",
+                  entry.status === "locked" && "border border-border text-muted-foreground/50",
                 )}
               >
                 {entry.status === "completed" ? (
@@ -95,7 +95,7 @@ export function Checklist({ token, state }: ChecklistProps) {
                 >
                   {entry.title}
                 </p>
-                <p className="text-xs text-muted-foreground">{entry.subtitle}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{entry.subtitle}</p>
               </div>
             </li>
           ))}

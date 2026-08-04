@@ -10,7 +10,7 @@ export default function HomePage() {
       <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
         {brand.brandName}
       </p>
-      <h1 className="mt-3 text-2xl font-semibold text-foreground">{brand.portalLabel}</h1>
+      <h1 className="mt-3 font-serif text-3xl font-semibold text-foreground">{brand.portalLabel}</h1>
       <p className="mt-4 max-w-md text-muted-foreground">
         Access to this portal is by personal invitation. Please use the private link sent to you,
         or contact{" "}

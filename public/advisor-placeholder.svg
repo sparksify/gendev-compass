@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96" role="img" aria-label="Advisor photo placeholder">
-  <rect width="96" height="96" rx="48" fill="#e3e8ee"/>
+  <rect width="96" height="96" fill="#e3e8ee"/>
   <circle cx="48" cy="38" r="16" fill="#9aa9ba"/>
-  <path d="M20 84 C20 64 34 58 48 58 C62 58 76 64 76 84 Z" fill="#9aa9ba"/>
+  <path d="M20 96 C20 70 34 62 48 62 C62 62 76 70 76 96 Z" fill="#9aa9ba"/>
 </svg>

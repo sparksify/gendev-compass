@@ -43,9 +43,10 @@ export function VideoCard({
           completionThreshold={completionThreshold}
         />
 
-        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Clock className="size-3.5" />
-          Estimated viewing time: {VIDEO_ESTIMATED_MINUTES} minutes
+        <p className="flex items-center gap-1.5 border-t border-border pt-4 text-[13px] text-muted-foreground">
+          <Clock className="size-3.5" strokeWidth={1.75} />
+          Estimated viewing time:
+          <span className="font-medium text-foreground">{VIDEO_ESTIMATED_MINUTES} Minutes</span>
         </p>
 
         {showDevTools && <DevToolsPanel token={token} />}

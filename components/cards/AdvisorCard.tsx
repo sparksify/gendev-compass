@@ -16,21 +16,21 @@ export function AdvisorCard({ token, scheduleUnlocked, booked }: AdvisorCardProp
   return (
     <Card>
       <CardContent className="space-y-4">
-        <h2 className="text-sm font-semibold text-foreground">Your Advisor</h2>
+        <h2 className="text-base font-semibold text-foreground">Your Advisor</h2>
         <div className="flex items-center gap-4">
           <Image
             src={brand.advisorPhotoPath}
             alt={`${brand.advisorName}, your advisor`}
-            width={64}
-            height={64}
-            className="rounded-full border border-border"
+            width={72}
+            height={72}
+            className="rounded-xl border border-border object-cover"
           />
           <div>
-            <p className="text-lg font-semibold text-foreground">{brand.advisorName}</p>
-            <p className="text-sm text-muted-foreground">Senior Investment Advisor</p>
+            <p className="font-serif text-xl font-semibold text-foreground">{brand.advisorName}</p>
+            <p className="mt-0.5 text-[13px] text-muted-foreground">Senior Investment Advisor</p>
           </div>
         </div>
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <p className="text-[13px] leading-relaxed text-muted-foreground">
           Your primary point of contact throughout the qualification process.
         </p>
         {booked ? (
@@ -50,7 +50,7 @@ export function AdvisorCard({ token, scheduleUnlocked, booked }: AdvisorCardProp
             <Button variant="locked" className="w-full" disabled>
               <Lock /> Schedule Consultation
             </Button>
-            <p className="mt-2 text-center text-xs text-muted-foreground">
+            <p className="mt-2.5 text-center text-xs text-muted-foreground">
               Complete the questionnaire to unlock
             </p>
           </div>

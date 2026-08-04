@@ -55,29 +55,29 @@ export function StatusCard({ token, state, journey }: StatusCardProps) {
   return (
     <Card>
       <CardContent className="space-y-5 p-6 sm:p-7">
-        <h2 className="text-sm font-semibold text-foreground">Your Current Status</h2>
+        <h2 className="text-base font-semibold text-foreground">Your Current Status</h2>
 
         <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
           <div className="max-w-md">
-            <p className="flex items-center gap-2 text-lg font-semibold text-foreground">
+            <p className="flex items-center gap-2.5 text-lg font-semibold text-foreground">
               <CheckCircle2 className="size-5 shrink-0 text-success" />
               {headline}
             </p>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{supporting}</p>
           </div>
 
-          <dl className="flex shrink-0 gap-8">
+          <dl className="flex shrink-0 divide-x divide-border">
             {journey.timeRemainingMinutes !== null && (
-              <div>
+              <div className="pr-8">
                 <dt className="text-xs text-muted-foreground">Estimated time remaining</dt>
-                <dd className="mt-1 text-xl font-semibold text-foreground">
+                <dd className="mt-1.5 text-xl font-semibold tracking-tight text-foreground">
                   {journey.timeRemainingMinutes} Minutes
                 </dd>
               </div>
             )}
-            <div>
+            <div className="pl-8 first:pl-0">
               <dt className="text-xs text-muted-foreground">Progress</dt>
-              <dd className="mt-1 text-xl font-semibold text-primary">
+              <dd className="mt-1.5 text-xl font-semibold tracking-tight text-primary">
                 {journey.overallPercent}% Complete
               </dd>
             </div>
@@ -86,10 +86,10 @@ export function StatusCard({ token, state, journey }: StatusCardProps) {
 
         <Progress value={journey.overallPercent} aria-label="Journey progress" />
 
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-wrap items-center gap-5 pt-1">
           <Button asChild size="lg">
             <Link href={ctaHref}>
-              <Play /> {ctaLabel}
+              <Play className="fill-current" /> {ctaLabel}
             </Link>
           </Button>
           <Button asChild variant="link">

@@ -2,6 +2,7 @@ import { Building2, FileText, Landmark, Sparkles, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { SectionHeader } from "@/components/dashboard/SectionHeader";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { OPPORTUNITY_SNAPSHOT, type SnapshotItem } from "@/lib/config/content";
 
 const ICONS: Record<SnapshotItem["icon"], typeof FileText> = {
@@ -25,18 +26,21 @@ export function OpportunitySnapshot() {
           <Badge variant="outline">Available at consultation</Badge>
         </div>
 
-        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {OPPORTUNITY_SNAPSHOT.map((item) => {
+        <ul className="grid gap-x-6 gap-y-4 pt-1 sm:grid-cols-2 xl:grid-cols-5">
+          {OPPORTUNITY_SNAPSHOT.map((item, index) => {
             const Icon = ICONS[item.icon];
             return (
               <li
                 key={item.key}
-                className="flex items-center gap-3 rounded-card border border-border bg-surface/60 p-3"
+                className={cn(
+                  "flex items-center gap-3 xl:border-l xl:border-border xl:pl-6",
+                  index === 0 && "xl:border-l-0 xl:pl-0",
+                )}
               >
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-control bg-card text-muted-foreground">
-                  <Icon className="size-4" />
+                <Icon className="size-5 shrink-0 text-muted-foreground" strokeWidth={1.5} />
+                <span className="text-[13px] font-medium leading-snug text-foreground">
+                  {item.title}
                 </span>
-                <span className="text-sm font-medium text-foreground">{item.title}</span>
               </li>
             );
           })}

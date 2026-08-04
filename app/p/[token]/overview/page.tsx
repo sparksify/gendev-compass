@@ -30,7 +30,9 @@ export default async function OverviewPage({ params }: { params: Promise<{ token
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">Investor Overview</h1>
+        <h1 className="font-serif text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+          Investor Overview
+        </h1>
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
           {lead.first_name}, this overview explains the opportunity, how the model works, who it is
           designed for, and what to expect during your consultation.
