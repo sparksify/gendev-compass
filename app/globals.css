@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand: var(--brand-primary, #0f2a43);
+  --color-brand-accent: var(--brand-accent, #b8894a);
+  --color-surface: #f7f8fa;
+  --color-ink: #16212e;
+  --color-ink-muted: #5b6b7c;
+  --color-line: #e3e8ee;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+}
+
+:root {
+  --brand-primary: #0f2a43;
+  --brand-accent: #b8894a;
+}
+
+body {
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Keep the Wistia web component responsive before its own styles load. */
+wistia-player {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #0b1622;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}

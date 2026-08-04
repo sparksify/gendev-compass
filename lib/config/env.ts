@@ -1,0 +1,44 @@
+/**
+ * Server-side environment access. Import only from server code.
+ * NEXT_PUBLIC_* values are read directly where needed so Next.js can inline them.
+ */
+
+export function isSupabaseConfigured(): boolean {
+  return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
+export function isProduction(): boolean {
+  return process.env.NODE_ENV === "production";
+}
+
+/**
+ * Development helpers (simulate-video button, progress reset) are only
+ * available outside production, or when explicitly enabled for a staging
+ * environment via ENABLE_DEV_TOOLS=true. Never enable in production.
+ */
+export function devToolsEnabled(): boolean {
+  if (process.env.ENABLE_DEV_TOOLS === "true" && process.env.VERCEL_ENV !== "production") {
+    return true;
+  }
+  return !isProduction();
+}
+
+export function getAppUrl(): string {
+  return process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
+}
+
+export function getInternalApiKey(): string | null {
+  return process.env.INTERNAL_API_KEY ?? null;
+}
+
+export function getAdminTestPassword(): string | null {
+  return process.env.ADMIN_TEST_PASSWORD ?? null;
+}
+
+export function getWistiaMediaId(): string | null {
+  return process.env.NEXT_PUBLIC_WISTIA_MEDIA_ID ?? process.env.WISTIA_MEDIA_ID ?? null;
+}
+
+export function getCalendarEmbedUrl(): string | null {
+  return process.env.NEXT_PUBLIC_CALENDAR_EMBED_URL ?? process.env.CALENDAR_EMBED_URL ?? null;
+}
