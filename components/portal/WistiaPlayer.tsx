@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CheckCircleSolid } from "@/components/dashboard/CheckCircleSolid";
 
 /**
  * Wistia's current embed method is the <wistia-player> web component,
@@ -191,14 +195,27 @@ export function WistiaPlayer({
           playerRef.current = el as WistiaPlayerElement | null;
         }}
       />
-      <p className="mt-3 text-sm text-muted-foreground" aria-live="polite">
-        Overview Progress: <span className="font-semibold text-foreground">{completed ? 100 : percent}%</span>
-        {!completed && (
-          <span className="ml-2 text-xs">
-            (unlocks at {completionThreshold}%)
-          </span>
-        )}
-      </p>
+      {completed ? (
+        <div
+          className="mt-3.5 flex flex-wrap items-center justify-between gap-3 rounded-control border border-border bg-success-soft/60 px-4 py-3"
+          aria-live="polite"
+        >
+          <p className="flex items-center gap-2.5 text-[13.5px] font-medium text-foreground">
+            <CheckCircleSolid className="size-[19px] shrink-0" />
+            Investor Overview completed — your qualification questionnaire is unlocked.
+          </p>
+          <Button asChild size="md">
+            <Link href={`/p/${token}/questionnaire`}>
+              Continue to Questionnaire <ArrowRight />
+            </Link>
+          </Button>
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-muted-foreground" aria-live="polite">
+          Overview Progress: <span className="font-semibold text-foreground">{percent}%</span>
+          <span className="ml-2 text-xs">(unlocks at {completionThreshold}%)</span>
+        </p>
+      )}
     </div>
   );
 }

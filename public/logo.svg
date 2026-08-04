@@ -1,4 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" role="img" aria-label="GenDev Compass logo">
-  <circle cx="12" cy="12" r="10" stroke="#101828" stroke-width="1.8"/>
-  <path d="M16.2 7.8 13.7 13.7 7.8 16.2 10.3 10.3Z" fill="#101828"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" fill="none" role="img" aria-label="GenDev Compass logo">
+  <circle cx="100" cy="100" r="72" stroke="#101828" stroke-width="12"/>
+  <!-- Cardinal ticks -->
+  <path d="M100 8 107 28 100 48 93 28Z" fill="#101828"/>
+  <path d="M100 152 107 172 100 192 93 172Z" fill="#101828"/>
+  <path d="M152 100 172 93 192 100 172 107Z" fill="#101828"/>
+  <path d="M8 100 28 93 48 100 28 107Z" fill="#101828"/>
+  <!-- Needle -->
+  <path d="M148 55 112.3 113.1 52 145 87.7 86.9Z" fill="#101828"/>
+  <circle cx="100" cy="100" r="10.5" fill="#ffffff"/>
 </svg>

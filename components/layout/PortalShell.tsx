@@ -5,17 +5,20 @@ import { RightSidebar } from "@/components/layout/RightSidebar";
 import { brand } from "@/lib/config/brand";
 import type { PortalContext } from "@/lib/portal/context";
 
-/** Wordmark block shown at the top of the sidebar (and in the header on mobile). */
+/** Brand lockup shown at the top of the sidebar (and in the header on mobile). */
 export function BrandBlock() {
+  const subMark = brand.productName.replace(`${brand.brandName} `, "");
   return (
     <div className="flex items-center gap-2.5">
-      <Image src={brand.logoPath} alt={brand.brandName} width={24} height={24} priority />
+      <Image src={brand.logoPath} alt={brand.brandName} width={32} height={32} priority />
       <div className="leading-none">
-        <p className="whitespace-nowrap font-serif text-[13px] font-semibold uppercase tracking-[0.06em] text-foreground">
-          {brand.productName}
+        <p className="whitespace-nowrap font-serif text-[19px] font-medium leading-none tracking-tight text-foreground">
+          {brand.brandName}
         </p>
-        <p className="mt-0.5 whitespace-nowrap text-[8px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-          {brand.tagline}
+        <p className="mt-1 flex items-center gap-1.5 whitespace-nowrap text-[7.5px] font-medium uppercase tracking-[0.3em] text-foreground">
+          <span aria-hidden className="h-px w-3 bg-foreground/60" />
+          {subMark}
+          <span aria-hidden className="h-px w-3 bg-foreground/60" />
         </p>
       </div>
     </div>
