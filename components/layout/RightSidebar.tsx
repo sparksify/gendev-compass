@@ -1,6 +1,6 @@
 import { AdvisorCard } from "@/components/cards/AdvisorCard";
 import { InvestmentSnapshot } from "@/components/opportunity/InvestmentSnapshot";
-import { getOpportunityProfile } from "@/lib/config/opportunity";
+import { getAdvisorPhotoUrl, resolveOpportunityProfile } from "@/lib/assets";
 import type { PortalState } from "@/types/portal";
 
 interface RightSidebarProps {
@@ -9,11 +9,16 @@ interface RightSidebarProps {
 }
 
 /** Right rail: the advisor and the deal terms. Nothing else. */
-export function RightSidebar({ token, state }: RightSidebarProps) {
+export async function RightSidebar({ token, state }: RightSidebarProps) {
+  const [profile, advisorPhotoUrl] = await Promise.all([
+    resolveOpportunityProfile(),
+    getAdvisorPhotoUrl(),
+  ]);
+
   return (
     <div className="space-y-[18px]">
-      <AdvisorCard token={token} state={state} />
-      <InvestmentSnapshot profile={getOpportunityProfile()} />
+      <AdvisorCard token={token} state={state} photoUrl={advisorPhotoUrl ?? undefined} />
+      <InvestmentSnapshot profile={profile} />
     </div>
   );
 }

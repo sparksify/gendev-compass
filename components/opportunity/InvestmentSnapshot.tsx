@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { BadgeCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,12 +23,11 @@ export function InvestmentSnapshot({
       <CardContent>
         <div className="border-b border-border-soft pb-4">
           {profile.logoPath && (
-            <Image
+            // eslint-disable-next-line @next/next/no-img-element -- admin-uploaded asset
+            <img
               src={profile.logoPath}
               alt={`${profile.name} logo`}
-              width={920}
-              height={393}
-              className="mx-auto h-auto w-3/4"
+              className="mx-auto h-auto max-h-32 w-3/4 object-contain"
             />
           )}
           <p className="mt-4 text-[13.5px] font-medium text-foreground">{profile.name}</p>

@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { Clock } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { SectionHeader } from "@/components/dashboard/SectionHeader";
@@ -34,12 +33,11 @@ export function VideoCard({
       <div className="flex items-center justify-between gap-4 px-5 py-[18px]">
         <SectionHeader number={1} title="Investor Overview" />
         {brandLogo && (
-          <Image
+          // eslint-disable-next-line @next/next/no-img-element -- admin-uploaded asset
+          <img
             src={brandLogo.src}
             alt={brandLogo.alt}
-            width={132}
-            height={40}
-            className="h-9 w-auto shrink-0"
+            className="h-9 w-auto max-w-[160px] shrink-0 object-contain"
           />
         )}
       </div>

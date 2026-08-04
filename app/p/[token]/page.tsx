@@ -6,7 +6,7 @@ import { FAQAccordion } from "@/components/dashboard/FAQAccordion";
 import { InvalidPortal } from "@/components/portal/InvalidPortal";
 import { loadPortalContext } from "@/lib/portal/context";
 import { deriveJourney } from "@/lib/portal/journey";
-import { getOpportunityProfile } from "@/lib/config/opportunity";
+import { resolveOpportunityProfile } from "@/lib/assets";
 import { devToolsEnabled, getWistiaMediaId } from "@/lib/config/env";
 import { getVideoCompletionThreshold } from "@/lib/config/qualification";
 
@@ -24,7 +24,7 @@ export default async function PortalDashboardPage({
 
   const { lead, state, videoProgress } = context;
   const journey = deriveJourney(state);
-  const profile = getOpportunityProfile();
+  const profile = await resolveOpportunityProfile();
 
   return (
     <div className="space-y-[18px]">

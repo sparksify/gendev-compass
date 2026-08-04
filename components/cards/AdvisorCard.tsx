@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, CalendarDays, Check, Mail, Phone } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,7 +16,15 @@ const CONSULTATION_EXPECTATIONS = [
  * Meet Your Advisor — communicates why the consultation is valuable and
  * routes the prospect to the state-appropriate next step.
  */
-export function AdvisorCard({ token, state }: { token: string; state: PortalState }) {
+export function AdvisorCard({
+  token,
+  state,
+  photoUrl,
+}: {
+  token: string;
+  state: PortalState;
+  photoUrl?: string;
+}) {
   const base = `/p/${token}`;
 
   return (
@@ -26,11 +33,10 @@ export function AdvisorCard({ token, state }: { token: string; state: PortalStat
         <h2 className="text-[15.5px] font-bold text-foreground">Meet Your Advisor</h2>
 
         <div className="mt-4 flex gap-4">
-          <Image
-            src={brand.advisorPhotoPath}
+          {/* eslint-disable-next-line @next/next/no-img-element -- admin-uploaded asset */}
+          <img
+            src={photoUrl ?? brand.advisorPhotoPath}
             alt={`${brand.advisorName}, your advisor`}
-            width={84}
-            height={84}
             className="size-[84px] shrink-0 rounded-full object-cover"
           />
           <div className="min-w-0">

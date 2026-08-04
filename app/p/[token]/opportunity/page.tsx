@@ -6,7 +6,7 @@ import { FinancialPerformanceCard } from "@/components/opportunity/FinancialPerf
 import { DocumentLibrary } from "@/components/opportunity/DocumentLibrary";
 import { InvalidPortal } from "@/components/portal/InvalidPortal";
 import { loadPortalContext } from "@/lib/portal/context";
-import { getOpportunityProfile } from "@/lib/config/opportunity";
+import { resolveOpportunityProfile } from "@/lib/assets";
 import { trackEvent } from "@/lib/portal/events";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ export default async function OpportunityPage({
   const context = await loadPortalContext(token);
   if (!context) return <InvalidPortal />;
 
-  const profile = getOpportunityProfile();
+  const profile = await resolveOpportunityProfile();
   await trackEvent(context.lead, "opportunity_overview_opened", { brand: profile.slug }, "opportunity");
 
   return (

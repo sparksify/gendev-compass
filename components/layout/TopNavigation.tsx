@@ -5,16 +5,17 @@ import { brand } from "@/lib/config/brand";
 interface TopNavigationProps {
   firstName: string;
   lastName: string;
+  siteLogoUrl?: string;
 }
 
 /** 59px portal header: portal label, notifications, advisor, avatar (comp). */
-export function TopNavigation({ firstName, lastName }: TopNavigationProps) {
+export function TopNavigation({ firstName, lastName, siteLogoUrl }: TopNavigationProps) {
   const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || "IN";
 
   return (
     <header className="sticky top-0 z-40 flex h-[59px] shrink-0 items-center justify-between border-b border-border bg-card px-4 sm:px-7">
       <div className="lg:hidden">
-        <BrandBlock />
+        <BrandBlock logoUrl={siteLogoUrl} />
       </div>
       <p className="hidden text-[15px] font-medium text-secondary-foreground lg:block">
         {brand.portalLabel}
