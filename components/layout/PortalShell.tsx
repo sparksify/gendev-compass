@@ -46,7 +46,6 @@ export function PortalShell({ context, token, children }: PortalShellProps) {
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-5">
           <SidebarNavigation
             token={token}
-            firstName={lead.first_name}
             supportEmail={brand.supportEmail}
             consultationAvailable={state.qualified || state.booked}
           />
@@ -72,12 +71,6 @@ export function PortalShell({ context, token, children }: PortalShellProps) {
               </a>
               <a href={brand.termsUrl} className="hover:text-foreground hover:underline">
                 Terms
-              </a>
-              <a
-                href={`mailto:${brand.supportEmail}`}
-                className="hover:text-foreground hover:underline"
-              >
-                {brand.supportEmail}
               </a>
             </div>
             <p className="mt-4 max-w-3xl text-xs leading-relaxed text-muted-foreground">

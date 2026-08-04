@@ -21,17 +21,18 @@ export default async function PortalDashboardPage({
   const context = await loadPortalContext(token);
   if (!context) return <InvalidPortal />;
 
-  const { state, videoProgress } = context;
+  const { lead, state, videoProgress } = context;
   const journey = deriveJourney(state);
   const profile = getOpportunityProfile();
 
   return (
     <div className="space-y-[18px]">
       <div>
-        <h1 className="font-serif text-4xl font-normal leading-[1.1] tracking-[-0.01em] text-foreground sm:text-[42px]">
+        <p className="text-[13.5px] text-muted-foreground">Welcome back, {lead.first_name}</p>
+        <h1 className="mt-1 font-serif text-4xl font-normal leading-[1.1] tracking-[-0.01em] text-foreground sm:text-[42px]">
           Your {profile.shortName} Investment Journey
         </h1>
-        <p className="mt-3 max-w-[380px] text-[13.5px] leading-[1.65] text-muted-foreground">
+        <p className="mt-3 max-w-[38rem] text-[13.5px] leading-[1.65] text-muted-foreground">
           Track your progress through our investor qualification process. Complete each milestone
           to unlock your private consultation and access additional investment materials.
         </p>

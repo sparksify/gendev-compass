@@ -17,7 +17,6 @@ import { COMING_SOON } from "@/lib/config/content";
 
 interface SidebarNavigationProps {
   token: string;
-  firstName: string;
   supportEmail: string;
   /** True once the prospect can reach the scheduling / consultation page. */
   consultationAvailable: boolean;
@@ -25,7 +24,6 @@ interface SidebarNavigationProps {
 
 export function SidebarNavigation({
   token,
-  firstName,
   supportEmail,
   consultationAvailable,
 }: SidebarNavigationProps) {
@@ -48,12 +46,7 @@ export function SidebarNavigation({
 
   return (
     <nav aria-label="Portal navigation" className="flex min-h-full flex-col">
-      <div className="px-5 pb-3.5 pt-[22px]">
-        <p className="text-[13.5px] text-muted-foreground">Welcome back,</p>
-        <p className="mt-0.5 font-serif text-2xl leading-[1.2] text-foreground">{firstName}</p>
-      </div>
-
-      <ul className="flex flex-col gap-0.5 px-3 pt-1">
+      <ul className="flex flex-col gap-0.5 px-3 pt-4">
         {items.map((item) => {
           const active = item.exact
             ? pathname === item.href
