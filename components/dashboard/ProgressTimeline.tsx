@@ -1,63 +1,60 @@
+import { Fragment } from "react";
 import {
   BarChart3,
   CalendarDays,
   Check,
   ClipboardList,
   FileText,
+  MonitorPlay,
   ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { JourneyMilestone } from "@/lib/portal/journey";
 
-/** Per-milestone glyph shown while the step is still ahead. */
+/** Per-milestone glyph shown while the step is still ahead (comp icons). */
 const STEP_ICONS: Record<string, typeof FileText> = {
   application: ClipboardList,
-  overview: FileText,
+  overview: MonitorPlay,
   questionnaire: FileText,
   consultation: CalendarDays,
-  "due-diligence": ShieldCheck,
+  "operations-call": MonitorPlay,
+  "qa-zoom": ShieldCheck,
   "investment-review": BarChart3,
 };
 
 /** One node in the journey timeline. */
-function JourneyStep({ milestone, isLast }: { milestone: JourneyMilestone; isLast: boolean }) {
+function JourneyStep({ milestone }: { milestone: JourneyMilestone }) {
   const { status, key, label, note } = milestone;
   const Icon = STEP_ICONS[key] ?? FileText;
 
   return (
-    <li className="relative flex flex-1 flex-col items-center gap-2.5">
-      {!isLast && (
-        <span
-          aria-hidden
-          className={cn(
-            "absolute left-[calc(50%+26px)] top-[17px] h-0.5 w-[calc(100%-52px)] rounded-full",
-            status === "completed" ? "bg-primary/50" : "bg-border",
-          )}
-        />
-      )}
+    <li className="flex flex-1 flex-col items-center gap-2.5">
       <span
         className={cn(
-          "flex size-9 shrink-0 items-center justify-center rounded-full transition-colors",
-          status === "completed" && "bg-success text-white",
-          status === "active" && "border-2 border-primary bg-card",
+          "flex size-[34px] shrink-0 items-center justify-center rounded-full bg-card",
+          status === "completed" && "border-[1.5px] border-success text-success",
+          status === "active" && "border-[1.5px] border-primary bg-primary",
           (status === "locked" || status === "future") &&
-            "border border-border bg-card text-muted-foreground/60",
+            "border border-border-strong text-faint-foreground",
         )}
         aria-hidden
       >
         {status === "completed" ? (
-          <Check className="size-4" strokeWidth={3} />
+          <Check className="size-4" strokeWidth={2.2} />
         ) : status === "active" ? (
-          <span className="size-3 rounded-full bg-primary" />
+          <span className="size-[11px] rounded-full bg-white" />
         ) : (
-          <Icon className="size-4" strokeWidth={1.75} />
+          <Icon className="size-[15px]" strokeWidth={1.7} />
         )}
       </span>
       <span
         className={cn(
-          "max-w-[7.5rem] text-center text-xs leading-snug",
-          status === "active" ? "font-semibold text-primary" : "text-muted-foreground",
-          status === "completed" && "text-foreground",
+          "max-w-[7.5rem] text-center text-[11.5px] leading-[1.35]",
+          status === "active"
+            ? "font-medium text-primary"
+            : status === "completed"
+              ? "text-secondary-foreground"
+              : "text-muted-foreground",
         )}
       >
         {label}
@@ -67,19 +64,20 @@ function JourneyStep({ milestone, isLast }: { milestone: JourneyMilestone; isLas
   );
 }
 
-/** Horizontal six-milestone journey tracker (spec: Journey Timeline). */
+/** Horizontal seven-milestone journey tracker (comp: Journey Timeline). */
 export function ProgressTimeline({ milestones }: { milestones: JourneyMilestone[] }) {
   return (
     <ol
       aria-label="Investment journey milestones"
-      className="flex min-w-[640px] items-start"
+      className="flex min-w-[700px] items-start"
     >
       {milestones.map((milestone, index) => (
-        <JourneyStep
-          key={milestone.key}
-          milestone={milestone}
-          isLast={index === milestones.length - 1}
-        />
+        <Fragment key={milestone.key}>
+          {index > 0 && (
+            <li aria-hidden className="mt-[17px] h-px w-[26px] shrink-0 bg-border-strong" />
+          )}
+          <JourneyStep milestone={milestone} />
+        </Fragment>
       ))}
     </ol>
   );

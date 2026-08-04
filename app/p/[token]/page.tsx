@@ -1,9 +1,7 @@
-import { Card, CardContent } from "@/components/ui/card";
 import { StatusCard } from "@/components/dashboard/StatusCard";
 import { ProgressTimeline } from "@/components/dashboard/ProgressTimeline";
 import { VideoCard } from "@/components/dashboard/VideoCard";
 import { Checklist } from "@/components/dashboard/Checklist";
-import { OpportunitySnapshot } from "@/components/dashboard/OpportunitySnapshot";
 import { FAQAccordion } from "@/components/dashboard/FAQAccordion";
 import { InvalidPortal } from "@/components/portal/InvalidPortal";
 import { loadPortalContext } from "@/lib/portal/context";
@@ -27,12 +25,12 @@ export default async function PortalDashboardPage({
   const journey = deriveJourney(state);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-[18px]">
       <div>
-        <h1 className="font-serif text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+        <h1 className="font-serif text-4xl font-normal leading-[1.1] tracking-[-0.01em] text-foreground sm:text-[42px]">
           Your Investment Journey
         </h1>
-        <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
+        <p className="mt-3 max-w-[380px] text-[13.5px] leading-[1.65] text-muted-foreground">
           Track your progress through our investor qualification process. Complete each milestone
           to unlock your private consultation and access additional investment materials.
         </p>
@@ -40,13 +38,11 @@ export default async function PortalDashboardPage({
 
       <StatusCard token={token} state={state} journey={journey} />
 
-      <Card id="progress">
-        <CardContent className="overflow-x-auto p-6 sm:px-8 sm:py-7">
-          <ProgressTimeline milestones={journey.milestones} />
-        </CardContent>
-      </Card>
+      <section id="progress" className="overflow-x-auto px-1 pb-0.5 pt-1.5">
+        <ProgressTimeline milestones={journey.milestones} />
+      </section>
 
-      <div className="grid gap-6 2xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div className="grid gap-[18px] lg:grid-cols-[1.62fr_1fr]">
         <VideoCard
           token={token}
           state={state}
@@ -55,10 +51,8 @@ export default async function PortalDashboardPage({
           completionThreshold={getVideoCompletionThreshold()}
           showDevTools={devToolsEnabled()}
         />
-        <Checklist token={token} state={state} />
+        <Checklist state={state} />
       </div>
-
-      <OpportunitySnapshot />
 
       <FAQAccordion />
     </div>

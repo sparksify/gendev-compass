@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Check } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -6,62 +7,49 @@ import type { JourneySummary } from "@/lib/portal/journey";
 export function ProgressSummaryCard({ journey }: { journey: JourneySummary }) {
   return (
     <Card>
-      <CardContent className="space-y-4">
-        <h2 className="text-base font-semibold text-foreground">Progress Summary</h2>
+      <CardContent>
+        <h2 className="text-[15.5px] font-bold text-foreground">Progress Summary</h2>
 
-        <div>
-          <p className="text-[13px] text-muted-foreground">Overall Completion</p>
-          <p className="mt-1 font-serif text-[2.5rem] font-semibold leading-none tracking-tight text-primary">
-            {journey.overallPercent}%
-          </p>
-        </div>
+        <p className="mt-3.5 text-[12.5px] text-muted-foreground">Overall Completion</p>
+        <p className="mt-1 text-[30px] font-bold leading-none text-primary">
+          {journey.overallPercent}%
+        </p>
 
-        <ol
-          aria-label="Milestone progress"
-          className="flex items-center"
-        >
-          {journey.milestones.map((milestone, index) => (
-            <li
-              key={milestone.key}
-              className={cn("flex items-center", index > 0 && "flex-1")}
-              title={milestone.label}
-            >
-              {index > 0 && (
-                <span
-                  aria-hidden
-                  className={cn(
-                    "h-px flex-1",
-                    milestone.status === "completed" ? "bg-primary/50" : "bg-border",
-                  )}
-                />
-              )}
-              <span
-                aria-hidden
-                className={cn(
-                  "flex size-[18px] shrink-0 items-center justify-center rounded-full",
-                  milestone.status === "completed" && "bg-primary text-white",
-                  milestone.status === "active" && "border-2 border-primary bg-card",
-                  (milestone.status === "locked" || milestone.status === "future") &&
-                    "border border-border bg-card",
+        <ol aria-label="Milestone progress" className="mt-3.5 flex items-center">
+          {journey.milestones.map((milestone, index) => {
+            const done = milestone.status === "completed";
+            const prevDone = index > 0 && journey.milestones[index - 1].status === "completed";
+            return (
+              <Fragment key={milestone.key}>
+                {index > 0 && (
+                  <li
+                    aria-hidden
+                    className={cn(
+                      "h-0.5 flex-1",
+                      prevDone && done ? "bg-primary" : "bg-[#e4e7ec]",
+                    )}
+                  />
                 )}
-              >
-                {milestone.status === "completed" && (
-                  <Check className="size-2.5" strokeWidth={3.5} />
-                )}
-                {milestone.status === "active" && (
-                  <span className="size-1.5 rounded-full bg-primary" />
-                )}
-              </span>
-            </li>
-          ))}
+                <li title={milestone.label} className="shrink-0">
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "flex size-[15px] items-center justify-center rounded-full",
+                      done
+                        ? "bg-primary text-white"
+                        : "border-[1.5px] border-border-strong bg-card",
+                    )}
+                  >
+                    {done && <Check className="size-[9px]" strokeWidth={3.4} />}
+                  </span>
+                </li>
+              </Fragment>
+            );
+          })}
         </ol>
 
-        <div className="border-t border-border pt-3.5">
-          <p className="text-[13px] text-muted-foreground">Current Status</p>
-          <p className="mt-0.5 text-sm font-medium text-primary">
-            {journey.currentMilestoneLabel}
-          </p>
-        </div>
+        <p className="mt-[18px] text-[12.5px] text-muted-foreground">Current Status</p>
+        <p className="mt-1 text-[13.5px] font-medium text-primary">{journey.currentStatusLabel}</p>
       </CardContent>
     </Card>
   );

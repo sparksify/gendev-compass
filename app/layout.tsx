@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { brand } from "@/lib/config/brand";
-import "@fontsource-variable/inter";
+import "@fontsource-variable/dm-sans";
 import "@fontsource-variable/source-serif-4";
 import "./globals.css";
 

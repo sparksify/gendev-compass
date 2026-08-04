@@ -1,9 +1,9 @@
 import type { PortalState } from "@/types/portal";
 
 /**
- * Derives the six-milestone investor journey from real portal state.
- * Due Diligence and Investment Review are post-consultation stages that
- * exist in the timeline today and activate in later releases.
+ * Derives the seven-milestone investor journey from real portal state.
+ * The Operations Call, Q&A Zoom, and Investment Review are post-consultation
+ * stages that exist in the timeline today and activate in later releases.
  */
 
 export type MilestoneStatus = "completed" | "active" | "locked" | "future";
@@ -23,6 +23,8 @@ export interface JourneySummary {
   /** Rough remaining effort in minutes; null once booked. */
   timeRemainingMinutes: number | null;
   currentMilestoneLabel: string;
+  /** Friendly status line for the Progress Summary card. */
+  currentStatusLabel: string;
   nextMilestoneLabel: string | null;
 }
 
@@ -63,7 +65,8 @@ export function deriveJourney(state: PortalState): JourneySummary {
             : "locked",
       note: state.reviewRequired ? "Under review" : undefined,
     },
-    { key: "due-diligence", label: "Due Diligence", status: "future" },
+    { key: "operations-call", label: "Attend Operations Call", status: "future" },
+    { key: "qa-zoom", label: "Attend Q&A Zoom", status: "future" },
     { key: "investment-review", label: "Investment Review", status: "future" },
   ];
 
@@ -95,11 +98,18 @@ export function deriveJourney(state: PortalState): JourneySummary {
     .slice(milestones.indexOf(current) + 1)
     .find((m) => m.status !== "future");
 
+  const currentStatusLabel = state.booked
+    ? "Consultation Scheduled"
+    : state.reviewRequired
+      ? "Application Under Review"
+      : `Awaiting ${current.label}`;
+
   return {
     milestones,
     overallPercent,
     timeRemainingMinutes,
     currentMilestoneLabel: state.booked ? "Consultation Scheduled" : current.label,
-    nextMilestoneLabel: state.booked ? "Due Diligence" : (next?.label ?? null),
+    currentStatusLabel,
+    nextMilestoneLabel: state.booked ? "Attend Operations Call" : (next?.label ?? null),
   };
 }

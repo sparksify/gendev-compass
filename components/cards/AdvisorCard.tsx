@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { CalendarDays, Lock } from "lucide-react";
+import { CalendarDays, Lock, Mail, Phone } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { brand } from "@/lib/config/brand";
@@ -15,42 +15,62 @@ interface AdvisorCardProps {
 export function AdvisorCard({ token, scheduleUnlocked, booked }: AdvisorCardProps) {
   return (
     <Card>
-      <CardContent className="space-y-4">
-        <h2 className="text-base font-semibold text-foreground">Your Advisor</h2>
-        <div className="flex items-center gap-4">
+      <CardContent>
+        <h2 className="text-[15.5px] font-bold text-foreground">Your Advisor</h2>
+
+        <div className="mt-4 flex gap-4">
           <Image
             src={brand.advisorPhotoPath}
             alt={`${brand.advisorName}, your advisor`}
-            width={72}
-            height={72}
-            className="rounded-xl border border-border object-cover"
+            width={84}
+            height={84}
+            className="size-[84px] shrink-0 rounded-full object-cover"
           />
-          <div>
-            <p className="font-serif text-xl font-semibold text-foreground">{brand.advisorName}</p>
-            <p className="mt-0.5 text-[13px] text-muted-foreground">Senior Investment Advisor</p>
+          <div className="min-w-0">
+            <p className="font-serif text-[21px] leading-[1.2] text-foreground">
+              {brand.advisorName}
+            </p>
+            <p className="mt-[3px] text-[12.5px] text-secondary-foreground">{brand.advisorTitle}</p>
+            <p className="mt-2.5 text-[12.5px] leading-[1.55] text-muted-foreground">
+              Your primary point of contact throughout the qualification process.
+            </p>
           </div>
         </div>
-        <p className="text-[13px] leading-relaxed text-muted-foreground">
-          Your primary point of contact throughout the qualification process.
-        </p>
+
+        <div className="mt-4 flex flex-col gap-2 border-t border-border-soft pt-3.5">
+          <p className="flex items-center gap-[9px] text-[12.5px] text-secondary-foreground">
+            <Phone className="size-[15px] shrink-0 text-faint-foreground" strokeWidth={1.6} />
+            {brand.advisorPhone}
+          </p>
+          <p className="flex items-center gap-[9px] text-[12.5px]">
+            <Mail className="size-[15px] shrink-0 text-faint-foreground" strokeWidth={1.6} />
+            <a
+              href={`mailto:${brand.advisorEmail}`}
+              className="text-primary hover:text-primary-hover"
+            >
+              {brand.advisorEmail}
+            </a>
+          </p>
+        </div>
+
         {booked ? (
-          <Button asChild variant="secondary" className="w-full">
+          <Button asChild variant="secondary" className="mt-[18px] w-full">
             <Link href={`/p/${token}/complete`}>
               <CalendarDays /> View Consultation Details
             </Link>
           </Button>
         ) : scheduleUnlocked ? (
-          <Button asChild className="w-full">
+          <Button asChild className="mt-[18px] w-full">
             <Link href={`/p/${token}/schedule`}>
               <CalendarDays /> Schedule Consultation
             </Link>
           </Button>
         ) : (
           <div>
-            <Button variant="locked" className="w-full" disabled>
-              <Lock /> Schedule Consultation
+            <Button variant="locked" size="lg" className="mt-[18px] w-full" disabled>
+              <Lock className="size-3.5" strokeWidth={1.9} /> Schedule Consultation
             </Button>
-            <p className="mt-2.5 text-center text-xs text-muted-foreground">
+            <p className="mt-3 text-center text-[12.5px] text-muted-foreground">
               Complete the questionnaire to unlock
             </p>
           </div>

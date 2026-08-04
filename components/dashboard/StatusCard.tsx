@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Play } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { ArrowRight, Play } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { CheckCircleSolid } from "@/components/dashboard/CheckCircleSolid";
+import { brand } from "@/lib/config/brand";
 import type { PortalState } from "@/types/portal";
 import type { JourneySummary } from "@/lib/portal/journey";
 
@@ -46,59 +48,61 @@ export function StatusCard({ token, state, journey }: StatusCardProps) {
   } else {
     headline = "Initial Application Received";
     supporting = state.videoStarted
-      ? "You're currently reviewing the Investor Overview. Complete this step to unlock your private consultation."
-      : "Your next step is the Investor Overview. Complete it to unlock your private consultation.";
+      ? `You're currently reviewing the Investor Overview. Complete this step to unlock your private consultation with ${brand.advisorName}.`
+      : `Your next step is the Investor Overview. Complete it to unlock your private consultation with ${brand.advisorName}.`;
     ctaHref = `${base}/overview`;
     ctaLabel = state.videoStarted ? "Resume Investor Overview" : "Begin Investor Overview";
   }
 
   return (
     <Card>
-      <CardContent className="space-y-5 p-6 sm:p-7">
-        <h2 className="text-base font-semibold text-foreground">Your Current Status</h2>
+      <h2 className="px-6 pt-5 text-[15.5px] font-bold text-foreground">Your Current Status</h2>
 
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
-          <div className="max-w-md">
-            <p className="flex items-center gap-2.5 text-lg font-semibold text-foreground">
-              <CheckCircle2 className="size-5 shrink-0 text-success" />
-              {headline}
-            </p>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{supporting}</p>
-          </div>
+      <div className="flex flex-col gap-6 px-6 pt-3.5 sm:flex-row sm:items-start sm:gap-7">
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-[9px] text-[16.5px] font-bold text-foreground">
+            <CheckCircleSolid className="size-[19px] shrink-0" />
+            {headline}
+          </p>
+          <p className="mt-2.5 max-w-md text-[13.5px] leading-[1.6] text-muted-foreground">
+            {supporting}
+          </p>
+        </div>
 
-          <dl className="flex shrink-0 divide-x divide-border">
-            {journey.timeRemainingMinutes !== null && (
-              <div className="pr-8">
-                <dt className="text-xs text-muted-foreground">Estimated time remaining</dt>
-                <dd className="mt-1.5 text-xl font-semibold tracking-tight text-foreground">
-                  {journey.timeRemainingMinutes} Minutes
-                </dd>
-              </div>
-            )}
-            <div className="pl-8 first:pl-0">
-              <dt className="text-xs text-muted-foreground">Progress</dt>
-              <dd className="mt-1.5 text-xl font-semibold tracking-tight text-primary">
-                {journey.overallPercent}% Complete
+        <dl className="flex shrink-0 gap-7 pt-0.5">
+          {journey.timeRemainingMinutes !== null && (
+            <div className="border-r border-border pr-7">
+              <dt className="text-xs text-muted-foreground">Estimated time remaining</dt>
+              <dd className="mt-1.5 text-[19px] font-bold text-primary">
+                {journey.timeRemainingMinutes} Minutes
               </dd>
             </div>
-          </dl>
-        </div>
+          )}
+          <div>
+            <dt className="text-xs text-muted-foreground">Progress</dt>
+            <dd className="mt-1.5 text-[19px] font-bold text-primary">
+              {journey.overallPercent}% Complete
+            </dd>
+          </div>
+        </dl>
+      </div>
 
+      <div className="px-6 pt-[18px]">
         <Progress value={journey.overallPercent} aria-label="Journey progress" />
+      </div>
 
-        <div className="flex flex-wrap items-center gap-5 pt-1">
-          <Button asChild size="lg">
-            <Link href={ctaHref}>
-              <Play className="fill-current" /> {ctaLabel}
-            </Link>
-          </Button>
-          <Button asChild variant="link">
-            <Link href={`${base}#progress`}>
-              View Full Journey <ArrowRight />
-            </Link>
-          </Button>
-        </div>
-      </CardContent>
+      <div className="flex flex-wrap items-center gap-[22px] px-6 pb-[22px] pt-[18px]">
+        <Button asChild size="lg">
+          <Link href={ctaHref}>
+            <Play strokeWidth={1.8} /> {ctaLabel}
+          </Link>
+        </Button>
+        <Button asChild variant="link">
+          <Link href={`${base}#progress`}>
+            View Full Journey <ArrowRight />
+          </Link>
+        </Button>
+      </div>
     </Card>
   );
 }

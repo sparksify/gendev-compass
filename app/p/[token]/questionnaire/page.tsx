@@ -29,7 +29,7 @@ export default async function QuestionnairePage({
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-serif text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+        <h1 className="font-serif text-4xl font-normal leading-[1.1] tracking-[-0.01em] text-foreground sm:text-[42px]">
           Qualification Questionnaire
         </h1>
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">

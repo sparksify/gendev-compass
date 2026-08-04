@@ -1,39 +1,53 @@
 @import "tailwindcss";
 
 /*
- * GenDev Compass design tokens (build spec: Global Design Tokens).
- * Every color and radius in the app resolves to these variables —
- * components never hardcode values.
+ * GenDev Compass design tokens, taken verbatim from the approved design
+ * comp (GenDev_Compass_Investor_Portal.html). Every color and radius in
+ * the app resolves to these variables — components never hardcode values.
  */
 :root {
   --background: #ffffff;
-  --surface: #f6f7f9;
+  --surface: #f7f8fa;
+  --surface-raised: #fbfcfd;
   --card: #ffffff;
-  --foreground: #16202e;
-  --muted-foreground: #64748b;
-  --border: #e6e9ef;
+  --foreground: #101828;
+  --secondary-foreground: #344054;
+  --muted-foreground: #667085;
+  --faint-foreground: #98a2b3;
+  --border: #e6e8ec;
+  --border-soft: #f0f2f5;
+  --border-strong: #d0d5dd;
   --primary: #2563eb;
+  --primary-hover: #1d4ed8;
   --primary-foreground: #ffffff;
-  --primary-soft: #eef4fe;
+  --primary-soft: #eff4ff;
+  --primary-soft-border: #dbe6ff;
   --success: #16a34a;
   --success-soft: #f0fdf4;
   --warning: #d97706;
   --destructive: #dc2626;
   --ring: #2563eb;
-  /* Card radius per spec. Smaller elements step down from it. */
-  --radius: 12px;
+  /* Card radius per comp. Smaller elements step down from it. */
+  --radius: 10px;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
   --color-card: var(--card);
   --color-foreground: var(--foreground);
+  --color-secondary-foreground: var(--secondary-foreground);
   --color-muted-foreground: var(--muted-foreground);
+  --color-faint-foreground: var(--faint-foreground);
   --color-border: var(--border);
+  --color-border-soft: var(--border-soft);
+  --color-border-strong: var(--border-strong);
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-border: var(--primary-soft-border);
   --color-success: var(--success);
   --color-success-soft: var(--success-soft);
   --color-warning: var(--warning);
@@ -43,13 +57,13 @@
   --radius-card: var(--radius);
   --radius-control: 8px;
 
-  --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system,
-    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  /* Display serif for page titles, names, and key figures. */
+  --font-sans: "DM Sans Variable", "DM Sans", system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Display serif for page titles and names (comp: Source Serif 4). */
   --font-serif: "Source Serif 4 Variable", "Source Serif 4", Georgia, "Times New Roman", serif;
 
-  /* One shadow for every card: very soft (spec). */
-  --shadow-card: 0 1px 2px 0 rgb(22 32 46 / 0.03), 0 2px 8px -2px rgb(22 32 46 / 0.04);
+  /* One shadow for every card (comp). */
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04);
 }
 
 body {
@@ -71,7 +85,7 @@ wistia-player {
   display: block;
   width: 100%;
   aspect-ratio: 16 / 9;
-  background: #0b1622;
-  border-radius: 10px;
+  background: #0b0f14;
+  border-radius: 6px;
   overflow: hidden;
 }

@@ -47,15 +47,13 @@ export function SidebarNavigation({
   ];
 
   return (
-    <nav aria-label="Portal navigation" className="flex min-h-full flex-col gap-6">
-      <div className="px-3 pt-1">
-        <p className="text-sm text-muted-foreground">Welcome back,</p>
-        <p className="font-serif text-2xl font-semibold leading-snug text-foreground">
-          {firstName}
-        </p>
+    <nav aria-label="Portal navigation" className="flex min-h-full flex-col">
+      <div className="px-5 pb-3.5 pt-[22px]">
+        <p className="text-[13.5px] text-muted-foreground">Welcome back,</p>
+        <p className="mt-0.5 font-serif text-2xl leading-[1.2] text-foreground">{firstName}</p>
       </div>
 
-      <ul className="space-y-1">
+      <ul className="flex flex-col gap-0.5 px-3 pt-1">
         {items.map((item) => {
           const active = item.exact
             ? pathname === item.href
@@ -66,10 +64,10 @@ export function SidebarNavigation({
             return (
               <li key={item.label}>
                 <span
-                  className="flex cursor-not-allowed items-center gap-3 rounded-control px-3 py-2 text-[13px] text-muted-foreground/70"
+                  className="flex cursor-not-allowed items-center gap-3 rounded-control border border-transparent px-3 py-[11px] text-[13px] text-faint-foreground"
                   title={item.lockNote}
                 >
-                  <Icon className="size-4 shrink-0" strokeWidth={1.75} />
+                  <Icon className="size-[17px] shrink-0" strokeWidth={1.7} />
                   <span className="flex-1">{item.label}</span>
                   <Lock className="size-3.5" aria-label={item.lockNote} />
                 </span>
@@ -83,15 +81,18 @@ export function SidebarNavigation({
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-3 rounded-control px-3 py-2 text-[13px] transition-colors",
+                  "flex items-center gap-3 rounded-control border px-3 py-[11px] text-[13px] transition-colors",
                   active
-                    ? "bg-primary-soft font-medium text-primary"
-                    : "text-muted-foreground hover:bg-surface hover:text-foreground",
+                    ? "border-primary-soft-border bg-primary-soft font-medium text-primary"
+                    : "border-transparent text-secondary-foreground hover:bg-surface",
                 )}
               >
                 <Icon
-                  className={cn("size-4 shrink-0", active ? "text-primary" : "text-muted-foreground")}
-                  strokeWidth={1.75}
+                  className={cn(
+                    "size-[17px] shrink-0",
+                    active ? "text-primary" : "text-[#475467]",
+                  )}
+                  strokeWidth={1.7}
                 />
                 {item.label}
               </Link>
@@ -101,45 +102,44 @@ export function SidebarNavigation({
         <li>
           <a
             href={`mailto:${supportEmail}`}
-            className="flex items-center gap-3 rounded-control px-3 py-2 text-[13px] text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
+            className="flex items-center gap-3 rounded-control border border-transparent px-3 py-[11px] text-[13px] text-secondary-foreground transition-colors hover:bg-surface"
           >
-            <Headphones className="size-4 shrink-0" strokeWidth={1.75} />
+            <Headphones className="size-[17px] shrink-0 text-[#475467]" strokeWidth={1.7} />
             Support
           </a>
         </li>
       </ul>
 
-      <div className="border-t border-border pt-5">
-        <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          Coming Soon
-        </p>
-        <ul className="mt-2 space-y-1">
-          {COMING_SOON.slice(0, 2).map((item) => (
-            <li
-              key={item.key}
-              className="flex items-center gap-3 rounded-control px-3 py-2 text-[13px] text-muted-foreground/60"
-            >
-              <Lock className="size-3.5 shrink-0" />
-              {item.title}
-            </li>
-          ))}
-        </ul>
-      </div>
+      <div className="mx-5 mt-[22px] border-t border-border" />
+      <p className="px-5 pb-2.5 pt-5 text-[10.5px] font-bold uppercase tracking-[0.13em] text-faint-foreground">
+        Coming Soon
+      </p>
+      <ul className="flex flex-col gap-1 px-3">
+        {[COMING_SOON[0], COMING_SOON[2]].map((item) => (
+          <li
+            key={item.key}
+            className="flex items-center gap-3 whitespace-nowrap px-3 py-[9px] text-[13px] text-faint-foreground"
+          >
+            <Lock className="size-[15px] shrink-0" strokeWidth={1.8} />
+            {item.shortTitle ?? item.title}
+          </li>
+        ))}
+      </ul>
 
-      <div className="mt-auto rounded-card bg-surface p-4">
-        <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <Headphones className="size-4 text-muted-foreground" strokeWidth={1.75} />
-          Need Assistance?
-        </p>
-        <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-          Our team is here to help.
-        </p>
-        <a
-          href={`mailto:${supportEmail}`}
-          className="mt-2 inline-block text-[13px] font-medium text-primary hover:underline"
-        >
-          Contact Support →
-        </a>
+      <div className="mt-auto px-5 pt-5">
+        <div className="rounded-card border border-border bg-surface-raised p-4">
+          <p className="flex items-center gap-2 text-[13.5px] font-bold text-foreground">
+            <Headphones className="size-4 text-foreground" strokeWidth={1.7} />
+            Need Assistance?
+          </p>
+          <p className="mt-2 text-[12.5px] text-muted-foreground">Our team is here to help.</p>
+          <a
+            href={`mailto:${supportEmail}`}
+            className="mt-2.5 inline-block text-[12.5px] font-medium text-primary hover:text-primary-hover"
+          >
+            Contact Support →
+          </a>
+        </div>
       </div>
     </nav>
   );

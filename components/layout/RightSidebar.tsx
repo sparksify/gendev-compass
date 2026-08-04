@@ -15,14 +15,14 @@ interface RightSidebarProps {
 
 export function RightSidebar({ token, state, journey }: RightSidebarProps) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-[18px]">
       <AdvisorCard token={token} scheduleUnlocked={state.qualified} booked={state.booked} />
       <ProgressSummaryCard journey={journey} />
 
       <Card id="resources">
-        <CardContent className="space-y-4">
-          <h2 className="text-base font-semibold text-foreground">Resource Library</h2>
-          <div className="space-y-2">
+        <CardContent>
+          <h2 className="text-[15.5px] font-bold text-foreground">Resource Library</h2>
+          <div className="mt-3.5 flex flex-col gap-[9px]">
             {RESOURCE_LIBRARY.map((item) => (
               <DocumentCard key={item.key} item={item} />
             ))}
@@ -31,9 +31,9 @@ export function RightSidebar({ token, state, journey }: RightSidebarProps) {
       </Card>
 
       <Card>
-        <CardContent className="space-y-4">
-          <h2 className="text-base font-semibold text-foreground">Coming Soon</h2>
-          <div className="space-y-2">
+        <CardContent>
+          <h2 className="text-[15.5px] font-bold text-foreground">Coming Soon</h2>
+          <div className="mt-3.5 flex flex-col gap-[9px]">
             {COMING_SOON.map((item) => (
               <ComingSoonCard key={item.key} item={item} />
             ))}

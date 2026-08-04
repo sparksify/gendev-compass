@@ -26,7 +26,7 @@ export default async function CompletePage({ params }: { params: Promise<{ token
   if (state.reviewRequired) {
     return (
       <div className="max-w-xl space-y-6">
-        <h1 className="font-serif text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+        <h1 className="font-serif text-4xl font-normal leading-[1.1] tracking-[-0.01em] text-foreground sm:text-[42px]">
           Thank You for Completing the Process
         </h1>
         <p className="text-sm leading-relaxed text-muted-foreground">
@@ -48,7 +48,7 @@ export default async function CompletePage({ params }: { params: Promise<{ token
 
   return (
     <div className="max-w-xl space-y-6">
-      <h1 className="flex items-center gap-3 font-serif text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+      <h1 className="flex items-center gap-3 font-serif text-4xl font-normal leading-[1.1] tracking-[-0.01em] text-foreground sm:text-[42px]">
         <CalendarCheck2 className="size-7 text-success" />
         Your Consultation Is Scheduled
       </h1>
