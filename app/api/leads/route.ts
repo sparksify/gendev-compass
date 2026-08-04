@@ -9,6 +9,18 @@ import { clientIpFrom, rateLimit } from "@/lib/rateLimit";
 export const dynamic = "force-dynamic";
 
 /**
+ * The origin the caller actually used (e.g. https://www.gendevcompass.com),
+ * so generated portal links always match the serving domain. Falls back to
+ * NEXT_PUBLIC_APP_URL for non-HTTP contexts.
+ */
+function requestOrigin(request: Request): string | null {
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  if (!host) return null;
+  const proto = request.headers.get("x-forwarded-proto") ?? "https";
+  return `${proto}://${host}`;
+}
+
+/**
  * Creates a lead and returns its portal URL. Called by internal automation
  * (API key) or the internal testing page (admin password). Facebook webhook
  * ingestion is out of scope for the MVP but will target this same endpoint.
@@ -63,7 +75,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({
       success: true,
       leadId: lead.id,
-      portalUrl: `${getAppUrl()}/p/${lead.portal_token}`,
+      portalUrl: `${requestOrigin(request) ?? getAppUrl()}/p/${lead.portal_token}`,
     });
   } catch (error) {
     console.error("[leads] creation failed:", error);
