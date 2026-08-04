@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
-import { loadPortalContext } from "@/lib/portal/context";
-import { InvalidPortal } from "@/components/portal/InvalidPortal";
-import { PortalProgress } from "@/components/portal/PortalProgress";
+import { CheckCircle2 } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { CalendarEmbed } from "@/components/portal/CalendarEmbed";
-import { AdvisorCard } from "@/components/portal/AdvisorCard";
+import { InvalidPortal } from "@/components/portal/InvalidPortal";
+import { loadPortalContext } from "@/lib/portal/context";
 import { brand } from "@/lib/config/brand";
 import { getCalendarEmbedUrl } from "@/lib/config/env";
 import { getStore } from "@/lib/store";
@@ -38,29 +38,35 @@ export default async function SchedulePage({ params }: { params: Promise<{ token
 
   return (
     <div className="space-y-8">
-      <PortalProgress items={state.checklist} />
-
       <div>
-        <h1 className="text-2xl font-semibold text-ink sm:text-3xl">
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
           Your Consultation Is Ready to Schedule
         </h1>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-muted">
+        <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
           You have completed the investor overview and qualification process.
         </p>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-muted">
+        <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
           Select a time below to speak with {brand.advisorName}. Your questionnaire responses will
           be reviewed before the call so the conversation can focus on your specific goals and
           questions.
         </p>
       </div>
 
-      <ul className="space-y-2 rounded-xl border border-line bg-white p-5 text-sm text-ink">
-        <li>✓ Investor Overview Completed</li>
-        <li>✓ Qualification Questionnaire Completed</li>
-        <li>✓ Consultation Approved</li>
-      </ul>
-
-      <AdvisorCard />
+      <Card>
+        <CardContent>
+          <ul className="space-y-2 text-sm text-foreground">
+            {[
+              "Investor Overview Completed",
+              "Qualification Questionnaire Completed",
+              "Consultation Approved",
+            ].map((item) => (
+              <li key={item} className="flex items-center gap-2">
+                <CheckCircle2 className="size-4 text-success" /> {item}
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
 
       <CalendarEmbed
         embedUrl={getCalendarEmbedUrl()}

@@ -161,9 +161,9 @@ export function WistiaPlayer({
 
   if (!mediaId) {
     return (
-      <div className="flex aspect-video w-full flex-col items-center justify-center rounded-xl border border-dashed border-line bg-white p-6 text-center">
-        <p className="text-sm font-medium text-ink">Video not configured</p>
-        <p className="mt-2 max-w-sm text-sm text-ink-muted">
+      <div className="flex aspect-video w-full flex-col items-center justify-center rounded-card border border-dashed border-border bg-white p-6 text-center">
+        <p className="text-sm font-medium text-foreground">Video not configured</p>
+        <p className="mt-2 max-w-sm text-sm text-muted-foreground">
           Set <code className="rounded bg-surface px-1">NEXT_PUBLIC_WISTIA_MEDIA_ID</code> to embed
           the investor overview. In development you can use the simulation control below to test the
           flow.
@@ -174,9 +174,9 @@ export function WistiaPlayer({
 
   if (loadError) {
     return (
-      <div className="flex aspect-video w-full flex-col items-center justify-center rounded-xl border border-line bg-white p-6 text-center">
-        <p className="text-sm font-medium text-ink">We were unable to load the investor overview.</p>
-        <p className="mt-2 text-sm text-ink-muted">
+      <div className="flex aspect-video w-full flex-col items-center justify-center rounded-card border border-border bg-white p-6 text-center">
+        <p className="text-sm font-medium text-foreground">We were unable to load the investor overview.</p>
+        <p className="mt-2 text-sm text-muted-foreground">
           Please refresh the page. If the problem continues, contact our team.
         </p>
       </div>
@@ -191,8 +191,8 @@ export function WistiaPlayer({
           playerRef.current = el as WistiaPlayerElement | null;
         }}
       />
-      <p className="mt-3 text-sm text-ink-muted" aria-live="polite">
-        Overview Progress: <span className="font-semibold text-ink">{completed ? 100 : percent}%</span>
+      <p className="mt-3 text-sm text-muted-foreground" aria-live="polite">
+        Overview Progress: <span className="font-semibold text-foreground">{completed ? 100 : percent}%</span>
         {!completed && (
           <span className="ml-2 text-xs">
             (unlocks at {completionThreshold}%)

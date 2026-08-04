@@ -103,13 +103,13 @@ export function CalendarEmbed({ embedUrl, token, prefill, supportEmail }: Calend
         <iframe
           src={src}
           title="Schedule your consultation"
-          className="h-[720px] w-full rounded-xl border border-line bg-white"
+          className="h-[720px] w-full rounded-card border border-border bg-white"
           allow="camera; microphone; fullscreen"
         />
       ) : (
-        <div className="flex min-h-64 flex-col items-center justify-center rounded-xl border border-dashed border-line bg-white p-6 text-center">
-          <p className="text-sm font-medium text-ink">Calendar not configured</p>
-          <p className="mt-2 max-w-sm text-sm text-ink-muted">
+        <div className="flex min-h-64 flex-col items-center justify-center rounded-card border border-dashed border-border bg-white p-6 text-center">
+          <p className="text-sm font-medium text-foreground">Calendar not configured</p>
+          <p className="mt-2 max-w-sm text-sm text-muted-foreground">
             Set <code className="rounded bg-surface px-1">NEXT_PUBLIC_CALENDAR_EMBED_URL</code> to
             embed the scheduling calendar, or contact{" "}
             <a className="underline" href={`mailto:${supportEmail}`}>
@@ -120,8 +120,8 @@ export function CalendarEmbed({ embedUrl, token, prefill, supportEmail }: Calend
         </div>
       )}
 
-      <div className="rounded-xl border border-line bg-white p-5">
-        <p className="text-sm text-ink-muted">
+      <div className="rounded-card border border-border bg-white p-5">
+        <p className="text-sm text-muted-foreground">
           Already picked a time? If this page doesn&apos;t update automatically after booking,
           confirm below.
         </p>
@@ -134,7 +134,7 @@ export function CalendarEmbed({ embedUrl, token, prefill, supportEmail }: Calend
           type="button"
           onClick={handleManualConfirm}
           disabled={confirming}
-          className="mt-3 rounded-lg border border-brand px-5 py-2.5 text-sm font-semibold text-brand transition hover:bg-brand hover:text-white disabled:opacity-60"
+          className="mt-3 rounded-control border border-primary px-5 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary hover:text-primary-foreground disabled:opacity-60"
         >
           {confirming ? "Confirming…" : "I Scheduled My Consultation"}
         </button>

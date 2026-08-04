@@ -7,11 +7,11 @@ import { brand } from "@/lib/config/brand";
 export default function HomePage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
-      <p className="text-sm font-medium uppercase tracking-widest text-ink-muted">
+      <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
         {brand.brandName}
       </p>
-      <h1 className="mt-3 text-2xl font-semibold text-ink">{brand.portalLabel}</h1>
-      <p className="mt-4 max-w-md text-ink-muted">
+      <h1 className="mt-3 text-2xl font-semibold text-foreground">{brand.portalLabel}</h1>
+      <p className="mt-4 max-w-md text-muted-foreground">
         Access to this portal is by personal invitation. Please use the private link sent to you,
         or contact{" "}
         <a className="underline" href={`mailto:${brand.supportEmail}`}>

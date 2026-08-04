@@ -33,7 +33,7 @@ export function DevToolsPanel({ token }: { token: string }) {
   }
 
   return (
-    <div className="rounded-xl border border-dashed border-amber-400 bg-amber-50 p-4">
+    <div className="rounded-card border border-dashed border-amber-400 bg-amber-50 p-4">
       <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">
         Development tools — never shown in production
       </p>

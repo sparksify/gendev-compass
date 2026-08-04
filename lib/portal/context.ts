@@ -17,14 +17,17 @@ export interface PortalContext {
  * Resolves a portal token into everything a portal page needs, stamping the
  * first-open timestamp on the way through. Returns null for invalid tokens.
  */
-export async function loadPortalContext(token: string): Promise<PortalContext | null> {
+export async function loadPortalContext(
+  token: string,
+  options: { trackOpen?: boolean } = {},
+): Promise<PortalContext | null> {
   if (!token || token.length < 16 || token.length > 128) return null;
 
   const store = getStore();
   let lead = await store.getLeadByToken(token);
   if (!lead) return null;
 
-  if (!lead.portal_first_opened_at) {
+  if (options.trackOpen !== false && !lead.portal_first_opened_at) {
     lead = await store.updateLead(lead.id, {
       portal_first_opened_at: new Date().toISOString(),
       ...(statusRank(lead.status) < statusRank("portal_opened")

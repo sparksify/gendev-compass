@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
-import { loadPortalContext } from "@/lib/portal/context";
+import { Card, CardContent } from "@/components/ui/card";
+import { QuestionnaireForm } from "@/components/forms/QuestionnaireForm";
 import { InvalidPortal } from "@/components/portal/InvalidPortal";
-import { PortalProgress } from "@/components/portal/PortalProgress";
-import { QuestionnaireForm } from "@/components/portal/QuestionnaireForm";
+import { loadPortalContext } from "@/lib/portal/context";
 import { trackEvent } from "@/lib/portal/events";
 
 export const dynamic = "force-dynamic";
@@ -28,21 +28,22 @@ export default async function QuestionnairePage({
 
   return (
     <div className="space-y-8">
-      <PortalProgress items={state.checklist} />
-
       <div>
-        <h1 className="text-2xl font-semibold text-ink sm:text-3xl">
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
           Qualification Questionnaire
         </h1>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-muted">
+        <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
           {lead.first_name}, your next step is ready. Your answers help us prepare a consultation
-          focused on your specific goals. All responses are confidential.
+          focused on your specific goals. All responses are confidential. This takes about 15
+          minutes.
         </p>
       </div>
 
-      <div className="rounded-xl border border-line bg-white p-5 sm:p-8">
-        <QuestionnaireForm token={token} />
-      </div>
+      <Card>
+        <CardContent className="p-6 sm:p-8">
+          <QuestionnaireForm token={token} />
+        </CardContent>
+      </Card>
     </div>
   );
 }

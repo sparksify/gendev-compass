@@ -6,6 +6,8 @@
  */
 export interface BrandConfig {
   brandName: string;
+  /** Product name of the portal itself. */
+  productName: string;
   portalLabel: string;
   logoPath: string;
   advisorName: string;
@@ -18,7 +20,8 @@ export interface BrandConfig {
 }
 
 export const brand: BrandConfig = {
-  brandName: process.env.NEXT_PUBLIC_BRAND_NAME ?? "GenDev Capital",
+  brandName: process.env.NEXT_PUBLIC_BRAND_NAME ?? "GenDev",
+  productName: "GenDev Compass",
   portalLabel: "Private Investor Portal",
   logoPath: "/logo.svg",
   advisorName: process.env.NEXT_PUBLIC_ADVISOR_NAME ?? "Darko",

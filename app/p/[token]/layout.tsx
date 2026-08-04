@@ -1,12 +1,33 @@
-import { PortalHeader } from "@/components/portal/PortalHeader";
-import { PortalFooter } from "@/components/portal/PortalFooter";
+import { loadPortalContext } from "@/lib/portal/context";
+import { PortalShell } from "@/components/layout/PortalShell";
+import { InvalidPortal } from "@/components/portal/InvalidPortal";
 
-export default function PortalLayout({ children }: { children: React.ReactNode }) {
+/**
+ * Portal chrome: validates the token and wraps every portal page in the
+ * three-column shell. Pages load their own context for gating — this layout
+ * only reads (trackOpen: false) so open-tracking happens exactly once.
+ */
+export default async function PortalLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ token: string }>;
+}) {
+  const { token } = await params;
+  const context = await loadPortalContext(token, { trackOpen: false });
+
+  if (!context) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <InvalidPortal />
+      </div>
+    );
+  }
+
   return (
-    <div className="flex min-h-screen flex-col">
-      <PortalHeader />
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:px-6">{children}</main>
-      <PortalFooter />
-    </div>
+    <PortalShell context={context} token={token}>
+      {children}
+    </PortalShell>
   );
 }

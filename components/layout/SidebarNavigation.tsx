@@ -1,0 +1,136 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  Home,
+  LineChart,
+  Building2,
+  HelpCircle,
+  FolderOpen,
+  CalendarDays,
+  Headphones,
+  Lock,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { COMING_SOON } from "@/lib/config/content";
+
+interface SidebarNavigationProps {
+  token: string;
+  firstName: string;
+  supportEmail: string;
+  /** True once the prospect can reach the scheduling / consultation page. */
+  consultationAvailable: boolean;
+}
+
+export function SidebarNavigation({
+  token,
+  firstName,
+  supportEmail,
+  consultationAvailable,
+}: SidebarNavigationProps) {
+  const pathname = usePathname();
+  const base = `/p/${token}`;
+
+  const items = [
+    { label: "Your Investment Journey", href: base, icon: Home, exact: true },
+    { label: "Opportunity Overview", href: `${base}/overview`, icon: Building2 },
+    {
+      label: "My Consultation",
+      href: consultationAvailable ? `${base}/schedule` : null,
+      icon: CalendarDays,
+      lockNote: "Unlocks after qualification",
+    },
+    { label: "My Progress", href: `${base}#progress`, icon: LineChart, anchor: true },
+    { label: "Investor FAQ", href: `${base}#faq`, icon: HelpCircle, anchor: true },
+    { label: "Resources", href: `${base}#resources`, icon: FolderOpen, anchor: true },
+  ];
+
+  return (
+    <nav aria-label="Portal navigation" className="flex h-full flex-col gap-6">
+      <div>
+        <p className="text-sm text-muted-foreground">Welcome back,</p>
+        <p className="text-xl font-semibold text-foreground">{firstName}</p>
+      </div>
+
+      <ul className="space-y-1">
+        {items.map((item) => {
+          const active = item.exact
+            ? pathname === item.href
+            : !item.anchor && item.href !== null && pathname.startsWith(item.href);
+          const Icon = item.icon;
+
+          if (item.href === null) {
+            return (
+              <li key={item.label}>
+                <span
+                  className="flex cursor-not-allowed items-center gap-3 rounded-control px-3 py-2 text-sm text-muted-foreground/70"
+                  title={item.lockNote}
+                >
+                  <Icon className="size-4 shrink-0" />
+                  <span className="flex-1">{item.label}</span>
+                  <Lock className="size-3.5" aria-label={item.lockNote} />
+                </span>
+              </li>
+            );
+          }
+
+          return (
+            <li key={item.label}>
+              <Link
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "flex items-center gap-3 rounded-control px-3 py-2 text-sm transition-colors",
+                  active
+                    ? "bg-primary-soft font-medium text-primary"
+                    : "text-muted-foreground hover:bg-surface hover:text-foreground",
+                )}
+              >
+                <Icon className="size-4 shrink-0" />
+                {item.label}
+              </Link>
+            </li>
+          );
+        })}
+        <li>
+          <a
+            href={`mailto:${supportEmail}`}
+            className="flex items-center gap-3 rounded-control px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
+          >
+            <Headphones className="size-4 shrink-0" />
+            Support
+          </a>
+        </li>
+      </ul>
+
+      <div className="border-t border-border pt-5">
+        <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Coming Soon
+        </p>
+        <ul className="mt-2 space-y-1">
+          {COMING_SOON.slice(0, 2).map((item) => (
+            <li
+              key={item.key}
+              className="flex items-center gap-3 rounded-control px-3 py-2 text-sm text-muted-foreground/60"
+            >
+              <Lock className="size-3.5 shrink-0" />
+              {item.title}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="mt-auto rounded-card border border-border bg-card p-4">
+        <p className="text-sm font-medium text-foreground">Need assistance?</p>
+        <p className="mt-1 text-xs text-muted-foreground">Our team is here to help.</p>
+        <a
+          href={`mailto:${supportEmail}`}
+          className="mt-2 inline-block text-sm font-medium text-primary hover:underline"
+        >
+          Contact Support →
+        </a>
+      </div>
+    </nav>
+  );
+}

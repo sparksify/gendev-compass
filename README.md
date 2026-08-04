@@ -1,6 +1,10 @@
-# Investor Qualification Portal
+# GenDev Compass — Investor Qualification Portal
 
-A lightweight, private investor qualification portal. Leads (initially from
+A private investor qualification portal presented as a guided "Investment
+Journey" — a three-column client-portal experience (fixed header, sticky
+navigation, command-center status card, six-milestone journey timeline,
+advisor sidebar, resource library) in the style of premium financial
+software. Leads (initially from
 Facebook Lead Ads) receive a personalized magic link, watch an investor
 overview video, complete a qualification questionnaire, and — only if they
 qualify — unlock the advisor's calendar to book a consultation.
@@ -13,6 +17,8 @@ without finishing the video and passing server-side qualification.
 ## Stack
 
 - [Next.js](https://nextjs.org) (App Router) + TypeScript (strict) + Tailwind CSS
+- shadcn-style component system (Radix primitives, CVA variants, Lucide icons, Inter)
+- React Hook Form + Zod (same schema validates client- and server-side)
 - [Supabase](https://supabase.com) Postgres (with a zero-config local dev fallback)
 - [Wistia](https://wistia.com) `<wistia-player>` web component for the overview video
 - Any iframe-compatible calendar (Calendly, HighLevel, Cal.com, …)
@@ -217,8 +223,14 @@ app/
   api/portal/[token]/      portal state, opened, video-progress,
                            questionnaire, booking, dev (dev-only)
   api/events/              client event sink (prefixed, whitelisted)
-  p/[token]/               dashboard, overview, questionnaire, schedule, complete
-components/portal/         portal UI components
+  p/[token]/               journey dashboard, overview, questionnaire, schedule, complete
+components/
+  ui/                      design-system primitives (button, card, badge, accordion, …)
+  layout/                  TopNavigation, SidebarNavigation, RightSidebar, PortalShell
+  dashboard/               StatusCard, ProgressTimeline, VideoCard, Checklist, FAQ, …
+  cards/                   AdvisorCard, ProgressSummaryCard, DocumentCard, ComingSoonCard
+  forms/                   QuestionnaireForm (React Hook Form + Zod)
+  portal/                  WistiaPlayer, CalendarEmbed, dev tools, shared portal pieces
 lib/
   config/                  brand, qualification, env helpers
   portal/                  state machine, qualification, progress, events, tokens

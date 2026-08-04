@@ -11,16 +11,16 @@ export function AppointmentDetails({ startAt }: { startAt: string }) {
   useEffect(() => setMounted(true), []);
 
   if (!mounted) {
-    return <p className="mt-3 text-sm text-ink-muted">Loading appointment details…</p>;
+    return <p className="mt-3 text-sm text-muted-foreground">Loading appointment details…</p>;
   }
 
   const appointment = new Date(startAt);
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   return (
-    <dl className="mt-3 space-y-2 text-sm text-ink">
+    <dl className="mt-3 space-y-2 text-sm text-foreground">
       <div className="flex justify-between gap-4">
-        <dt className="text-ink-muted">Date</dt>
+        <dt className="text-muted-foreground">Date</dt>
         <dd className="font-medium">
           {appointment.toLocaleDateString(undefined, {
             weekday: "long",
@@ -31,13 +31,13 @@ export function AppointmentDetails({ startAt }: { startAt: string }) {
         </dd>
       </div>
       <div className="flex justify-between gap-4">
-        <dt className="text-ink-muted">Time</dt>
+        <dt className="text-muted-foreground">Time</dt>
         <dd className="font-medium">
           {appointment.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
         </dd>
       </div>
       <div className="flex justify-between gap-4">
-        <dt className="text-ink-muted">Time Zone</dt>
+        <dt className="text-muted-foreground">Time Zone</dt>
         <dd className="font-medium">{timeZone}</dd>
       </div>
     </dl>

@@ -1,12 +1,19 @@
-import Link from "next/link";
-import { loadPortalContext } from "@/lib/portal/context";
+import { Card, CardContent } from "@/components/ui/card";
+import { StatusCard } from "@/components/dashboard/StatusCard";
+import { ProgressTimeline } from "@/components/dashboard/ProgressTimeline";
+import { VideoCard } from "@/components/dashboard/VideoCard";
+import { Checklist } from "@/components/dashboard/Checklist";
+import { OpportunitySnapshot } from "@/components/dashboard/OpportunitySnapshot";
+import { FAQAccordion } from "@/components/dashboard/FAQAccordion";
 import { InvalidPortal } from "@/components/portal/InvalidPortal";
-import { PortalStatusCard } from "@/components/portal/PortalStatusCard";
-import { StepChecklist } from "@/components/portal/StepChecklist";
-import { brand } from "@/lib/config/brand";
+import { loadPortalContext } from "@/lib/portal/context";
+import { deriveJourney } from "@/lib/portal/journey";
+import { devToolsEnabled, getWistiaMediaId } from "@/lib/config/env";
+import { getVideoCompletionThreshold } from "@/lib/config/qualification";
 
 export const dynamic = "force-dynamic";
 
+/** The Investment Journey dashboard — the portal's home. */
 export default async function PortalDashboardPage({
   params,
 }: {
@@ -16,62 +23,44 @@ export default async function PortalDashboardPage({
   const context = await loadPortalContext(token);
   if (!context) return <InvalidPortal />;
 
-  const { lead, state } = context;
-
-  const stepsRemaining = state.checklist.filter((item) => !item.done).length;
-  const estimatedMinutes = state.booked
-    ? null
-    : Math.round((stepsRemaining / 3) * brand.estimatedTimeMinutes);
-
-  let primaryHref = `/p/${token}/overview`;
-  let primaryLabel = "Watch Investor Overview";
-  if (state.booked || state.reviewRequired) {
-    primaryHref = `/p/${token}/complete`;
-    primaryLabel = "View Status";
-  } else if (state.qualified) {
-    primaryHref = `/p/${token}/schedule`;
-    primaryLabel = "Schedule Consultation";
-  } else if (state.videoCompleted) {
-    primaryHref = `/p/${token}/questionnaire`;
-    primaryLabel = "Continue Qualification";
-  } else if (state.videoStarted) {
-    primaryLabel = "Continue Investor Overview";
-  }
+  const { state, videoProgress } = context;
+  const journey = deriveJourney(state);
 
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold text-ink sm:text-3xl">
-          Welcome, {lead.first_name}
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+          Your Investment Journey
         </h1>
-        <p className="mt-2 text-lg text-ink-muted">
-          Your private investor qualification portal is ready.
-        </p>
-        <p className="mt-4 max-w-2xl text-sm leading-relaxed text-ink-muted">
-          Complete the steps below before scheduling your consultation with {brand.advisorName}.
-          This process helps us understand your goals and ensures your consultation is focused on
-          the questions that matter most to you.
+        <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
+          Track your progress through our investor qualification process. Complete each milestone
+          to unlock your private consultation and access additional investment materials.
         </p>
       </div>
 
-      <PortalStatusCard
-        statusLabel={state.statusLabel}
-        estimatedMinutesRemaining={estimatedMinutes}
-      />
+      <StatusCard token={token} state={state} journey={journey} />
 
-      <div className="rounded-xl border border-line bg-white p-5">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-ink-muted">Your Progress</h2>
-        <div className="mt-4">
-          <StepChecklist items={state.checklist} />
-        </div>
+      <Card id="progress">
+        <CardContent>
+          <ProgressTimeline milestones={journey.milestones} />
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-8 2xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <VideoCard
+          token={token}
+          state={state}
+          videoProgress={videoProgress}
+          mediaId={getWistiaMediaId()}
+          completionThreshold={getVideoCompletionThreshold()}
+          showDevTools={devToolsEnabled()}
+        />
+        <Checklist token={token} state={state} />
       </div>
 
-      <Link
-        href={primaryHref}
-        className="block w-full rounded-lg bg-brand px-6 py-3.5 text-center text-sm font-semibold text-white transition hover:opacity-90 sm:inline-block sm:w-auto"
-      >
-        {primaryLabel}
-      </Link>
+      <OpportunitySnapshot />
+
+      <FAQAccordion />
     </div>
   );
 }
