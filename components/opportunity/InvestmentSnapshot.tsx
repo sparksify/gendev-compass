@@ -22,10 +22,17 @@ export function InvestmentSnapshot({
   return (
     <Card>
       <CardContent>
-        <h2 className="text-[15.5px] font-bold text-foreground">Investment Snapshot</h2>
-
-        <div className="mt-3.5 border-b border-border-soft pb-3.5">
-          <p className="text-[13.5px] font-medium text-foreground">{profile.name}</p>
+        <div className="border-b border-border-soft pb-4">
+          {profile.logoPath && (
+            <Image
+              src={profile.logoPath}
+              alt={`${profile.name} logo`}
+              width={920}
+              height={393}
+              className="h-auto w-full"
+            />
+          )}
+          <p className="mt-4 text-[13.5px] font-medium text-foreground">{profile.name}</p>
           {profile.websiteUrl && (
             <a
               href={profile.websiteUrl}
@@ -35,15 +42,6 @@ export function InvestmentSnapshot({
             >
               {profile.websiteLabel ?? profile.websiteUrl}
             </a>
-          )}
-          {profile.logoPath && (
-            <Image
-              src={profile.logoPath}
-              alt={`${profile.name} logo`}
-              width={132}
-              height={40}
-              className="mt-3 h-12 w-auto"
-            />
           )}
         </div>
 
