@@ -35,8 +35,13 @@ export function getAdminTestPassword(): string | null {
   return process.env.ADMIN_TEST_PASSWORD ?? null;
 }
 
+/** The investor overview media. The hashed ID is public (it ships to the browser). */
+const DEFAULT_WISTIA_MEDIA_ID = "c5afogjpob";
+
 export function getWistiaMediaId(): string | null {
-  return process.env.NEXT_PUBLIC_WISTIA_MEDIA_ID ?? process.env.WISTIA_MEDIA_ID ?? null;
+  return (
+    process.env.NEXT_PUBLIC_WISTIA_MEDIA_ID ?? process.env.WISTIA_MEDIA_ID ?? DEFAULT_WISTIA_MEDIA_ID
+  );
 }
 
 export function getCalendarEmbedUrl(): string | null {
