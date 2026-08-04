@@ -2,6 +2,7 @@ export type PortalEventName =
   | "lead_created"
   | "portal_opened"
   | "overview_page_opened"
+  | "opportunity_overview_opened"
   | "video_started"
   | "video_progress_25"
   | "video_progress_50"

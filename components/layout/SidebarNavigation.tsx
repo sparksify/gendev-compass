@@ -35,7 +35,7 @@ export function SidebarNavigation({
   const items = [
     { label: "Your Investment Journey", href: base, icon: Home, exact: true },
     { label: "My Progress", href: `${base}#progress`, icon: LineChart, anchor: true },
-    { label: "Opportunity Overview", href: `${base}/overview`, icon: Building2 },
+    { label: "Opportunity Overview", href: `${base}/opportunity`, icon: Building2 },
     { label: "Investor FAQ", href: `${base}#faq`, icon: HelpCircle, anchor: true },
     { label: "Resources", href: `${base}#resources`, icon: FolderOpen, anchor: true },
     {
