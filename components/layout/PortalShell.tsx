@@ -73,10 +73,17 @@ export function PortalShell({ context, token, children }: PortalShellProps) {
                 Terms
               </a>
             </div>
-            <p className="mt-4 max-w-3xl text-xs leading-relaxed text-muted-foreground">
-              {brand.legalDisclaimer}
-            </p>
-            <p className="mt-3 text-xs text-muted-foreground">
+            <div className="mt-5 max-w-4xl">
+              <h2 className="text-[13px] font-bold text-foreground">{brand.legalNoticeTitle}</h2>
+              <div className="mt-2.5 space-y-2.5">
+                {brand.legalNotice.map((paragraph, index) => (
+                  <p key={index} className="text-xs leading-relaxed text-muted-foreground">
+                    {paragraph}
+                  </p>
+                ))}
+              </div>
+            </div>
+            <p className="mt-4 text-xs text-muted-foreground">
               © {new Date().getFullYear()} {brand.brandName}. All rights reserved.
             </p>
           </footer>
