@@ -53,7 +53,7 @@ function DocumentTile({ document }: { document: OpportunityDocument }) {
 /** Opportunity Documents section. */
 export function DocumentLibrary({ documents }: { documents: OpportunityDocument[] }) {
   return (
-    <section aria-label="Opportunity documents">
+    <section id="documents" aria-label="Opportunity documents">
       <h2 className="text-[15.5px] font-bold text-foreground">Opportunity Documents</h2>
       <div className="mt-3.5 grid gap-[18px] sm:grid-cols-2">
         {documents.map((document) => (

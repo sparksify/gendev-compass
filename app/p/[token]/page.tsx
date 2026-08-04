@@ -1,7 +1,6 @@
 import { StatusCard } from "@/components/dashboard/StatusCard";
 import { ProgressTimeline } from "@/components/dashboard/ProgressTimeline";
 import { VideoCard } from "@/components/dashboard/VideoCard";
-import { Checklist } from "@/components/dashboard/Checklist";
 import { FAQAccordion } from "@/components/dashboard/FAQAccordion";
 import { InvalidPortal } from "@/components/portal/InvalidPortal";
 import { loadPortalContext } from "@/lib/portal/context";
@@ -42,17 +41,14 @@ export default async function PortalDashboardPage({
         <ProgressTimeline milestones={journey.milestones} />
       </section>
 
-      <div className="grid gap-[18px] lg:grid-cols-[1.62fr_1fr]">
-        <VideoCard
-          token={token}
-          state={state}
-          videoProgress={videoProgress}
-          mediaId={getWistiaMediaId()}
-          completionThreshold={getVideoCompletionThreshold()}
-          showDevTools={devToolsEnabled()}
-        />
-        <Checklist state={state} />
-      </div>
+      <VideoCard
+        token={token}
+        state={state}
+        videoProgress={videoProgress}
+        mediaId={getWistiaMediaId()}
+        completionThreshold={getVideoCompletionThreshold()}
+        showDevTools={devToolsEnabled()}
+      />
 
       <FAQAccordion />
     </div>

@@ -37,24 +37,6 @@ export const FAQ_ITEMS: FaqItem[] = [
   },
 ];
 
-export interface ResourceItem {
-  key: string;
-  title: string;
-  kind: string;
-  /** Download URL when available; undefined renders a not-yet-available state. */
-  href?: string;
-  /** True when the item unlocks only after the consultation. */
-  gated?: boolean;
-}
-
-export const RESOURCE_LIBRARY: ResourceItem[] = [
-  { key: "brochure", title: "Opportunity Brochure", kind: "PDF" },
-  { key: "timeline", title: "Investment Timeline", kind: "PDF" },
-  { key: "risk", title: "Risk Overview", kind: "PDF" },
-  { key: "faq", title: "Frequently Asked Questions", kind: "PDF" },
-  { key: "team", title: "Team Profiles", kind: "PDF" },
-];
-
 export interface ComingSoonItem {
   key: string;
   title: string;

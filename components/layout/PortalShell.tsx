@@ -3,14 +3,13 @@ import { TopNavigation } from "@/components/layout/TopNavigation";
 import { SidebarNavigation } from "@/components/layout/SidebarNavigation";
 import { RightSidebar } from "@/components/layout/RightSidebar";
 import { brand } from "@/lib/config/brand";
-import { deriveJourney } from "@/lib/portal/journey";
 import type { PortalContext } from "@/lib/portal/context";
 
 /** Wordmark block shown at the top of the sidebar (and in the header on mobile). */
 export function BrandBlock() {
   return (
     <div className="flex items-center gap-2.5">
-      <Image src={brand.logoPath} alt={brand.brandName} width={30} height={18} priority />
+      <Image src={brand.logoPath} alt={brand.brandName} width={24} height={24} priority />
       <div className="leading-none">
         <p className="whitespace-nowrap font-serif text-[13px] font-semibold uppercase tracking-[0.06em] text-foreground">
           {brand.productName}
@@ -37,7 +36,6 @@ interface PortalShellProps {
  */
 export function PortalShell({ context, token, children }: PortalShellProps) {
   const { lead, state } = context;
-  const journey = deriveJourney(state);
 
   return (
     <div className="flex min-h-screen">
@@ -63,7 +61,7 @@ export function PortalShell({ context, token, children }: PortalShellProps) {
             <main className="min-w-0 flex-1">{children}</main>
 
             <aside className="hidden w-[376px] shrink-0 xl:block">
-              <RightSidebar token={token} state={state} journey={journey} />
+              <RightSidebar token={token} state={state} />
             </aside>
           </div>
 

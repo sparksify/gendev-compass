@@ -13,7 +13,7 @@ export function FAQAccordion() {
   return (
     <Card id="faq" className="pb-4">
       <div className="px-5 pb-3.5 pt-[18px]">
-        <SectionHeader number={3} title="Frequently Asked Questions" />
+        <SectionHeader number={2} title="Frequently Asked Questions" />
       </div>
       <Accordion type="single" collapsible className="flex flex-col gap-2 px-5">
         {FAQ_ITEMS.map((item, index) => (
