@@ -1,4 +1,4 @@
-import type { ZipCodeReferenceRecord } from "@/types/territory";
+import type { UpsertZipCodeReferenceInput } from "@/types/territory";
 
 /**
  * Shared GeoNames US postal-dataset download + parse, used by both the CLI
@@ -16,9 +16,9 @@ export const ZIP_DATA_SOURCE_URL =
   process.env.ZIP_DATA_SOURCE_URL ??
   "https://raw.githubusercontent.com/symerio/postal-codes-data/master/data/geonames/US.txt";
 
-export function parseGeoNames(text: string): ZipCodeReferenceRecord[] {
+export function parseGeoNames(text: string): UpsertZipCodeReferenceInput[] {
   const now = new Date().toISOString();
-  const byZip = new Map<string, ZipCodeReferenceRecord>();
+  const byZip = new Map<string, UpsertZipCodeReferenceInput>();
   for (const line of text.split("\n")) {
     if (!line.trim()) continue;
     const parts = line.split("\t");
@@ -38,11 +38,9 @@ export function parseGeoNames(text: string): ZipCodeReferenceRecord[] {
         county_name: countyName?.trim() ? countyName.trim() : null,
         latitude,
         longitude,
-        // Real demographics are future work; the demo seed's figures were
-        // placeholders and are intentionally replaced with nulls.
-        population: null,
-        households: null,
-        median_household_income: null,
+        // Demographic keys are deliberately omitted: on update, existing
+        // Census figures (loaded via /api/admin/import-demographics) are
+        // left untouched.
         timezone: null,
         created_at: now,
         updated_at: now,
@@ -52,7 +50,7 @@ export function parseGeoNames(text: string): ZipCodeReferenceRecord[] {
   return [...byZip.values()];
 }
 
-export async function downloadAndParseZipData(): Promise<ZipCodeReferenceRecord[]> {
+export async function downloadAndParseZipData(): Promise<UpsertZipCodeReferenceInput[]> {
   const response = await fetch(ZIP_DATA_SOURCE_URL, { signal: AbortSignal.timeout(120_000) });
   if (!response.ok) {
     throw new Error(`ZIP data download failed: HTTP ${response.status}`);

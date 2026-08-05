@@ -8,7 +8,10 @@
  */
 import type { ZipCodeReferenceRecord } from "@/types/territory";
 
-type SeedRow = Omit<ZipCodeReferenceRecord, "created_at" | "updated_at">;
+type SeedRow = Omit<
+  ZipCodeReferenceRecord,
+  "created_at" | "updated_at" | "population_growth_pct" | "demographics_source" | "demographics_vintage"
+>;
 
 const DFW: SeedRow[] = [
   { zip_code: "75201", city: "Dallas", state_code: "TX", county_name: "Dallas", latitude: 32.7831, longitude: -96.8067, population: 4200, households: 2600, median_household_income: 78000, timezone: "America/Chicago" },

@@ -41,6 +41,7 @@ import type {
   TerritorySearchRecord,
   TerritoryZipCodeRecord,
   ZipCodeReferenceRecord,
+  UpsertZipCodeReferenceInput,
   ZipGeographyRecord,
 } from "@/types/territory";
 import type {
@@ -1069,10 +1070,24 @@ export function createSupabaseStore(): PortalStore {
       return (data as ZipCodeReferenceRecord[]) ?? [];
     },
 
-    async upsertZipCodeReferences(rows: ZipCodeReferenceRecord[]): Promise<void> {
+    async upsertZipCodeReferences(rows: UpsertZipCodeReferenceInput[]): Promise<void> {
       if (rows.length === 0) return;
-      const { error } = await db.from("zip_code_reference").upsert(rows, { onConflict: "zip_code" });
-      if (error) throw new Error(`Failed to upsert zip code references: ${error.message}`);
+      // PostgREST bulk upserts require identical keys on every object, and
+      // only payload keys are SET on conflict (omitted demographic keys keep
+      // their existing values). Group by key-shape so mixed batches work.
+      const groups = new Map<string, UpsertZipCodeReferenceInput[]>();
+      for (const row of rows) {
+        const shape = Object.keys(row).sort().join(",");
+        const group = groups.get(shape);
+        if (group) group.push(row);
+        else groups.set(shape, [row]);
+      }
+      for (const group of groups.values()) {
+        const { error } = await db
+          .from("zip_code_reference")
+          .upsert(group, { onConflict: "zip_code" });
+        if (error) throw new Error(`Failed to upsert zip code references: ${error.message}`);
+      }
     },
 
     async upsertZipGeographies(rows): Promise<void> {

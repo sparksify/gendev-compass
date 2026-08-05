@@ -131,7 +131,39 @@ export interface ZipCodeReferenceRecord {
   timezone: string | null;
   created_at: string;
   updated_at: string;
+  /** 5-year population growth percentage (e.g. 8.2 for +8.2%), when known. */
+  population_growth_pct: number | null;
+  /** Provenance for the demographic figures (e.g. "US Census Bureau ACS 5-Year"). */
+  demographics_source: string | null;
+  /** Data vintage (e.g. "2019-2023"). */
+  demographics_vintage: string | null;
 }
+
+/**
+ * Upsert input for zip_code_reference. Demographic fields are optional:
+ * when omitted, an update leaves any existing Census figures untouched
+ * (so re-running the plain GeoNames import never wipes loaded demographics).
+ */
+export type UpsertZipCodeReferenceInput = Omit<
+  ZipCodeReferenceRecord,
+  | "population"
+  | "households"
+  | "median_household_income"
+  | "population_growth_pct"
+  | "demographics_source"
+  | "demographics_vintage"
+> &
+  Partial<
+    Pick<
+      ZipCodeReferenceRecord,
+      | "population"
+      | "households"
+      | "median_household_income"
+      | "population_growth_pct"
+      | "demographics_source"
+      | "demographics_vintage"
+    >
+  >;
 
 // ---------------------------------------------------------------------------
 // territory_searches
@@ -221,6 +253,9 @@ export interface TerritoryAlternative {
   zipCode: string | null;
   distanceMiles: number | null;
   status: TerritoryResultStatus;
+  /** Public ZIP centroid, for plotting the market on the prospect map. */
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface TerritoryEvaluationResult {
@@ -249,6 +284,12 @@ export interface TerritoryEvaluationResult {
     population: number | null;
     households: number | null;
     medianHouseholdIncome: number | null;
+    /** Population-weighted 5-year growth % across the evaluated ZIPs, when known. */
+    populationGrowthPct?: number | null;
+    /** How many of the evaluated ZIPs carried demographic data (transparency). */
+    zipsWithData?: number;
+    /** Provenance of the figures (e.g. "U.S. Census Bureau, ACS 5-Year 2019–2023"). */
+    source?: string | null;
   };
   alternatives: TerritoryAlternative[];
   checkedAt: string;

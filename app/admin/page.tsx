@@ -391,6 +391,29 @@ function ZipDataSection({ password }: { password: string }) {
   const [result, setResult] = useState<string | null>(null);
   const [polygonBusy, setPolygonBusy] = useState<string | null>(null);
   const [polygonResult, setPolygonResult] = useState<string | null>(null);
+  const [demoBusy, setDemoBusy] = useState(false);
+  const [demoResult, setDemoResult] = useState<string | null>(null);
+
+  async function runDemographicsImport() {
+    setDemoBusy(true);
+    setDemoResult(null);
+    try {
+      const response = await fetch("/api/admin/import-demographics", {
+        method: "POST",
+        headers: { "x-admin-password": password },
+      });
+      const data = await response.json();
+      setDemoResult(
+        data.success
+          ? `Loaded Census demographics for ${data.withDemographics} of ${data.written} ZIPs (ACS ${data.vintage}).`
+          : `Failed: ${data.error ?? response.status}`,
+      );
+    } catch (error) {
+      setDemoResult(`Failed: ${error instanceof Error ? error.message : "network error"}`);
+    } finally {
+      setDemoBusy(false);
+    }
+  }
 
   async function runPolygonImport(state: string) {
     setPolygonBusy(state);
@@ -450,6 +473,21 @@ function ZipDataSection({ password }: { password: string }) {
         {busy ? "Loading nationwide data…" : "Load Nationwide ZIP Data"}
       </button>
       {result && <p className="mt-2 text-xs text-gray-600">{result}</p>}
+
+      <p className="mt-4 text-xs font-medium text-gray-700">Market demographics (Census ACS)</p>
+      <p className="mt-0.5 text-xs text-gray-500">
+        Loads real population, households, median income, and 5-year growth for every ZIP
+        from the U.S. Census Bureau&apos;s ACS 5-Year data. Powers the Market Analysis panel.
+        Safe to re-run; takes up to a minute.
+      </p>
+      <button
+        onClick={runDemographicsImport}
+        disabled={demoBusy}
+        className="mt-2 rounded-lg border border-gray-300 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+      >
+        {demoBusy ? "Loading Census data…" : "Load Census Demographics"}
+      </button>
+      {demoResult && <p className="mt-2 text-xs text-gray-600">{demoResult}</p>}
 
       <p className="mt-4 text-xs font-medium text-gray-700">Boundary shapes (per state)</p>
       <p className="mt-0.5 text-xs text-gray-500">
