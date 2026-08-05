@@ -29,6 +29,8 @@ export interface PortalState {
   qualified: boolean;
   reviewRequired: boolean;
   booked: boolean;
+  fddRequested: boolean;
+  fddAcknowledged: boolean;
   /** The furthest route the prospect should currently be sent to. */
   resumeRoute: PortalRoute;
   checklist: PortalChecklistItem[];

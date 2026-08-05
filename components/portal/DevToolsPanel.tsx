@@ -13,7 +13,9 @@ export function DevToolsPanel({ token }: { token: string }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  async function run(action: "simulate-video-completion" | "reset-progress") {
+  async function run(
+    action: "simulate-video-completion" | "reset-progress" | "simulate-fdd-received",
+  ) {
     setBusy(action);
     setMessage(null);
     try {
@@ -45,6 +47,14 @@ export function DevToolsPanel({ token }: { token: string }) {
           className="rounded-lg border border-amber-500 px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-60"
         >
           {busy === "simulate-video-completion" ? "Simulating…" : "Simulate video completion"}
+        </button>
+        <button
+          type="button"
+          onClick={() => run("simulate-fdd-received")}
+          disabled={busy !== null}
+          className="rounded-lg border border-amber-500 px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-60"
+        >
+          {busy === "simulate-fdd-received" ? "Simulating…" : "Simulate FDD acknowledgment"}
         </button>
         <button
           type="button"

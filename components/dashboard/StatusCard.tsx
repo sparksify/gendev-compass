@@ -26,17 +26,11 @@ export function StatusCard({ token, state, journey }: StatusCardProps) {
   if (state.booked) {
     headline = "Consultation Scheduled";
     supporting = "Your consultation is booked. Review your confirmation and prepare your questions.";
-    ctaHref = `${base}/complete`;
+    ctaHref = `${base}/schedule`;
     ctaLabel = "View Consultation Details";
-  } else if (state.reviewRequired) {
-    headline = "Application Under Review";
-    supporting =
-      "Thank you for completing the process. Our team is reviewing your responses and will contact you directly with next steps.";
-    ctaHref = `${base}/complete`;
-    ctaLabel = "View Status";
-  } else if (state.qualified) {
-    headline = "Consultation Approved";
-    supporting = "You're qualified. Select a time that works for you to speak with your advisor.";
+  } else if (state.questionnaireCompleted) {
+    headline = "Your Consultation Is the Next Step";
+    supporting = `Your investor profile has been shared with ${brand.advisorName}. Choose a convenient time to discuss your goals and evaluate whether this opportunity is a strong mutual fit.`;
     ctaHref = `${base}/schedule`;
     ctaLabel = "Schedule Consultation";
   } else if (state.videoCompleted) {

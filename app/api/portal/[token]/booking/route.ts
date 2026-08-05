@@ -15,8 +15,9 @@ const bookingSchema = z.object({
 });
 
 /**
- * Marks the lead as booked. Only reachable for prospects the server has
- * already qualified — booking is not a path around qualification.
+ * Marks the lead as booked. Scheduling opens as soon as the questionnaire
+ * is submitted — the advisor reviews responses before the call, so there is
+ * no approval gate. Booking is still not a path around the questionnaire.
  */
 export async function POST(
   request: Request,
@@ -27,9 +28,11 @@ export async function POST(
   if ("response" in resolved) return resolved.response;
   const { lead } = resolved;
 
-  if (lead.qualification_result !== "qualified") {
+  const questionnaireCompleted =
+    Boolean(lead.questionnaire_completed_at) || Boolean(await getStore().getQuestionnaire(lead.id));
+  if (!questionnaireCompleted) {
     return NextResponse.json(
-      { success: false, error: "Scheduling is not available for this portal yet." },
+      { success: false, error: "Please complete the questionnaire before scheduling." },
       { status: 403 },
     );
   }
@@ -56,7 +59,8 @@ export async function POST(
       await trackEvent(lead, "portal_completed", null);
     }
 
-    return NextResponse.json({ success: true, nextUrl: `/p/${token}/complete` });
+    // The schedule page renders the booked confirmation state in place.
+    return NextResponse.json({ success: true, nextUrl: `/p/${token}/schedule` });
   } catch (error) {
     console.error("[booking] failed:", error);
     return NextResponse.json(

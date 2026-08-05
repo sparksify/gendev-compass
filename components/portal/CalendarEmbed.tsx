@@ -1,19 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 interface CalendarEmbedProps {
   embedUrl: string | null;
   token: string;
   prefill: {
-    name: string;
+    firstName: string;
+    lastName: string;
     email: string;
     phone: string | null;
     leadId: string;
   };
-  supportEmail: string;
+  advisorName: string;
+  advisorPhone: string;
+  advisorEmail: string;
 }
+
+/** How long the embed may take to load before the calm fallback message appears. */
+const LOAD_TIMEOUT_MS = 15_000;
 
 /**
  * Provider-agnostic calendar embed. Any iframe-compatible scheduler works
@@ -22,12 +28,28 @@ interface CalendarEmbedProps {
  * do); a manual confirmation button remains as the temporary fallback the
  * spec allows.
  */
-export function CalendarEmbed({ embedUrl, token, prefill, supportEmail }: CalendarEmbedProps) {
+export function CalendarEmbed({
+  embedUrl,
+  token,
+  prefill,
+  advisorName,
+  advisorPhone,
+  advisorEmail,
+}: CalendarEmbedProps) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
+  const slotSelectedRef = useRef(false);
 
   const src = embedUrl ? buildEmbedUrl(embedUrl, prefill) : null;
+
+  useEffect(() => {
+    if (!src || loaded) return;
+    const timer = setTimeout(() => setLoadTimedOut(true), LOAD_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [src, loaded]);
 
   useEffect(() => {
     async function recordBooking(payload: {
@@ -51,11 +73,25 @@ export function CalendarEmbed({ embedUrl, token, prefill, supportEmail }: Calend
       }
     }
 
+    function trackSlotSelected() {
+      if (slotSelectedRef.current) return;
+      slotSelectedRef.current = true;
+      void fetch("/api/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, eventName: "consultation_slot_selected" }),
+      }).catch(() => undefined);
+    }
+
     function onMessage(event: MessageEvent) {
       // Calendly: { event: "calendly.event_scheduled", payload: { event: { uri }, invitee: { uri } } }
       const data = event.data as
         | { event?: string; payload?: { event?: { uri?: string } } }
         | undefined;
+      if (data?.event === "calendly.date_and_time_selected") {
+        trackSlotSelected();
+        return;
+      }
       if (data?.event === "calendly.event_scheduled") {
         void recordBooking({
           appointmentId: data.payload?.event?.uri,
@@ -97,25 +133,56 @@ export function CalendarEmbed({ embedUrl, token, prefill, supportEmail }: Calend
     }
   }
 
+  const contactFallback = (
+    <>
+      contact {advisorName} directly at {advisorPhone} or{" "}
+      <a className="text-primary hover:underline" href={`mailto:${advisorEmail}`}>
+        {advisorEmail}
+      </a>
+    </>
+  );
+
   return (
     <div className="space-y-4">
       {src ? (
-        <iframe
-          src={src}
-          title="Schedule your consultation"
-          className="h-[720px] w-full rounded-card border border-border bg-white"
-          allow="camera; microphone; fullscreen"
-        />
+        <div className="relative">
+          {!loaded && (
+            <div
+              className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-card border border-border bg-white"
+              role="status"
+              aria-live="polite"
+            >
+              {loadTimedOut ? (
+                <p className="max-w-sm px-6 text-center text-sm text-muted-foreground">
+                  We couldn&apos;t load the scheduling calendar. Please refresh the page or{" "}
+                  {contactFallback}.
+                </p>
+              ) : (
+                <>
+                  <span
+                    aria-hidden
+                    className="size-6 animate-spin rounded-full border-2 border-border border-t-primary"
+                  />
+                  <p className="text-sm text-muted-foreground">Loading available times…</p>
+                </>
+              )}
+            </div>
+          )}
+          <iframe
+            src={src}
+            title="Schedule your consultation"
+            onLoad={() => setLoaded(true)}
+            className="h-[720px] w-full rounded-card border border-border bg-white"
+            allow="camera; microphone; fullscreen"
+          />
+        </div>
       ) : (
         <div className="flex min-h-64 flex-col items-center justify-center rounded-card border border-dashed border-border bg-white p-6 text-center">
-          <p className="text-sm font-medium text-foreground">Calendar not configured</p>
+          <p className="text-sm font-medium text-foreground">
+            The scheduling calendar is unavailable
+          </p>
           <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-            Set <code className="rounded bg-surface px-1">NEXT_PUBLIC_CALENDAR_EMBED_URL</code> to
-            embed the scheduling calendar, or contact{" "}
-            <a className="underline" href={`mailto:${supportEmail}`}>
-              {supportEmail}
-            </a>{" "}
-            to schedule directly.
+            Please refresh the page, or {contactFallback} to schedule your consultation.
           </p>
         </div>
       )}
@@ -147,8 +214,12 @@ export function CalendarEmbed({ embedUrl, token, prefill, supportEmail }: Calend
 function buildEmbedUrl(base: string, prefill: CalendarEmbedProps["prefill"]): string {
   try {
     const url = new URL(base);
-    // Calendly prefill params; harmless extras for other providers.
-    url.searchParams.set("name", prefill.name);
+    const fullName = `${prefill.firstName} ${prefill.lastName}`.trim();
+    // Calendly-style prefill params; harmless extras for other providers.
+    url.searchParams.set("name", fullName);
+    // GoHighLevel-style prefill params.
+    url.searchParams.set("first_name", prefill.firstName);
+    url.searchParams.set("last_name", prefill.lastName);
     url.searchParams.set("email", prefill.email);
     if (prefill.phone) url.searchParams.set("phone", prefill.phone);
     // Tracking identifiers supported by Calendly (utm_content) and readable elsewhere.

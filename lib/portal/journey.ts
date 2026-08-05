@@ -59,14 +59,9 @@ export function deriveJourney(state: PortalState): JourneySummary {
     {
       key: "consultation",
       label: "Schedule Consultation",
-      status: state.booked
-        ? "completed"
-        : state.qualified
-          ? "active"
-          : state.reviewRequired
-            ? "locked"
-            : "locked",
-      note: state.reviewRequired ? "Under review" : undefined,
+      // Scheduling opens the moment the questionnaire is submitted — the
+      // advisor reviews responses before the call; there is no approval gate.
+      status: state.booked ? "completed" : state.questionnaireCompleted ? "active" : "locked",
     },
     { key: "operations-call", label: "Attend Operations Call", status: "future" },
     { key: "qa-zoom", label: "Attend Q&A Zoom", status: "future" },
@@ -81,7 +76,7 @@ export function deriveJourney(state: PortalState): JourneySummary {
   );
 
   let timeRemainingMinutes: number | null = null;
-  if (!state.booked && !state.reviewRequired) {
+  if (!state.booked) {
     timeRemainingMinutes = Math.max(
       1,
       Math.round(
@@ -103,9 +98,7 @@ export function deriveJourney(state: PortalState): JourneySummary {
 
   const currentStatusLabel = state.booked
     ? "Consultation Scheduled"
-    : state.reviewRequired
-      ? "Application Under Review"
-      : `Awaiting ${current.label}`;
+    : `Awaiting ${current.label}`;
 
   return {
     milestones,

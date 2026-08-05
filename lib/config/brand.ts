@@ -24,6 +24,8 @@ export interface BrandConfig {
   /** Footer legal notice paragraphs, rendered in order. */
   legalNotice: string[];
   estimatedTimeMinutes: number;
+  /** IANA time zone used to display timestamps (stored in UTC) to prospects. */
+  timeZone: string;
 }
 
 export const brand: BrandConfig = {
@@ -52,4 +54,5 @@ export const brand: BrandConfig = {
     "Use of this website does not create a broker-client, fiduciary, agency, attorney-client, or other professional relationship between you and GenDev. Submission of information through this website does not guarantee qualification for any franchise opportunity, nor does it obligate either party to proceed with a transaction.",
   ],
   estimatedTimeMinutes: 30,
+  timeZone: process.env.NEXT_PUBLIC_BRAND_TIMEZONE ?? "America/Chicago",
 };

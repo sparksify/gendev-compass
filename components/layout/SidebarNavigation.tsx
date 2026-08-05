@@ -40,7 +40,7 @@ export function SidebarNavigation({
       label: "My Consultation",
       href: consultationAvailable ? `${base}/schedule` : null,
       icon: CalendarDays,
-      lockNote: "Available after qualification",
+      lockNote: "Available after your questionnaire",
     },
   ];
 

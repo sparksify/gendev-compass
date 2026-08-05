@@ -6,11 +6,12 @@ navigation, command-center status card, six-milestone journey timeline,
 advisor sidebar, resource library) in the style of premium financial
 software. Leads (initially from
 Facebook Lead Ads) receive a personalized magic link, watch an investor
-overview video, complete a qualification questionnaire, and — only if they
-qualify — unlock the advisor's calendar to book a consultation.
+overview video, complete a qualification questionnaire, and go straight to
+the advisor's calendar to book a consultation.
 
-The portal protects the sales team's time: no one reaches the calendar
-without finishing the video and passing server-side qualification.
+Scheduling opens the moment the questionnaire is submitted — the advisor
+reviews the investor profile before the call, so there is no manual
+approval gate between submission and the calendar.
 
 **Primary metric:** qualified booked calls per 100 portal visitors.
 
@@ -29,12 +30,16 @@ without finishing the video and passing server-side qualification.
 
 ```
 Facebook Lead Form → POST /api/leads → personalized link /p/<token>
-  → Dashboard → Investor Overview (Wistia, threshold-gated)
-  → Qualification Questionnaire (locked until video complete)
-  → Server-side qualification
-      → qualified        → /p/<token>/schedule  (calendar embed) → booked → /complete
-      → review_required  → /p/<token>/complete  (respectful holding page)
+  → Dashboard → Investor Overview (Wistia, optional educational path)
+  → Qualification Questionnaire
+  → /p/<token>/schedule  (calendar embed + FDD request + next-steps timeline)
+      → booked → confirmation state on the same page
 ```
+
+Every prospect who submits the questionnaire can schedule immediately —
+the advisor reviews the responses before the call, so there is no manual
+approval gate. Server-side qualification still runs at submission and the
+score/result are stored on the lead for the advisor's preparation.
 
 Progress persists: reopening the link resumes at the furthest legitimate step.
 
@@ -62,8 +67,9 @@ Reset the demo lead's progress at any time:
 npm run seed:reset
 ```
 
-Development tools (simulate/reset buttons and the dev API route) render only
-outside production and the API independently refuses in production.
+Development tools (simulate/reset buttons and the dev API route) render
+outside production and on Vercel preview deployments; the API independently
+refuses on the production deployment.
 
 ## Supabase setup
 
@@ -111,6 +117,41 @@ events. A manual **"I Scheduled My Consultation"** button remains as the
 temporary fallback for providers without embed events; replace it with a
 provider webhook when one is connected.
 
+## FDD request workflow
+
+After the questionnaire is complete, the scheduling page and sidebar offer the prospect
+the **Franchise Disclosure Document**. The flow (spec: FDD Request workflow):
+
+1. The prospect confirms their contact information and consents to electronic
+   delivery, then clicks **Request the FDD** (`POST /api/portal/[token]/fdd`).
+   The request is idempotent — duplicate clicks or replays never trigger a
+   second document send (idempotency key `fdd_request:{lead_id}`).
+2. The server dispatches to GoHighLevel (`lib/fdd/ghl.ts`) — via an inbound
+   workflow webhook (`GHL_FDD_WEBHOOK_URL`, preferred) or the contacts API
+   with the `FDD_REQUESTED` tag (`GHL_API_TOKEN` + `GHL_LOCATION_ID`).
+   Credentials stay server-side; the browser never talks to GoHighLevel.
+   With neither configured outside production, dispatch is simulated so the
+   whole flow runs locally.
+3. Provider callbacks land on `POST /api/webhooks/fdd` (`fdd_sent`,
+   `fdd_delivered`, `fdd_received`) and `POST /api/webhooks/fdd/received`
+   (acknowledgment only). Webhooks are HMAC-signed (`x-fdd-signature`,
+   SHA-256 hex over the raw body with `FDD_WEBHOOK_SECRET`), replay-safe
+   (external event IDs are recorded), and out-of-order-safe (the controlled
+   `fdd_status` field only moves forward).
+4. Acknowledgment starts the configurable waiting period
+   (`FDD_WAITING_PERIOD_DAYS`, default 14) and computes the
+   franchise-agreement eligibility date shown to the prospect. Timestamps are
+   stored in UTC and displayed in `NEXT_PUBLIC_BRAND_TIMEZONE`. The stored
+   timestamps and audit log are the record — the countdown is presentation
+   only, and the legal start event should be confirmed with franchise counsel.
+
+Every transition is written to the immutable `fdd_audit_log` table (actor,
+source, external event ID, IP, before/after values, errors). The **FDD
+Requests** section of `/admin` shows each prospect's status and full
+timeline, allows a manual resend of failed/stuck requests, and exports the
+audit history as JSON. Dev tools include a **Simulate FDD acknowledgment**
+button to exercise the waiting-period flow locally.
+
 ## Environment variables
 
 See [.env.example](.env.example) for the full annotated list. Key rules:
@@ -157,18 +198,13 @@ overview video) or a fast track straight to qualification for experienced
 investors. The video is no longer a qualification requirement — completing
 it still contributes to the informational score.
 
-Hard gate (all required for the calendar):
-
-1. Questionnaire completed
-2. Liquid capital ≥ $250,000
-3. Investment timeline is not "Researching for the future"
-
-A score (0–100+) is also computed for future analysis — weights in
-`lib/config/qualification.ts`, threshold via `QUALIFICATION_SCORE_THRESHOLD`
-(default 60, informational in the MVP). Prospects who don't qualify are
-marked `review_required` and see a respectful holding page — never a
-rejection — so the team can manually approve promising exceptions. Status,
-score, reasons, and timestamps are stored on the lead.
+The only requirement for the calendar is a completed questionnaire —
+qualification no longer gates scheduling. The evaluation still runs and
+records `qualified` / `review_required` plus a score (0–100+) on the lead
+(weights in `lib/config/qualification.ts`, threshold via
+`QUALIFICATION_SCORE_THRESHOLD`, default 60) so the advisor can prepare and
+the business can add explicit review rules later if specific answers
+warrant one — as a targeted rule, not a blanket gate.
 
 ## Event tracking
 
