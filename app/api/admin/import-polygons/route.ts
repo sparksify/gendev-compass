@@ -2,11 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAdminTestPassword, isProduction } from "@/lib/config/env";
 import { clientIpFrom, rateLimit } from "@/lib/rateLimit";
-import {
-  downloadStatePolygons,
-  SUPPORTED_POLYGON_STATES,
-} from "@/lib/territory/polygonImport";
-import { getStore } from "@/lib/store";
+import { refreshStatePolygons, SUPPORTED_POLYGON_STATES } from "@/lib/territory/polygonImport";
 
 export const dynamic = "force-dynamic";
 /** One state per invocation: download + simplify + ~10 batched upserts. */
@@ -52,15 +48,8 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    const rows = await downloadStatePolygons(parsed.data.state);
-    const store = getStore();
-    const BATCH = 200;
-    let written = 0;
-    for (let i = 0; i < rows.length; i += BATCH) {
-      await store.upsertZipGeographies(rows.slice(i, i + BATCH));
-      written += Math.min(BATCH, rows.length - i);
-    }
-    return NextResponse.json({ success: true, state: parsed.data.state, written });
+    const result = await refreshStatePolygons(parsed.data.state);
+    return NextResponse.json({ success: true, ...result });
   } catch (error) {
     console.error("[admin/import-polygons] failed:", error);
     return NextResponse.json(

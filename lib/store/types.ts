@@ -499,6 +499,8 @@ export interface PortalStore {
    */
   upsertZipGeographies(rows: UpsertZipGeographyInput[]): Promise<void>;
   listZipGeographies(zipCodes: string[]): Promise<ZipGeographyRecord[]>;
+  /** True once at least one boundary shape has been loaded for the state — used by the polygon backfill cron to pick the next uncovered state. */
+  hasZipGeographiesForState(stateCode: string): Promise<boolean>;
 }
 
 /** Forward-only ordering used to avoid regressing a lead's status. */

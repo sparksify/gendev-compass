@@ -1125,6 +1125,17 @@ export function createSupabaseStore(): PortalStore {
       return out;
     },
 
+    async hasZipGeographiesForState(stateCode: string): Promise<boolean> {
+      const { data, error } = await db
+        .from("zip_code_geographies")
+        .select("zip_code")
+        .eq("state_code", stateCode)
+        .not("geojson", "is", null)
+        .limit(1);
+      if (error) throw new Error(`Failed to check zip geography coverage: ${error.message}`);
+      return (data?.length ?? 0) > 0;
+    },
+
     async createTerritorySearch(input: CreateTerritorySearchInput): Promise<TerritorySearchRecord> {
       const { data, error } = await db
         .from("territory_searches")

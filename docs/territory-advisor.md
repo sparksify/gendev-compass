@@ -141,13 +141,51 @@ API (`lib/geocoding/censusImport.ts`): population (B01003), households
 (B11001), median household income (B19013), plus a 5-year growth percentage
 computed across two vintages (2014–2018 vs 2019–2023 windows; migration
 0010 adds `population_growth_pct`, `demographics_source`,
-`demographics_vintage`). Each Census fetch times out at 35s (well under the
-route's 60s `maxDuration`) so a slow response surfaces as a proper JSON
-error instead of Vercel's platform-level HTML timeout page; an optional
-`CENSUS_API_KEY` env var (free, instant signup at
-api.census.gov/data/key_signup.html) avoids the anonymous per-IP rate limit.
-Only ZIPs that actually matched Census data are written, concurrently in
-batches. The evaluator aggregates
+`demographics_vintage`).
+
+The query is scoped **per state** (`&in=state:{fips}`, `STATE_FIPS_CODES`),
+not one nationwide wildcard call — a single request for all ~33,791 ZCTAs
+was observed in production silently truncated to under 1,000 rows (an
+intermediary between us and census.gov cuts off very large long-running
+responses); 51 small per-state requests, run with bounded concurrency
+(`STATE_FETCH_CONCURRENCY`), are each fast and reliable, and one state
+failing doesn't lose the other 50 (reported back as `failedStates`, never
+silent). **census.gov rejects all unauthenticated requests with HTTP 403**
+— an optional `CENSUS_API_KEY` env var (free, instant signup at
+api.census.gov/data/key_signup.html) is required in practice; without it
+every request fails immediately. Each fetch times out at 20s (well under
+the route's 60s `maxDuration`) so a slow response surfaces as a proper JSON
+error instead of Vercel's platform-level HTML timeout page. Only ZIPs that
+actually matched Census data are written, concurrently in batches.
+
+#### Fully automated — no admin panel required
+
+All three data sources refresh themselves on a schedule (`vercel.json`
+`crons`), calling the exact same shared functions the admin buttons call
+(`refreshZipReference`, `refreshDemographics`, `refreshStatePolygons`) —
+the buttons are a manual override, not the only way to trigger these:
+
+- **`/api/cron/refresh-zip-data`** — daily. Refreshes the GeoNames ZIP
+  reference.
+- **`/api/cron/refresh-demographics`** — weekly (ACS 5-year estimates only
+  update annually). Refreshes Census demographics onto the ZIP reference.
+- **`/api/cron/backfill-polygons`** — daily. Loads boundary shapes for
+  exactly **one** not-yet-covered target state per run (boundaries rarely
+  change and one state can take up to a minute, so this incrementally
+  backfills `TERRITORY_POLYGON_STATES` — comma-separated USPS codes, default
+  `TX,TN,FL,CA,IL,NY` — across several days' worth of runs instead of one
+  long invocation); once every target state is covered it's a fast no-op.
+
+**Securing the cron routes:** set a `CRON_SECRET` env var in Vercel —
+Vercel automatically sends it as `Authorization: Bearer <secret>` on every
+scheduled invocation (https://vercel.com/docs/cron-jobs/manage-cron-jobs#securing-cron-jobs);
+`lib/config/cron.ts` verifies the match. Without `CRON_SECRET` set, the
+routes only respond outside production (same fallback pattern as the admin
+password gate), so nothing scheduled runs unauthenticated in production by
+accident — but you do need to set it for the crons to actually do anything
+once deployed.
+
+The evaluator aggregates
 these across every evaluated ZIP (`aggregateMarketData`) — population and
 households sum, income is household-weighted, growth population-weighted —
 and the prospect UI (Market Analysis, Territory Assessment, Why this

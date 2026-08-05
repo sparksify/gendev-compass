@@ -1463,6 +1463,12 @@ export function createDevStore(): PortalStore {
       );
     },
 
+    async hasZipGeographiesForState(stateCode: string): Promise<boolean> {
+      return (await readData()).zip_code_geographies.some(
+        (g) => g.state_code === stateCode && g.geojson !== null,
+      );
+    },
+
     async createTerritorySearch(input: CreateTerritorySearchInput): Promise<TerritorySearchRecord> {
       return withLock(async () => {
         const data = await readData();

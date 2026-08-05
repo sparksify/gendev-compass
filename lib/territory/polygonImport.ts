@@ -33,6 +33,30 @@ const STATE_FILE_SLUGS: Record<string, string> = {
 
 export const SUPPORTED_POLYGON_STATES = Object.keys(STATE_FILE_SLUGS);
 
+/**
+ * Operating states to backfill automatically (see the polygon backfill cron
+ * job, app/api/cron/backfill-polygons/route.ts). Configurable via
+ * TERRITORY_POLYGON_STATES (comma-separated USPS codes) so a deployment can
+ * target its own operating footprint; defaults to the states the admin
+ * panel's manual buttons cover today.
+ */
+export function targetPolygonStates(): string[] {
+  const configured = process.env.TERRITORY_POLYGON_STATES;
+  const states = configured
+    ? configured.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)
+    : ["TX", "TN", "FL", "CA", "IL", "NY"];
+  return states.filter((s) => SUPPORTED_POLYGON_STATES.includes(s));
+}
+
+/**
+ * Picks the first target state with no boundary coverage yet — pure and
+ * testable independent of the store. Returns null once every target state
+ * is covered (the cron becomes a fast no-op from then on).
+ */
+export function pickNextPolygonState(targetStates: string[], coveredStates: Set<string>): string | null {
+  return targetStates.find((state) => !coveredStates.has(state)) ?? null;
+}
+
 export function polygonSourceUrl(stateCode: string): string {
   const slug = STATE_FILE_SLUGS[stateCode];
   if (!slug) throw new Error(`No ZCTA boundary source for state ${stateCode}`);
@@ -48,11 +72,19 @@ interface ZctaFeature {
  * Downloads and prepares one state's ZCTA polygons: simplified GeoJSON per
  * ZIP, ready for store upsert. Throws on download/parse failure.
  */
+/**
+ * Well under any reasonable function `maxDuration` (see the same-shaped bug
+ * fixed in lib/geocoding/censusImport.ts — a fetch timeout longer than the
+ * route's own execution budget lets the platform kill the function first
+ * and return an HTML error page instead of a JSON one).
+ */
+const FETCH_TIMEOUT_MS = 45_000;
+
 export async function downloadStatePolygons(
   stateCode: string,
 ): Promise<UpsertZipGeographyInput[]> {
   const url = polygonSourceUrl(stateCode);
-  const response = await fetch(url, { signal: AbortSignal.timeout(120_000) });
+  const response = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   if (!response.ok) {
     throw new Error(`ZCTA download for ${stateCode} failed: HTTP ${response.status}`);
   }
@@ -83,4 +115,31 @@ export async function downloadStatePolygons(
     });
   }
   return rows;
+}
+
+export interface RefreshStatePolygonsResult {
+  state: string;
+  written: number;
+}
+
+/**
+ * The full refresh for one state: download, simplify, and batched upsert.
+ * Shared by the admin-triggered route and the polygon backfill cron so both
+ * go through identical logic.
+ */
+export async function refreshStatePolygons(stateCode: string): Promise<RefreshStatePolygonsResult> {
+  const rows = await downloadStatePolygons(stateCode);
+  // Imported lazily so merely importing the pure download/state-list
+  // helpers above never has the side effect of binding the store
+  // singleton (see the store's cwd-at-first-import binding in
+  // lib/store/devStore.ts).
+  const { getStore } = await import("@/lib/store");
+  const store = getStore();
+  const BATCH = 200;
+  let written = 0;
+  for (let i = 0; i < rows.length; i += BATCH) {
+    await store.upsertZipGeographies(rows.slice(i, i + BATCH));
+    written += Math.min(BATCH, rows.length - i);
+  }
+  return { state: stateCode, written };
 }

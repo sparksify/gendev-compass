@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminTestPassword, isProduction } from "@/lib/config/env";
 import { clientIpFrom, rateLimit } from "@/lib/rateLimit";
-import { downloadAndParseZipData, ZIP_DATA_SOURCE_URL } from "@/lib/geocoding/zipImport";
-import { getStore } from "@/lib/store";
+import { refreshZipReference } from "@/lib/geocoding/zipImport";
 
 export const dynamic = "force-dynamic";
 /** The import runs ~15–40s (download + ~41 batched upserts). */
@@ -33,20 +32,8 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    const rows = await downloadAndParseZipData();
-    const store = getStore();
-    const BATCH = 1000;
-    let written = 0;
-    for (let i = 0; i < rows.length; i += BATCH) {
-      await store.upsertZipCodeReferences(rows.slice(i, i + BATCH));
-      written += Math.min(BATCH, rows.length - i);
-    }
-    return NextResponse.json({
-      success: true,
-      source: ZIP_DATA_SOURCE_URL,
-      parsed: rows.length,
-      written,
-    });
+    const result = await refreshZipReference();
+    return NextResponse.json({ success: true, ...result });
   } catch (error) {
     console.error("[admin/import-zips] failed:", error);
     return NextResponse.json(

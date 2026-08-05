@@ -50,10 +50,46 @@ export function parseGeoNames(text: string): UpsertZipCodeReferenceInput[] {
   return [...byZip.values()];
 }
 
+/**
+ * Well under any reasonable function `maxDuration` (see the same-shaped bug
+ * fixed in lib/geocoding/censusImport.ts — a fetch timeout longer than the
+ * route's own execution budget lets the platform kill the function first
+ * and return an HTML error page instead of a JSON one).
+ */
+const FETCH_TIMEOUT_MS = 45_000;
+
 export async function downloadAndParseZipData(): Promise<UpsertZipCodeReferenceInput[]> {
-  const response = await fetch(ZIP_DATA_SOURCE_URL, { signal: AbortSignal.timeout(120_000) });
+  const response = await fetch(ZIP_DATA_SOURCE_URL, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   if (!response.ok) {
     throw new Error(`ZIP data download failed: HTTP ${response.status}`);
   }
   return parseGeoNames(await response.text());
+}
+
+export interface RefreshZipReferenceResult {
+  source: string;
+  parsed: number;
+  written: number;
+}
+
+/**
+ * The full refresh: download, parse, and batched upsert. Shared by the
+ * admin-triggered route and the scheduled cron job so both go through
+ * identical logic (docs/territory-advisor.md, "Nationwide ZIP data
+ * pipeline").
+ */
+export async function refreshZipReference(): Promise<RefreshZipReferenceResult> {
+  const rows = await downloadAndParseZipData();
+  // Imported lazily so merely importing the pure download/parse helpers
+  // above never has the side effect of binding the store singleton (see
+  // the store's cwd-at-first-import binding in lib/store/devStore.ts).
+  const { getStore } = await import("@/lib/store");
+  const store = getStore();
+  const BATCH = 1000;
+  let written = 0;
+  for (let i = 0; i < rows.length; i += BATCH) {
+    await store.upsertZipCodeReferences(rows.slice(i, i + BATCH));
+    written += Math.min(BATCH, rows.length - i);
+  }
+  return { source: ZIP_DATA_SOURCE_URL, parsed: rows.length, written };
 }
