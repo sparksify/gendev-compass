@@ -1,5 +1,6 @@
 import { getStore } from "@/lib/store";
-import { effectiveFddStatus } from "@/lib/fdd/status";
+import { effectiveFddStatus, effectiveWorkflowStatus } from "@/lib/fdd/status";
+import { resolveDefaultOrganization } from "@/lib/domain/organizations";
 import { visibleLeads } from "./access";
 import { evaluateFollowUp, type FollowUpResult } from "./followUp";
 import { suggestNextAction } from "./nextAction";
@@ -8,6 +9,12 @@ import type { FddStatus } from "@/types/fdd";
 import type { LeadRecord } from "@/types/lead";
 import type { QuestionnaireRecord } from "@/types/questionnaire";
 import type { VideoProgressRecord } from "@/types/portal";
+import type {
+  BrandRecord,
+  ClientRecord,
+  OpportunityFddWorkflowRecord,
+  OpportunityRecord,
+} from "@/types/domain";
 
 /**
  * One joined row per investor — everything the dashboard and list pages
@@ -30,6 +37,17 @@ export interface InvestorRow {
   followUp: FollowUpResult;
   nextAction: string;
   lastActivityAt: string;
+  /**
+   * Platform domain resolution (null until the lead's chain is built —
+   * legacy lead values remain the fallback in that case).
+   */
+  client: ClientRecord | null;
+  opportunity: OpportunityRecord | null;
+  brand: BrandRecord | null;
+  /** All of the client's opportunities — a client may have several brands. */
+  clientOpportunities: OpportunityRecord[];
+  /** Opportunity stage when resolved, else the legacy lead stage. */
+  stage: string;
 }
 
 export async function loadInvestorRows(user: StaffUserRecord): Promise<InvestorRow[]> {
@@ -42,9 +60,40 @@ export async function loadInvestorRows(user: StaffUserRecord): Promise<InvestorR
     store.listStaffUsers(),
   ]);
 
+  // Domain-model reads: tolerate environments whose backfill has not run —
+  // rows simply fall back to legacy lead values.
+  let opportunities: OpportunityRecord[] = [];
+  let clients: ClientRecord[] = [];
+  let brands: BrandRecord[] = [];
+  let fddWorkflows: OpportunityFddWorkflowRecord[] = [];
+  try {
+    const organization = await resolveDefaultOrganization();
+    [opportunities, clients, brands, fddWorkflows] = await Promise.all([
+      store.listOpportunities(organization.id),
+      store.listClients(organization.id),
+      store.listBrands(organization.id),
+      store.listFddWorkflows(organization.id),
+    ]);
+  } catch (error) {
+    console.error("[advisor] domain model load failed (using legacy lead data):", error);
+  }
+
   const questionnaireByLead = new Map(questionnaires.map((q) => [q.lead_id, q]));
   const videoByLead = new Map(videos.map((v) => [v.lead_id, v]));
   const staffById = new Map(staff.map((s) => [s.id, s]));
+  const clientById = new Map(clients.map((c) => [c.id, c]));
+  const brandById = new Map(brands.map((b) => [b.id, b]));
+  const opportunityById = new Map(opportunities.map((o) => [o.id, o]));
+  const opportunityBySourceLead = new Map(
+    opportunities.filter((o) => o.source_lead_id).map((o) => [o.source_lead_id as string, o]),
+  );
+  const opportunitiesByClient = new Map<string, OpportunityRecord[]>();
+  for (const opportunity of opportunities) {
+    const list = opportunitiesByClient.get(opportunity.client_id) ?? [];
+    list.push(opportunity);
+    opportunitiesByClient.set(opportunity.client_id, list);
+  }
+  const workflowByOpportunity = new Map(fddWorkflows.map((w) => [w.opportunity_id, w]));
   const appointmentsByLead = new Map<string, AppointmentRecord[]>();
   for (const appointment of appointments) {
     const list = appointmentsByLead.get(appointment.lead_id) ?? [];
@@ -57,6 +106,18 @@ export async function loadInvestorRows(user: StaffUserRecord): Promise<InvestorR
       b.created_at.localeCompare(a.created_at),
     );
     const video = videoByLead.get(lead.id) ?? null;
+    // Prefer the opportunity-level record; legacy lead values remain the
+    // fallback until the chain exists for this lead.
+    const opportunity =
+      (lead.primary_opportunity_id ? opportunityById.get(lead.primary_opportunity_id) : null) ??
+      opportunityBySourceLead.get(lead.id) ??
+      null;
+    const client =
+      (lead.client_id ? clientById.get(lead.client_id) : null) ??
+      (opportunity ? (clientById.get(opportunity.client_id) ?? null) : null);
+    const brand = opportunity ? (brandById.get(opportunity.brand_id) ?? null) : null;
+    const workflow = opportunity ? (workflowByOpportunity.get(opportunity.id) ?? null) : null;
+
     return {
       lead,
       questionnaire: questionnaireByLead.get(lead.id) ?? null,
@@ -64,11 +125,17 @@ export async function loadInvestorRows(user: StaffUserRecord): Promise<InvestorR
       appointments: leadAppointments,
       activeAppointment:
         leadAppointments.find((a) => a.status === "SCHEDULED" || a.status === "RESCHEDULED") ?? null,
-      fddStatus: effectiveFddStatus(lead),
+      fddStatus: workflow ? effectiveWorkflowStatus(workflow) : effectiveFddStatus(lead),
       advisor: lead.assigned_advisor_id ? (staffById.get(lead.assigned_advisor_id) ?? null) : null,
       followUp: evaluateFollowUp({ lead, appointments: leadAppointments, video }),
       nextAction: suggestNextAction(lead, leadAppointments, video),
-      lastActivityAt: lead.last_activity_at ?? lead.created_at,
+      lastActivityAt:
+        opportunity?.last_activity_at ?? lead.last_activity_at ?? lead.created_at,
+      client,
+      opportunity,
+      brand,
+      clientOpportunities: client ? (opportunitiesByClient.get(client.id) ?? []) : [],
+      stage: opportunity?.stage ?? lead.current_stage,
     };
   });
 
@@ -105,7 +172,7 @@ export function filterInvestorRows(
       if (!haystack.includes(needle) && !phoneMatch) return false;
     }
 
-    if (filters.stage && lead.current_stage !== filters.stage) return false;
+    if (filters.stage && row.stage !== filters.stage) return false;
     if (filters.advisorId && lead.assigned_advisor_id !== filters.advisorId) return false;
     if (filters.state && (lead.state ?? "").toLowerCase() !== filters.state.toLowerCase()) {
       return false;

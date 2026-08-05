@@ -355,6 +355,7 @@ export interface PortalStore {
   createFddWorkflow(input: CreateFddWorkflowInput): Promise<OpportunityFddWorkflowRecord>;
   getFddWorkflowByOpportunityId(opportunityId: string): Promise<OpportunityFddWorkflowRecord | null>;
   updateFddWorkflow(id: string, patch: FddWorkflowPatch): Promise<OpportunityFddWorkflowRecord>;
+  listFddWorkflows(organizationId: string): Promise<OpportunityFddWorkflowRecord[]>;
 }
 
 /** Forward-only ordering used to avoid regressing a lead's status. */

@@ -959,5 +959,14 @@ export function createSupabaseStore(): PortalStore {
       if (error) throw new Error(`Failed to update FDD workflow: ${error.message}`);
       return data as OpportunityFddWorkflowRecord;
     },
+
+    async listFddWorkflows(organizationId) {
+      const { data, error } = await db
+        .from("opportunity_fdd_workflows")
+        .select()
+        .eq("organization_id", organizationId);
+      if (error) throw new Error(`Failed to list FDD workflows: ${error.message}`);
+      return (data as OpportunityFddWorkflowRecord[]) ?? [];
+    },
   };
 }

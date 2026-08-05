@@ -15,6 +15,11 @@ function makeRow(lead: LeadRecord, extra: Partial<InvestorRow> = {}): InvestorRo
     followUp: { needed: false, reasons: [] },
     nextAction: "Monitor engagement",
     lastActivityAt: lead.last_activity_at ?? lead.created_at,
+    client: null,
+    opportunity: null,
+    brand: null,
+    clientOpportunities: [],
+    stage: lead.current_stage,
     ...extra,
   };
 }

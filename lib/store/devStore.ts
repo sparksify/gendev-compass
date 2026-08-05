@@ -1274,5 +1274,11 @@ export function createDevStore(): PortalStore {
         return record;
       });
     },
+
+    async listFddWorkflows(organizationId) {
+      return (await readData()).opportunity_fdd_workflows.filter(
+        (w) => w.organization_id === organizationId,
+      );
+    },
   };
 }

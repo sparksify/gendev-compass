@@ -80,6 +80,41 @@ export async function requireStaffApi(): Promise<
 }
 
 /**
+ * API guard with the platform identity adapter applied:
+ * staff session → staff_user → profile → organization membership.
+ * Returns 401 when unauthenticated and 403 when the resolved membership is
+ * not active (e.g. a suspended organization member).
+ */
+export async function requireAdvisorContextApi(): Promise<
+  | { user: StaffUserRecord; context: import("@/lib/domain/memberships").AdvisorContext }
+  | { response: NextResponse }
+> {
+  const resolved = await requireStaffApi();
+  if ("response" in resolved) return resolved;
+  const { resolveAdvisorContext, isActiveMembership } = await import("@/lib/domain/memberships");
+  try {
+    const context = await resolveAdvisorContext(resolved.user);
+    if (!isActiveMembership(context.membership)) {
+      return {
+        response: NextResponse.json(
+          { success: false, error: "Membership is not active" },
+          { status: 403 },
+        ),
+      };
+    }
+    return { user: resolved.user, context };
+  } catch (error) {
+    console.error("[advisor/auth] context resolution failed:", error);
+    return {
+      response: NextResponse.json(
+        { success: false, error: "Authorization context unavailable" },
+        { status: 500 },
+      ),
+    };
+  }
+}
+
+/**
  * CSRF defence for mutating staff APIs, layered on the SameSite=Lax cookie:
  * cross-origin requests that do arrive must carry a matching Origin.
  */
