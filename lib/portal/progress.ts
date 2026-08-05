@@ -2,6 +2,7 @@ import { getStore } from "@/lib/store";
 import { getVideoCompletionThreshold } from "@/lib/config/qualification";
 import { statusRank } from "@/lib/store/types";
 import { trackEvent } from "@/lib/portal/events";
+import { autoAdvanceStage } from "@/lib/advisor/stages";
 import type { LeadRecord } from "@/types/lead";
 import type { VideoProgressRecord } from "@/types/portal";
 import type { PortalEventName } from "@/types/analytics";
@@ -91,8 +92,12 @@ export async function applyVideoProgress(
     last_playhead_position: update.currentTime,
     started: true,
     completed,
+    play_count: (existing?.play_count ?? 0) + (update.eventType === "play" ? 1 : 0),
+    first_played_at: existing?.first_played_at ?? now.toISOString(),
     last_event_at: now.toISOString(),
   });
+
+  await store.updateLead(lead.id, { last_activity_at: now.toISOString() });
 
   // First start: stamp the lead and fire the start event once.
   if (!existing?.started) {
@@ -104,6 +109,7 @@ export async function applyVideoProgress(
           : {}),
       });
     }
+    await autoAdvanceStage(lead, "ENGAGED", "portal");
     await trackEvent(lead, "video_started", { mediaId: update.mediaId ?? null });
   } else if (
     statusRank(lead.status) < statusRank("video_in_progress") &&

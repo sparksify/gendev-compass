@@ -54,12 +54,24 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const input = parsed.data;
   try {
-    const lead = await getStore().createLead({
+    const store = getStore();
+
+    // Duplicate guard: email is a matching aid, not a merge key. A repeat
+    // submission is logged for the team to reconcile — never auto-merged.
+    const existing = await store.getLeadByEmail(input.email);
+    if (existing) {
+      console.warn(
+        `[leads] duplicate email on lead creation: ${input.email} already belongs to lead ${existing.id}. Creating a separate record — reconcile manually.`,
+      );
+    }
+
+    const lead = await store.createLead({
       portal_token: generatePortalToken(),
       first_name: input.firstName,
       last_name: input.lastName,
       email: input.email,
       phone: input.phone ?? null,
+      state: input.state ?? null,
       source: input.source ?? null,
       campaign: input.campaign ?? null,
       ad_set: input.adSet ?? null,
@@ -70,7 +82,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       initial_business_owner: input.ownedBusinessBefore ?? null,
     });
 
-    await trackEvent(lead, "lead_created", { source: lead.source });
+    await trackEvent(lead, "lead_created", {
+      source: lead.source,
+      ...(existing ? { duplicateEmailOfLeadId: existing.id } : {}),
+    });
 
     return NextResponse.json({
       success: true,

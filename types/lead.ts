@@ -22,6 +22,7 @@ export interface LeadRecord {
   last_name: string;
   email: string;
   phone: string | null;
+  state: string | null;
   source: string | null;
   campaign: string | null;
   ad_set: string | null;
@@ -31,6 +32,10 @@ export interface LeadRecord {
   initial_net_worth: string | null;
   initial_business_owner: boolean | null;
   status: LeadStatus;
+  /** Advisor pipeline stage (types/advisor.ts InvestorStage). */
+  current_stage: string;
+  assigned_advisor_id: string | null;
+  last_activity_at: string | null;
   qualification_score: number | null;
   qualification_result: QualificationResultValue | null;
   qualification_reasons: string[] | null;
@@ -64,6 +69,7 @@ export interface CreateLeadInput {
   lastName: string;
   email: string;
   phone?: string;
+  state?: string;
   liquidCapital?: string;
   netWorth?: string;
   ownedBusinessBefore?: boolean;
