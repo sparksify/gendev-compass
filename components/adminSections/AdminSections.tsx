@@ -401,7 +401,7 @@ function ZipDataSection({ authHeaders }: { authHeaders: Record<string, string> }
     setDemoResult(null);
     let loaded = 0;
     let written = 0;
-    const everFailed = new Set<string>();
+    const everFailed = new Map<string, string>();
     try {
       // Each call loads as many uncovered states as fit in its time budget
       // and reports what's left (states are written to the database as
@@ -420,9 +420,13 @@ function ZipDataSection({ authHeaders }: { authHeaders: Record<string, string> }
         }
         loaded += data.loadedStates.length;
         written += data.written;
-        (data.failedStates ?? []).forEach((state: string) => everFailed.add(state));
+        const failedThisPass: string[] = data.failedStates ?? [];
+        const errors: Record<string, string> = data.failedStateErrors ?? {};
+        failedThisPass.forEach((state) => everFailed.set(state, errors[state] ?? "unknown error"));
         if (data.remainingStates.length === 0) {
-          const failedNote = everFailed.size ? ` (retry failed: ${[...everFailed].join(", ")})` : "";
+          const failedNote = everFailed.size
+            ? ` (retry failed: ${[...everFailed].map(([s, e]) => `${s} — ${e}`).join("; ")})`
+            : "";
           setDemoResult(
             loaded === 0
               ? "All states already covered — nothing to load."
@@ -430,7 +434,18 @@ function ZipDataSection({ authHeaders }: { authHeaders: Record<string, string> }
           );
           return;
         }
-        setDemoResult(`Loading… ${data.remainingStates.length} states remaining.`);
+        // Surfaced every pass, not just on final completion — a sync that
+        // never finishes should still tell you why, not just how much is
+        // left.
+        const failNote = failedThisPass.length
+          ? ` — ${failedThisPass.length} failed this pass: ${failedThisPass
+              .slice(0, 3)
+              .map((s) => `${s} (${errors[s] ?? "unknown error"})`)
+              .join(", ")}${failedThisPass.length > 3 ? ", …" : ""}`
+          : "";
+        setDemoResult(
+          `Loading… ${data.remainingStates.length} states remaining (${data.loadedStates.length} loaded this pass).${failNote}`,
+        );
       }
       setDemoResult("Stopped after 30 passes — click again to continue.");
     } catch (error) {
