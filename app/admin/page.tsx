@@ -43,17 +43,16 @@ function SlotCard({
   password: string;
   onUploaded: (asset: SiteAsset) => void;
 }) {
-  const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
   const isImage = slot.accept.some((type) => type.startsWith("image/"));
 
-  async function directUpload(): Promise<SiteAsset> {
+  async function directUpload(file: File): Promise<SiteAsset> {
     const form = new FormData();
     form.set("key", slot.key);
-    form.set("file", file as File);
+    form.set("file", file);
     const response = await fetch("/api/admin/assets", {
       method: "POST",
       headers: { "x-admin-password": password },
@@ -64,8 +63,8 @@ function SlotCard({
     return data.asset;
   }
 
-  async function upload() {
-    if (!file) return;
+  /** Uploads start the moment a file is chosen — no separate save step. */
+  async function upload(file: File) {
     if (file.size > slot.maxBytes) {
       setError(`File is too large (max ${Math.round(slot.maxBytes / (1024 * 1024))} MB).`);
       return;
@@ -124,11 +123,10 @@ function SlotCard({
         }
         asset = commit.asset;
       } else {
-        asset = await directUpload();
+        asset = await directUpload(file);
       }
 
       onUploaded(asset);
-      setFile(null);
       setDone(true);
     } catch (uploadError) {
       setError(
@@ -182,25 +180,22 @@ function SlotCard({
         <input
           type="file"
           accept={slot.accept.join(",")}
+          disabled={busy}
           onChange={(e) => {
-            setFile(e.target.files?.[0] ?? null);
-            setDone(false);
-            setError(null);
+            const selected = e.target.files?.[0];
+            e.target.value = "";
+            if (selected) void upload(selected);
           }}
-          className="text-xs text-gray-600 file:mr-3 file:rounded-lg file:border file:border-gray-300 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-gray-700 hover:file:bg-gray-50"
+          className="text-xs text-gray-600 file:mr-3 file:rounded-lg file:border file:border-gray-300 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-gray-700 hover:file:bg-gray-50 disabled:opacity-50"
         />
-        <button
-          type="button"
-          onClick={upload}
-          disabled={!file || busy}
-          className="rounded-lg bg-gray-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-gray-700 disabled:opacity-50"
-        >
-          {busy ? "Uploading…" : asset ? "Replace" : "Upload"}
-        </button>
-        {done && <span className="text-xs font-medium text-green-700">Saved ✓</span>}
+        {busy && <span className="text-xs font-medium text-gray-700">Uploading…</span>}
+        {done && !busy && <span className="text-xs font-semibold text-green-700">Saved ✓</span>}
       </div>
+      <p className="mt-2 text-[11px] text-gray-400">
+        Saves automatically when you choose a file.
+      </p>
       {error && (
-        <p className="mt-2 text-xs text-red-700" role="alert">
+        <p className="mt-2 rounded-lg border border-red-200 bg-red-50 p-2 text-xs font-medium text-red-800" role="alert">
           {error}
         </p>
       )}
