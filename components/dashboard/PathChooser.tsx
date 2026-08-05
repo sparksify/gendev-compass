@@ -44,11 +44,9 @@ export function PathChooser({ token, videoStarted, videoPercent }: PathChooserPr
                   Continue Learning <ArrowRight />
                 </Link>
               </Button>
-              {videoStarted && (
-                <p className="mt-2 text-center text-[11.5px] text-muted-foreground">
-                  Resume the investor overview at {videoPercent}%
-                </p>
-              )}
+              <p className="mt-2 min-h-[17px] text-center text-[11.5px] text-muted-foreground">
+                {videoStarted ? `Resume the investor overview at ${videoPercent}%` : " "}
+              </p>
             </div>
           </div>
 
@@ -70,7 +68,7 @@ export function PathChooser({ token, videoStarted, videoPercent }: PathChooserPr
                   Begin Qualification <ArrowRight />
                 </Link>
               </Button>
-              <p className="mt-2 text-center text-[11.5px] text-muted-foreground">
+              <p className="mt-2 min-h-[17px] text-center text-[11.5px] text-muted-foreground">
                 Takes about 3–5 minutes
               </p>
             </div>
