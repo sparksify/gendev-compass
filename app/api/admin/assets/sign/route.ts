@@ -1,15 +1,10 @@
 import { NextResponse } from "next/server";
-import { getAdminTestPassword, isProduction, isSupabaseConfigured } from "@/lib/config/env";
+import { authorizedAdminRequest } from "@/lib/advisor/adminAccess";
+import { isSupabaseConfigured } from "@/lib/config/env";
 import { createSignedAssetUpload, getAssetSlot } from "@/lib/assets";
 
 export const dynamic = "force-dynamic";
 
-function authorized(request: Request): boolean {
-  const adminPassword = getAdminTestPassword();
-  const provided = request.headers.get("x-admin-password");
-  if (adminPassword) return provided === adminPassword;
-  return !isProduction();
-}
 
 /**
  * Authorizes a direct-to-storage upload. The browser PUTs the file to the
@@ -18,7 +13,7 @@ function authorized(request: Request): boolean {
  * development) the client falls back to the direct multipart route.
  */
 export async function POST(request: Request): Promise<NextResponse> {
-  if (!authorized(request)) {
+  if (!(await authorizedAdminRequest(request))) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 

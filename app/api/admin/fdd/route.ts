@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
+import { authorizedAdminRequest } from "@/lib/advisor/adminAccess";
 import { z } from "zod";
-import { getAdminTestPassword, isProduction } from "@/lib/config/env";
 import { getStore } from "@/lib/store";
 import { isGhlConfigured, getFddWebhookSecret, getFddWaitingPeriodDays } from "@/lib/config/fdd";
 import { requestFdd, effectiveFddStatus } from "@/lib/fdd/workflow";
@@ -10,12 +10,6 @@ import type { LeadRecord } from "@/types/lead";
 export const dynamic = "force-dynamic";
 
 /** Same auth model as the asset admin: header password, required in production. */
-function authorized(request: Request): boolean {
-  const adminPassword = getAdminTestPassword();
-  const provided = request.headers.get("x-admin-password");
-  if (adminPassword) return provided === adminPassword;
-  return !isProduction();
-}
 
 function summarizeLead(lead: LeadRecord) {
   return {
@@ -42,7 +36,7 @@ function summarizeLead(lead: LeadRecord) {
  * and (with ?leadId=) the full audit timeline for one prospect.
  */
 export async function GET(request: Request): Promise<NextResponse> {
-  if (!authorized(request)) {
+  if (!(await authorizedAdminRequest(request))) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
@@ -82,7 +76,7 @@ const adminActionSchema = z.object({
  * for manual review. Every action lands in the audit log with the actor.
  */
 export async function POST(request: Request): Promise<NextResponse> {
-  if (!authorized(request)) {
+  if (!(await authorizedAdminRequest(request))) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
