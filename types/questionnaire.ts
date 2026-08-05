@@ -69,4 +69,6 @@ export interface QuestionnaireRecord {
   accuracy_confirmed: boolean;
   created_at: string;
   updated_at: string;
+  /** Platform domain link (nullable during the transition). */
+  opportunity_id: string | null;
 }

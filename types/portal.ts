@@ -12,6 +12,11 @@ export interface VideoProgressRecord {
   last_event_at: string | null;
   created_at: string;
   updated_at: string;
+  /** Platform domain links (nullable during the transition). */
+  organization_id: string | null;
+  client_id: string | null;
+  opportunity_id: string | null;
+  brand_id: string | null;
 }
 
 export type PortalRoute = "dashboard" | "overview" | "questionnaire" | "schedule" | "complete";

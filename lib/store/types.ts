@@ -12,6 +12,39 @@ import type {
   StaffSessionRecord,
   StaffUserRecord,
 } from "@/types/advisor";
+import type {
+  ActivityEventRecord,
+  BrandPatch,
+  BrandRecord,
+  ClientPatch,
+  ClientRecord,
+  CreateActivityEventInput,
+  CreateBrandInput,
+  CreateClientInput,
+  CreateFddWorkflowInput,
+  CreateIntegrationConnectionInput,
+  CreateMembershipInput,
+  CreateOpportunityAssignmentInput,
+  CreateOpportunityInput,
+  CreateOrganizationInput,
+  CreateProfileInput,
+  CreateTerritoryRequestInput,
+  ExternalEntityType,
+  ExternalProvider,
+  ExternalRecordMappingRecord,
+  FddWorkflowPatch,
+  IntegrationConnectionRecord,
+  OpportunityAssignmentRecord,
+  OpportunityFddWorkflowRecord,
+  OpportunityPatch,
+  OpportunityRecord,
+  OrganizationMembershipRecord,
+  OrganizationRecord,
+  ProfileRecord,
+  TerritoryRequestPatch,
+  TerritoryRequestRecord,
+  UpsertExternalMappingInput,
+} from "@/types/domain";
 
 export interface CreateLeadRecordInput {
   portal_token: string;
@@ -74,6 +107,10 @@ export type LeadPatch = Partial<
     | "fdd_request_source"
     | "fdd_last_error"
     | "fdd_retry_count"
+    | "organization_id"
+    | "client_id"
+    | "primary_opportunity_id"
+    | "brand_id"
   >
 >;
 
@@ -213,6 +250,84 @@ export interface PortalStore {
   listAppointments(): Promise<AppointmentRecord[]>;
 
   getEventsForLead(leadId: string): Promise<PortalEventRecord[]>;
+
+  // -------------------------------------------------------------------------
+  // Platform domain (organizations / clients / brands / opportunities).
+  // Additive: none of the legacy methods above change shape. Route handlers
+  // should not call these directly — go through lib/domain/* services.
+  // -------------------------------------------------------------------------
+  createOrganization(input: CreateOrganizationInput): Promise<OrganizationRecord>;
+  getOrganizationById(id: string): Promise<OrganizationRecord | null>;
+  getOrganizationBySlug(slug: string): Promise<OrganizationRecord | null>;
+
+  createProfile(input: CreateProfileInput): Promise<ProfileRecord>;
+  getProfileById(id: string): Promise<ProfileRecord | null>;
+  getProfileByLegacyStaffUserId(staffUserId: string): Promise<ProfileRecord | null>;
+  getProfileByEmail(email: string): Promise<ProfileRecord | null>;
+  listProfiles(): Promise<ProfileRecord[]>;
+
+  createMembership(input: CreateMembershipInput): Promise<OrganizationMembershipRecord>;
+  getMembership(organizationId: string, profileId: string): Promise<OrganizationMembershipRecord | null>;
+  listMembershipsForProfile(profileId: string): Promise<OrganizationMembershipRecord[]>;
+  listMembershipsForOrganization(organizationId: string): Promise<OrganizationMembershipRecord[]>;
+
+  createClient(input: CreateClientInput): Promise<ClientRecord>;
+  getClientById(id: string): Promise<ClientRecord | null>;
+  getClientBySourceLeadId(leadId: string): Promise<ClientRecord | null>;
+  updateClient(id: string, patch: ClientPatch): Promise<ClientRecord>;
+  listClients(organizationId: string): Promise<ClientRecord[]>;
+  /** Duplicate *candidates* by case-insensitive email — never auto-merged. */
+  findClientsByEmail(organizationId: string, email: string): Promise<ClientRecord[]>;
+
+  createBrand(input: CreateBrandInput): Promise<BrandRecord>;
+  getBrandById(id: string): Promise<BrandRecord | null>;
+  getBrandBySlug(organizationId: string, slug: string): Promise<BrandRecord | null>;
+  updateBrand(id: string, patch: BrandPatch): Promise<BrandRecord>;
+  listBrands(organizationId: string): Promise<BrandRecord[]>;
+
+  createOpportunity(input: CreateOpportunityInput): Promise<OpportunityRecord>;
+  getOpportunityById(id: string): Promise<OpportunityRecord | null>;
+  getOpportunityBySourceLeadId(leadId: string): Promise<OpportunityRecord | null>;
+  updateOpportunity(id: string, patch: OpportunityPatch): Promise<OpportunityRecord>;
+  listOpportunitiesForClient(clientId: string): Promise<OpportunityRecord[]>;
+  listOpportunities(organizationId: string): Promise<OpportunityRecord[]>;
+
+  createOpportunityAssignment(
+    input: CreateOpportunityAssignmentInput,
+  ): Promise<OpportunityAssignmentRecord>;
+  listAssignmentsForOpportunity(opportunityId: string): Promise<OpportunityAssignmentRecord[]>;
+
+  upsertExternalMapping(input: UpsertExternalMappingInput): Promise<ExternalRecordMappingRecord>;
+  getExternalMapping(
+    organizationId: string,
+    provider: ExternalProvider,
+    entityType: ExternalEntityType,
+    externalId: string,
+  ): Promise<ExternalRecordMappingRecord | null>;
+  listMappingsForEntity(internalEntityId: string): Promise<ExternalRecordMappingRecord[]>;
+
+  createIntegrationConnection(
+    input: CreateIntegrationConnectionInput,
+  ): Promise<IntegrationConnectionRecord>;
+  listIntegrationConnections(organizationId: string): Promise<IntegrationConnectionRecord[]>;
+
+  insertActivityEvent(input: CreateActivityEventInput): Promise<ActivityEventRecord | null>;
+  listActivityForOpportunity(opportunityId: string): Promise<ActivityEventRecord[]>;
+  listActivityForClient(clientId: string): Promise<ActivityEventRecord[]>;
+  hasActivityExternalEvent(
+    organizationId: string,
+    eventSource: string,
+    externalEventId: string,
+  ): Promise<boolean>;
+
+  createTerritoryRequest(input: CreateTerritoryRequestInput): Promise<TerritoryRequestRecord>;
+  getTerritoryRequestById(id: string): Promise<TerritoryRequestRecord | null>;
+  listTerritoryRequestsForOpportunity(opportunityId: string): Promise<TerritoryRequestRecord[]>;
+  updateTerritoryRequest(id: string, patch: TerritoryRequestPatch): Promise<TerritoryRequestRecord>;
+
+  createFddWorkflow(input: CreateFddWorkflowInput): Promise<OpportunityFddWorkflowRecord>;
+  getFddWorkflowByOpportunityId(opportunityId: string): Promise<OpportunityFddWorkflowRecord | null>;
+  updateFddWorkflow(id: string, patch: FddWorkflowPatch): Promise<OpportunityFddWorkflowRecord>;
 }
 
 /** Forward-only ordering used to avoid regressing a lead's status. */
