@@ -57,7 +57,7 @@ async function main() {
   if (!darko) {
     darko = await store.createStaffUser({
       first_name: "Darko",
-      last_name: "Advisor",
+      last_name: "Petrovic",
       email: advisorEmail,
       password_hash: hashPassword(advisorPassword),
       role: "ADVISOR",
