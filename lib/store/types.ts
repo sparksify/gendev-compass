@@ -12,6 +12,45 @@ import type {
   StaffSessionRecord,
   StaffUserRecord,
 } from "@/types/advisor";
+import type {
+  ActivityEventRecord,
+  ClientPatch,
+  ClientRecord,
+  CreateActivityEventInput,
+  CreateClientInput,
+  CreateFddWorkflowInput,
+  CreateIntegrationConnectionInput,
+  CreateMembershipInput,
+  CreateOpportunityAssignmentInput,
+  CreateOpportunityInput,
+  CreateOrganizationInput,
+  CreateProfileInput,
+  ExternalEntityType,
+  ExternalProvider,
+  ExternalRecordMappingRecord,
+  FddWorkflowPatch,
+  IntegrationConnectionRecord,
+  OpportunityAssignmentRecord,
+  OpportunityFddWorkflowRecord,
+  OpportunityPatch,
+  OpportunityRecord,
+  OrganizationMembershipRecord,
+  OrganizationRecord,
+  ProfileRecord,
+  UpsertExternalMappingInput,
+} from "@/types/domain";
+import type {
+  BrandStateEligibilityRecord,
+  FranchiseBrandRecord,
+  StateEligibilityStatus,
+  TerritoryDefinitionRecord,
+  TerritoryDefinitionType,
+  TerritoryReviewRequestRecord,
+  TerritorySearchRecord,
+  TerritoryStatus,
+  TerritoryZipCodeRecord,
+  ZipCodeReferenceRecord,
+} from "@/types/territory";
 
 export interface CreateLeadRecordInput {
   portal_token: string;
@@ -41,6 +80,8 @@ export interface CreateQuestionnaireInput {
   decision_criteria: string;
   decision_participants: string;
   accuracy_confirmed: boolean;
+  /** Platform domain link (optional during the transition). */
+  opportunity_id?: string | null;
 }
 
 export type LeadPatch = Partial<
@@ -74,6 +115,10 @@ export type LeadPatch = Partial<
     | "fdd_request_source"
     | "fdd_last_error"
     | "fdd_retry_count"
+    | "organization_id"
+    | "client_id"
+    | "primary_opportunity_id"
+    | "brand_id"
   >
 >;
 
@@ -89,6 +134,10 @@ export type VideoProgressPatch = Partial<
     | "play_count"
     | "first_played_at"
     | "last_event_at"
+    | "organization_id"
+    | "client_id"
+    | "opportunity_id"
+    | "brand_id"
   >
 >;
 
@@ -120,6 +169,11 @@ export interface CreateSubmissionInput {
     answer_value: string;
     answer_display_value: string;
   }>;
+  /** Platform domain links (optional during the transition). */
+  organization_id?: string | null;
+  client_id?: string | null;
+  opportunity_id?: string | null;
+  brand_id?: string | null;
 }
 
 export interface CreateAppointmentInput {
@@ -131,6 +185,11 @@ export interface CreateAppointmentInput {
   time_zone?: string | null;
   status?: AppointmentStatus;
   booking_url?: string | null;
+  /** Platform domain links (optional during the transition). */
+  organization_id?: string | null;
+  client_id?: string | null;
+  opportunity_id?: string | null;
+  advisor_profile_id?: string | null;
 }
 
 export type AppointmentPatch = Partial<
@@ -144,6 +203,96 @@ export type AppointmentPatch = Partial<
     | "status"
     | "booking_url"
   >
+>;
+
+// ---------------------------------------------------------------------------
+// Territory Advisor
+// ---------------------------------------------------------------------------
+
+export interface CreateFranchiseBrandInput {
+  slug: string;
+  name: string;
+  active?: boolean;
+  default_radius_miles?: number;
+  /** Platform domain link (optional during the transition). */
+  organization_id?: string | null;
+}
+
+export interface UpsertStateEligibilityInput {
+  brand_id: string;
+  state_code: string;
+  status: StateEligibilityStatus;
+  effective_date?: string | null;
+  expiration_date?: string | null;
+  notes_internal?: string | null;
+}
+
+export interface CreateTerritoryDefinitionInput {
+  brand_id: string;
+  territory_name: string;
+  territory_code?: string | null;
+  definition_type: TerritoryDefinitionType;
+  status?: TerritoryStatus;
+  center_latitude?: number | null;
+  center_longitude?: number | null;
+  radius_miles?: number | null;
+  public_display_level?: "hidden" | "generalized" | "exact";
+  internal_notes?: string | null;
+  awarded_at?: string | null;
+  reserved_until?: string | null;
+}
+
+export type TerritoryDefinitionPatch = Partial<
+  Pick<
+    TerritoryDefinitionRecord,
+    | "territory_name"
+    | "territory_code"
+    | "definition_type"
+    | "status"
+    | "center_latitude"
+    | "center_longitude"
+    | "radius_miles"
+    | "public_display_level"
+    | "internal_notes"
+    | "awarded_at"
+    | "reserved_until"
+  >
+>;
+
+export interface CreateTerritorySearchInput {
+  lead_id: string;
+  brand_id: string;
+  raw_query: string;
+  normalized_location?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  city?: string | null;
+  state_code?: string | null;
+  zip_code?: string | null;
+  radius_miles?: number | null;
+  result_status: TerritorySearchRecord["result_status"];
+  result_summary?: Record<string, unknown> | null;
+  /** Platform domain links (optional during the transition). */
+  organization_id?: string | null;
+  client_id?: string | null;
+  opportunity_id?: string | null;
+  matched_territory_count?: number;
+  request_manual_review?: boolean;
+}
+
+export interface CreateTerritoryReviewRequestInput {
+  lead_id: string;
+  brand_id: string;
+  territory_search_id?: string | null;
+  prospect_message?: string | null;
+  /** Platform domain links (optional during the transition). */
+  organization_id?: string | null;
+  client_id?: string | null;
+  opportunity_id?: string | null;
+}
+
+export type TerritoryReviewRequestPatch = Partial<
+  Pick<TerritoryReviewRequestRecord, "status" | "assigned_to" | "reviewed_at" | "internal_notes">
 >;
 
 export interface PortalStore {
@@ -203,7 +352,18 @@ export interface PortalStore {
   createSubmission(input: CreateSubmissionInput): Promise<QuestionnaireSubmissionWithAnswers>;
   getSubmissionsForLead(leadId: string): Promise<QuestionnaireSubmissionWithAnswers[]>;
 
-  createNote(leadId: string, staffUserId: string, note: string): Promise<AdvisorNoteRecord>;
+  createNote(
+    leadId: string,
+    staffUserId: string,
+    note: string,
+    links?: {
+      organization_id?: string | null;
+      client_id?: string | null;
+      /** Null with client_id set = intentionally client-level note. */
+      opportunity_id?: string | null;
+      author_profile_id?: string | null;
+    },
+  ): Promise<AdvisorNoteRecord>;
   getNotesForLead(leadId: string): Promise<AdvisorNoteRecord[]>;
 
   createAppointment(input: CreateAppointmentInput): Promise<AppointmentRecord>;
@@ -213,6 +373,119 @@ export interface PortalStore {
   listAppointments(): Promise<AppointmentRecord[]>;
 
   getEventsForLead(leadId: string): Promise<PortalEventRecord[]>;
+
+  // -------------------------------------------------------------------------
+  // Platform domain (organizations / clients / opportunities). Brands are
+  // the Territory Advisor's franchise_brands table (see below) — there is
+  // deliberately no second brand entity. Additive: none of the legacy
+  // methods above change shape. Route handlers should not call these
+  // directly — go through lib/domain/* services.
+  // -------------------------------------------------------------------------
+  createOrganization(input: CreateOrganizationInput): Promise<OrganizationRecord>;
+  getOrganizationById(id: string): Promise<OrganizationRecord | null>;
+  getOrganizationBySlug(slug: string): Promise<OrganizationRecord | null>;
+
+  createProfile(input: CreateProfileInput): Promise<ProfileRecord>;
+  getProfileById(id: string): Promise<ProfileRecord | null>;
+  getProfileByLegacyStaffUserId(staffUserId: string): Promise<ProfileRecord | null>;
+  getProfileByEmail(email: string): Promise<ProfileRecord | null>;
+  listProfiles(): Promise<ProfileRecord[]>;
+
+  createMembership(input: CreateMembershipInput): Promise<OrganizationMembershipRecord>;
+  getMembership(organizationId: string, profileId: string): Promise<OrganizationMembershipRecord | null>;
+  listMembershipsForProfile(profileId: string): Promise<OrganizationMembershipRecord[]>;
+  listMembershipsForOrganization(organizationId: string): Promise<OrganizationMembershipRecord[]>;
+
+  createClient(input: CreateClientInput): Promise<ClientRecord>;
+  getClientById(id: string): Promise<ClientRecord | null>;
+  getClientBySourceLeadId(leadId: string): Promise<ClientRecord | null>;
+  updateClient(id: string, patch: ClientPatch): Promise<ClientRecord>;
+  listClients(organizationId: string): Promise<ClientRecord[]>;
+  /** Duplicate *candidates* by case-insensitive email — never auto-merged. */
+  findClientsByEmail(organizationId: string, email: string): Promise<ClientRecord[]>;
+
+  createOpportunity(input: CreateOpportunityInput): Promise<OpportunityRecord>;
+  getOpportunityById(id: string): Promise<OpportunityRecord | null>;
+  getOpportunityBySourceLeadId(leadId: string): Promise<OpportunityRecord | null>;
+  updateOpportunity(id: string, patch: OpportunityPatch): Promise<OpportunityRecord>;
+  listOpportunitiesForClient(clientId: string): Promise<OpportunityRecord[]>;
+  listOpportunities(organizationId: string): Promise<OpportunityRecord[]>;
+
+  createOpportunityAssignment(
+    input: CreateOpportunityAssignmentInput,
+  ): Promise<OpportunityAssignmentRecord>;
+  listAssignmentsForOpportunity(opportunityId: string): Promise<OpportunityAssignmentRecord[]>;
+
+  upsertExternalMapping(input: UpsertExternalMappingInput): Promise<ExternalRecordMappingRecord>;
+  getExternalMapping(
+    organizationId: string,
+    provider: ExternalProvider,
+    entityType: ExternalEntityType,
+    externalId: string,
+  ): Promise<ExternalRecordMappingRecord | null>;
+  listMappingsForEntity(internalEntityId: string): Promise<ExternalRecordMappingRecord[]>;
+
+  createIntegrationConnection(
+    input: CreateIntegrationConnectionInput,
+  ): Promise<IntegrationConnectionRecord>;
+  listIntegrationConnections(organizationId: string): Promise<IntegrationConnectionRecord[]>;
+
+  insertActivityEvent(input: CreateActivityEventInput): Promise<ActivityEventRecord | null>;
+  listActivityForOpportunity(opportunityId: string): Promise<ActivityEventRecord[]>;
+  listActivityForClient(clientId: string): Promise<ActivityEventRecord[]>;
+  hasActivityExternalEvent(
+    organizationId: string,
+    eventSource: string,
+    externalEventId: string,
+  ): Promise<boolean>;
+
+  createFddWorkflow(input: CreateFddWorkflowInput): Promise<OpportunityFddWorkflowRecord>;
+  getFddWorkflowByOpportunityId(opportunityId: string): Promise<OpportunityFddWorkflowRecord | null>;
+  updateFddWorkflow(id: string, patch: FddWorkflowPatch): Promise<OpportunityFddWorkflowRecord>;
+  listFddWorkflows(organizationId: string): Promise<OpportunityFddWorkflowRecord[]>;
+
+  // -------------------------------------------------------------------------
+  // Territory Advisor. Same simplicity trade as the advisor backend above:
+  // list methods return full (brand-scoped, where applicable) sets and
+  // callers filter/compute in application code — datasets stay small at
+  // pilot scale and this keeps the Supabase and dev stores identical.
+  // -------------------------------------------------------------------------
+  getBrandBySlug(slug: string): Promise<FranchiseBrandRecord | null>;
+  getBrandById(id: string): Promise<FranchiseBrandRecord | null>;
+  listBrands(): Promise<FranchiseBrandRecord[]>;
+  createBrand(input: CreateFranchiseBrandInput): Promise<FranchiseBrandRecord>;
+
+  getStateEligibility(brandId: string, stateCode: string): Promise<BrandStateEligibilityRecord | null>;
+  listStateEligibility(brandId: string): Promise<BrandStateEligibilityRecord[]>;
+  upsertStateEligibility(input: UpsertStateEligibilityInput): Promise<BrandStateEligibilityRecord>;
+
+  listTerritoryDefinitions(brandId: string): Promise<TerritoryDefinitionRecord[]>;
+  getTerritoryDefinition(id: string): Promise<TerritoryDefinitionRecord | null>;
+  createTerritoryDefinition(input: CreateTerritoryDefinitionInput): Promise<TerritoryDefinitionRecord>;
+  updateTerritoryDefinition(id: string, patch: TerritoryDefinitionPatch): Promise<TerritoryDefinitionRecord>;
+
+  listZipCodesForTerritory(territoryDefinitionId: string): Promise<TerritoryZipCodeRecord[]>;
+  /** Bulk insert; silently skips zip codes already attached to this territory. */
+  addTerritoryZipCodes(territoryDefinitionId: string, zipCodes: string[]): Promise<TerritoryZipCodeRecord[]>;
+  removeTerritoryZipCode(id: string): Promise<void>;
+
+  getZipCodeReference(zipCode: string): Promise<ZipCodeReferenceRecord | null>;
+  listZipCodeReferences(): Promise<ZipCodeReferenceRecord[]>;
+  upsertZipCodeReferences(rows: ZipCodeReferenceRecord[]): Promise<void>;
+
+  createTerritorySearch(input: CreateTerritorySearchInput): Promise<TerritorySearchRecord>;
+  getTerritorySearch(id: string): Promise<TerritorySearchRecord | null>;
+  listTerritorySearchesForLead(leadId: string): Promise<TerritorySearchRecord[]>;
+  listTerritorySearches(): Promise<TerritorySearchRecord[]>;
+
+  createTerritoryReviewRequest(input: CreateTerritoryReviewRequestInput): Promise<TerritoryReviewRequestRecord>;
+  getTerritoryReviewRequest(id: string): Promise<TerritoryReviewRequestRecord | null>;
+  listTerritoryReviewRequestsForLead(leadId: string): Promise<TerritoryReviewRequestRecord[]>;
+  listTerritoryReviewRequests(): Promise<TerritoryReviewRequestRecord[]>;
+  updateTerritoryReviewRequest(
+    id: string,
+    patch: TerritoryReviewRequestPatch,
+  ): Promise<TerritoryReviewRequestRecord>;
 }
 
 /** Forward-only ordering used to avoid regressing a lead's status. */

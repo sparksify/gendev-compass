@@ -62,6 +62,14 @@ export interface LeadRecord {
   fdd_request_source: string | null;
   fdd_last_error: string | null;
   fdd_retry_count: number;
+  /**
+   * Platform domain links (nullable during the transition; repaired on
+   * demand by ensureLeadDomainChain when missing).
+   */
+  organization_id: string | null;
+  client_id: string | null;
+  primary_opportunity_id: string | null;
+  brand_id: string | null;
 }
 
 export interface CreateLeadInput {

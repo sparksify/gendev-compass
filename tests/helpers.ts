@@ -53,6 +53,10 @@ export function makeLead(overrides: Partial<LeadRecord> = {}): LeadRecord {
     fdd_request_source: null,
     fdd_last_error: null,
     fdd_retry_count: 0,
+    organization_id: null,
+    client_id: null,
+    primary_opportunity_id: null,
+    brand_id: null,
     ...overrides,
   };
 }
@@ -72,6 +76,10 @@ export function makeAppointment(overrides: Partial<AppointmentRecord> = {}): App
     booking_url: null,
     created_at: now,
     updated_at: now,
+    organization_id: null,
+    client_id: null,
+    opportunity_id: null,
+    advisor_profile_id: null,
     ...overrides,
   };
 }
@@ -93,6 +101,10 @@ export function makeVideo(overrides: Partial<VideoProgressRecord> = {}): VideoPr
     last_event_at: null,
     created_at: now,
     updated_at: now,
+    organization_id: null,
+    client_id: null,
+    opportunity_id: null,
+    brand_id: null,
     ...overrides,
   };
 }

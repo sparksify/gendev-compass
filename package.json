@@ -11,6 +11,7 @@
     "seed": "tsx scripts/seed.ts",
     "seed:reset": "tsx scripts/seed.ts --reset",
     "seed:advisor": "tsx scripts/seed-advisor.ts",
+    "seed:territory": "tsx scripts/seed-territory.ts",
     "test": "vitest run"
   },
   "dependencies": {

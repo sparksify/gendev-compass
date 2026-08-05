@@ -14,7 +14,10 @@ import {
   formatWatchTime,
 } from "@/lib/advisor/format";
 import { effectiveFddStatus, FDD_STATUS_LABELS } from "@/lib/fdd/status";
+import { resolveClientFromLead } from "@/lib/domain/clients";
+import { listOpportunitiesForClient } from "@/lib/domain/opportunities";
 import { getAppUrl } from "@/lib/config/env";
+import type { BrandRecord, ClientRecord, OpportunityRecord } from "@/types/domain";
 import { StageBadge } from "@/components/advisor/StageBadge";
 import { StageSelect } from "@/components/advisor/StageSelect";
 import { AssignAdvisorSelect } from "@/components/advisor/AssignAdvisorSelect";
@@ -58,6 +61,27 @@ export default async function InvestorDetailPage({
       store.getEventsForLead(lead.id),
       store.listStaffUsers(),
     ]);
+
+  // Platform domain: the client record and ALL of their opportunities (a
+  // client may pursue multiple brands). Failure falls back to lead-only view.
+  let client: ClientRecord | null = null;
+  let clientOpportunities: OpportunityRecord[] = [];
+  let brandById = new Map<string, BrandRecord>();
+  try {
+    client = await resolveClientFromLead(lead);
+    if (client) {
+      clientOpportunities = await listOpportunitiesForClient(client.id);
+      const brands = await store.listBrands();
+      brandById = new Map(brands.map((b) => [b.id, b]));
+    }
+  } catch (error) {
+    console.error("[advisor] client/opportunity resolution failed:", error);
+  }
+  const primaryOpportunity =
+    clientOpportunities.find((o) => o.id === lead.primary_opportunity_id) ??
+    clientOpportunities.find((o) => o.source_lead_id === lead.id) ??
+    null;
+  const primaryBrand = primaryOpportunity ? brandById.get(primaryOpportunity.brand_id) : null;
 
   const staffById = new Map(staff.map((s) => [s.id, s]));
   const advisor = lead.assigned_advisor_id ? staffById.get(lead.assigned_advisor_id) : null;
@@ -111,6 +135,15 @@ export default async function InvestorDetailPage({
             </div>
             <div className="grid gap-3 text-sm sm:grid-cols-2">
               <Field label="Assigned advisor" value={advisor ? `${advisor.first_name} ${advisor.last_name}` : "Unassigned"} />
+              {primaryBrand && <Field label="Brand" value={primaryBrand.name} />}
+              {clientOpportunities.length > 1 && (
+                <Field
+                  label="Opportunities"
+                  value={clientOpportunities
+                    .map((o) => brandById.get(o.brand_id)?.name ?? "Unknown brand")
+                    .join(", ")}
+                />
+              )}
               <Field label="Last activity" value={formatRelative(lead.last_activity_at ?? lead.created_at)} />
               <Field
                 label="Next consultation"

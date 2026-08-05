@@ -1,5 +1,6 @@
 import type { LeadRecord } from "@/types/lead";
 import type { FddStatus } from "@/types/fdd";
+import type { OpportunityFddWorkflowRecord } from "@/types/domain";
 
 /**
  * The FDD status to display right now. `eligible_for_agreement` is derived
@@ -16,6 +17,21 @@ export function effectiveFddStatus(lead: LeadRecord, now: Date = new Date()): Fd
     return "eligible_for_agreement";
   }
   return lead.fdd_status;
+}
+
+/** Opportunity-workflow variant of effectiveFddStatus (same derivation). */
+export function effectiveWorkflowStatus(
+  workflow: OpportunityFddWorkflowRecord,
+  now: Date = new Date(),
+): FddStatus {
+  if (
+    (workflow.status === "waiting_period_active" || workflow.status === "fdd_received") &&
+    workflow.eligible_at &&
+    now.getTime() >= new Date(workflow.eligible_at).getTime()
+  ) {
+    return "eligible_for_agreement";
+  }
+  return workflow.status;
 }
 
 /** Prospect-facing snapshot of the FDD workflow for the portal's FDD card. */

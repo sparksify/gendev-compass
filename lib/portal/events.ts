@@ -1,12 +1,13 @@
-import { getStore } from "@/lib/store";
 import { hashToken } from "@/lib/portal/tokens";
+import { recordLeadEvent } from "@/lib/domain/activities";
 import type { LeadRecord } from "@/types/lead";
 import type { PortalEventName } from "@/types/analytics";
 
 /**
- * Records a funnel event in the portal_events table and, when configured,
- * forwards a copy to PostHog. Both are fire-safe: analytics failures must
- * never break the prospect's flow (spec §5, §19).
+ * Records a funnel event (portal_events + activity_events via the central
+ * activity service) and, when configured, forwards a copy to PostHog. All
+ * writes are fire-safe: analytics failures must never break the prospect's
+ * flow (spec §5, §19).
  *
  * Detailed financial answers stay in Supabase — only coarse metadata is
  * ever sent to third-party analytics.
@@ -24,7 +25,7 @@ export async function trackEvent(
   };
 
   try {
-    await getStore().insertEvent(lead.id, eventName, safeData, pageUrl);
+    await recordLeadEvent(lead, eventName, safeData, pageUrl, { source: "portal" });
   } catch (error) {
     console.error(`[events] failed to store ${eventName}:`, error);
   }

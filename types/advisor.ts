@@ -83,6 +83,11 @@ export interface AppointmentRecord {
   booking_url: string | null;
   created_at: string;
   updated_at: string;
+  /** Platform domain links (nullable during the transition). */
+  organization_id: string | null;
+  client_id: string | null;
+  opportunity_id: string | null;
+  advisor_profile_id: string | null;
 }
 
 export interface AdvisorNoteRecord {
@@ -92,6 +97,14 @@ export interface AdvisorNoteRecord {
   note: string;
   created_at: string;
   updated_at: string;
+  /**
+   * Platform domain links (nullable during the transition). A note with a
+   * client_id but a null opportunity_id is intentionally client-level.
+   */
+  organization_id: string | null;
+  client_id: string | null;
+  opportunity_id: string | null;
+  author_profile_id: string | null;
 }
 
 export interface QuestionnaireSubmissionRecord {
@@ -100,6 +113,11 @@ export interface QuestionnaireSubmissionRecord {
   questionnaire_version: string;
   submitted_at: string;
   created_at: string;
+  /** Platform domain links (nullable during the transition). */
+  organization_id: string | null;
+  client_id: string | null;
+  opportunity_id: string | null;
+  brand_id: string | null;
 }
 
 export interface QuestionnaireAnswerRecord {

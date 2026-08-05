@@ -7,6 +7,8 @@ import { evaluateQualification } from "@/lib/portal/qualification";
 import { questionnaireSchema } from "@/lib/validation/questionnaire";
 import { autoAdvanceStage } from "@/lib/advisor/stages";
 import { buildAnswerSnapshot, QUESTIONNAIRE_VERSION } from "@/lib/advisor/questionnaireCatalog";
+import { ensureLeadDomainChain, type LeadDomainChain } from "@/lib/domain/chain";
+import { syncPrimaryOpportunityQualification } from "@/lib/domain/opportunities";
 import type { QuestionnaireInput } from "@/types/questionnaire";
 
 export const dynamic = "force-dynamic";
@@ -63,6 +65,15 @@ export async function POST(
   const answers = parsed.data as QuestionnaireInput;
   const now = new Date().toISOString();
 
+  // Attach the submission to the lead's opportunity chain (repairing it on
+  // demand); a chain failure never blocks the prospect.
+  let chain: LeadDomainChain | null = null;
+  try {
+    chain = await ensureLeadDomainChain(lead);
+  } catch (error) {
+    console.error(`[questionnaire] chain resolution failed for lead ${lead.id}:`, error);
+  }
+
   try {
     await store.createQuestionnaire({
       lead_id: lead.id,
@@ -75,11 +86,12 @@ export async function POST(
       decision_criteria: answers.decisionCriteria,
       decision_participants: answers.decisionParticipants,
       accuracy_confirmed: answers.accuracyConfirmed,
+      opportunity_id: chain?.opportunity.id ?? null,
     });
 
     const qualification = evaluateQualification(lead, answers, videoCompleted);
 
-    await store.updateLead(lead.id, {
+    const updatedLead = await store.updateLead(lead.id, {
       questionnaire_started_at: lead.questionnaire_started_at ?? now,
       questionnaire_completed_at: now,
       qualification_score: qualification.score,
@@ -91,6 +103,7 @@ export async function POST(
         ? { status: qualification.result }
         : {}),
     });
+    await syncPrimaryOpportunityQualification(updatedLead);
 
     // Immutable, versioned snapshot for the advisor backend: exactly what
     // was asked and answered, preserved even if wording changes later.
@@ -99,6 +112,10 @@ export async function POST(
       questionnaire_version: QUESTIONNAIRE_VERSION,
       submitted_at: now,
       answers: buildAnswerSnapshot(answers),
+      organization_id: chain?.organization.id ?? null,
+      client_id: chain?.client.id ?? null,
+      opportunity_id: chain?.opportunity.id ?? null,
+      brand_id: chain?.brand.id ?? null,
     });
 
     await autoAdvanceStage(lead, "QUESTIONNAIRE_COMPLETED", "portal");

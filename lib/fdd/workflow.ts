@@ -4,6 +4,8 @@ import { trackEvent } from "@/lib/portal/events";
 import { getFddWaitingPeriodDays } from "@/lib/config/fdd";
 import { dispatchFddRequest } from "@/lib/fdd/ghl";
 import { autoAdvanceStage } from "@/lib/advisor/stages";
+import { ensureLeadDomainChain, type LeadDomainChain } from "@/lib/domain/chain";
+import { syncFddWorkflowFromLead } from "@/lib/domain/fddWorkflows";
 import type { LeadRecord } from "@/types/lead";
 import type { FddStatus } from "@/types/fdd";
 import type { LeadPatch } from "@/lib/store/types";
@@ -22,9 +24,61 @@ export interface FddActionContext {
   ip?: string | null;
 }
 
-/** Idempotency key: the same prospect can never trigger two document sends. */
-export function fddIdempotencyKey(lead: LeadRecord): string {
-  return `fdd_request:${lead.id}`;
+/**
+ * Idempotency key, scoped to the OPPORTUNITY (not the client/lead): the same
+ * journey can never trigger two document sends, while the same client may
+ * legitimately request separate FDDs for separate brand opportunities.
+ * Falls back to the lead ID when the chain is unavailable — equivalent for
+ * every pre-platform lead, whose primary opportunity is 1:1 with it.
+ */
+export function fddIdempotencyKey(lead: LeadRecord, opportunityId?: string | null): string {
+  return opportunityId ? `fdd_request:opp:${opportunityId}` : `fdd_request:${lead.id}`;
+}
+
+/**
+ * Resolves the lead's domain chain for FDD linkage. Never throws: the FDD
+ * flow must keep working even if chain resolution fails — audit rows simply
+ * carry null links in that case.
+ */
+async function resolveChainSafe(lead: LeadRecord): Promise<LeadDomainChain | null> {
+  try {
+    return await ensureLeadDomainChain(lead);
+  } catch (error) {
+    console.error(`[fdd] domain chain resolution failed for lead ${lead.id}:`, error);
+    return null;
+  }
+}
+
+interface FddAuditLinks {
+  organization_id: string | null;
+  opportunity_id: string | null;
+  fdd_workflow_id: string | null;
+}
+
+/**
+ * Projects the lead's updated fdd_* state onto the opportunity workflow and
+ * returns the audit link IDs. Sync failures are logged, never fatal.
+ */
+async function syncWorkflow(
+  chain: LeadDomainChain | null,
+  lead: LeadRecord,
+): Promise<FddAuditLinks> {
+  if (!chain) return { organization_id: null, opportunity_id: null, fdd_workflow_id: null };
+  try {
+    const workflow = await syncFddWorkflowFromLead({ ...chain, lead });
+    return {
+      organization_id: chain.organization.id,
+      opportunity_id: chain.opportunity.id,
+      fdd_workflow_id: workflow?.id ?? null,
+    };
+  } catch (error) {
+    console.error(`[fdd] workflow sync failed for lead ${lead.id}:`, error);
+    return {
+      organization_id: chain.organization.id,
+      opportunity_id: chain.opportunity.id,
+      fdd_workflow_id: null,
+    };
+  }
 }
 
 export function computeFddEligibleAt(receivedAtIso: string): string {
@@ -54,6 +108,11 @@ export async function requestFdd(
   options: { force?: boolean } = {},
 ): Promise<RequestFddResult> {
   const store = getStore();
+
+  // Resolve the opportunity chain first: idempotency, workflow state, and
+  // audit linkage are all opportunity-scoped.
+  const chain = await resolveChainSafe(lead);
+  if (chain) lead = chain.lead;
 
   // Duplicate clicks and replays: an in-flight or completed request is never
   // re-dispatched unless an authorized user explicitly resends it.
@@ -85,8 +144,10 @@ export async function requestFdd(
       : {}),
   };
   let updated = await store.updateLead(lead.id, requestPatch);
+  let links = await syncWorkflow(chain, updated);
 
   await store.insertFddAudit({
+    ...links,
     lead_id: lead.id,
     event: isRetry ? "fdd_request_retried" : "fdd_requested",
     source: context.source,
@@ -108,14 +169,19 @@ export async function requestFdd(
   });
   await trackEvent(updated, "fdd_requested", { source: context.source, retry: isRetry });
 
-  const dispatch = await dispatchFddRequest(updated, fddIdempotencyKey(updated));
+  const dispatch = await dispatchFddRequest(
+    updated,
+    fddIdempotencyKey(updated, chain?.opportunity.id ?? null),
+  );
 
   if (!dispatch.ok) {
     updated = await store.updateLead(lead.id, {
       fdd_status: "error_manual_review",
       fdd_last_error: dispatch.error,
     });
+    links = await syncWorkflow(chain, updated);
     await store.insertFddAudit({
+      ...links,
       lead_id: lead.id,
       event: "fdd_request_dispatch_failed",
       source: context.source,
@@ -129,6 +195,7 @@ export async function requestFdd(
   }
 
   await store.insertFddAudit({
+    ...links,
     lead_id: lead.id,
     event: "fdd_request_accepted_by_ghl",
     source: context.source,
@@ -144,9 +211,11 @@ export async function requestFdd(
   };
   if (Object.keys(acceptedPatch).length > 0) {
     updated = await store.updateLead(lead.id, acceptedPatch);
+    links = await syncWorkflow(chain, updated);
   }
   if (dispatch.confirmedSent) {
     await store.insertFddAudit({
+      ...links,
       lead_id: lead.id,
       event: "fdd_sent",
       source: dispatch.mode,
@@ -159,6 +228,7 @@ export async function requestFdd(
   }
 
   await store.insertFddAudit({
+    ...links,
     lead_id: lead.id,
     event: "fdd_advisor_notified",
     source: context.source,
@@ -218,17 +288,22 @@ export async function applyFddProviderEvent(
     return { ok: false, duplicate: false, httpStatus: 404, error: "Unknown prospect or envelope" };
   }
 
+  const chain = await resolveChainSafe(lead);
+  if (chain) lead = chain.lead;
+
   // Envelope mismatch: never silently reassign a signed document.
   if (
     payload.envelope_id &&
     lead.fdd_provider_envelope_id &&
     lead.fdd_provider_envelope_id !== payload.envelope_id
   ) {
-    await store.updateLead(lead.id, {
+    const mismatched = await store.updateLead(lead.id, {
       fdd_status: "error_manual_review",
       fdd_last_error: `Envelope mismatch: expected ${lead.fdd_provider_envelope_id}, received ${payload.envelope_id}`,
     });
+    const mismatchLinks = await syncWorkflow(chain, mismatched);
     await store.insertFddAudit({
+      ...mismatchLinks,
       lead_id: lead.id,
       event: "fdd_envelope_mismatch",
       source: "webhook",
@@ -272,8 +347,10 @@ export async function applyFddProviderEvent(
   }
 
   const updated = await store.updateLead(lead.id, patch);
+  const links = await syncWorkflow(chain, updated);
 
   await store.insertFddAudit({
+    ...links,
     lead_id: lead.id,
     event: payload.event,
     source: "webhook",
@@ -298,6 +375,7 @@ export async function applyFddProviderEvent(
 
   if (payload.event === "fdd_received" && patch.fdd_received_at) {
     await store.insertFddAudit({
+      ...links,
       lead_id: lead.id,
       event: "fdd_waiting_period_started",
       source: "webhook",
@@ -312,6 +390,7 @@ export async function applyFddProviderEvent(
     });
 
     await store.insertFddAudit({
+      ...links,
       lead_id: lead.id,
       event: "fdd_advisor_notified",
       source: "webhook",

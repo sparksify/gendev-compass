@@ -95,6 +95,12 @@ export async function applyVideoProgress(
     play_count: (existing?.play_count ?? 0) + (update.eventType === "play" ? 1 : 0),
     first_played_at: existing?.first_played_at ?? now.toISOString(),
     last_event_at: now.toISOString(),
+    // Platform links from the lead (set by the portal-context chain repair);
+    // engagement is opportunity- and brand-specific going forward.
+    ...(lead.organization_id ? { organization_id: lead.organization_id } : {}),
+    ...(lead.client_id ? { client_id: lead.client_id } : {}),
+    ...(lead.primary_opportunity_id ? { opportunity_id: lead.primary_opportunity_id } : {}),
+    ...(lead.brand_id ? { brand_id: lead.brand_id } : {}),
   });
 
   await store.updateLead(lead.id, { last_activity_at: now.toISOString() });

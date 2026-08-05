@@ -3,6 +3,9 @@ import { z } from "zod";
 import { getStore } from "@/lib/store";
 import { requireStaffAndLead } from "@/lib/advisor/api";
 import { isAdmin } from "@/lib/advisor/access";
+import { recordLeadEvent } from "@/lib/domain/activities";
+import { resolveAdvisorContext } from "@/lib/domain/memberships";
+import { assignAdvisorToOpportunity, resolvePrimaryOpportunity } from "@/lib/domain/opportunities";
 
 export const dynamic = "force-dynamic";
 
@@ -32,17 +35,34 @@ export async function PATCH(
 
   const store = getStore();
   const advisorId = parsed.data.advisorId;
+  let advisor = null;
   if (advisorId) {
-    const advisor = await store.getStaffUserById(advisorId);
+    advisor = await store.getStaffUserById(advisorId);
     if (!advisor || !advisor.active) {
       return NextResponse.json({ success: false, error: "Unknown advisor" }, { status: 400 });
     }
   }
 
   try {
-    await store.updateLead(lead.id, { assigned_advisor_id: advisorId });
-    await store.insertEvent(
-      lead.id,
+    const updatedLead = await store.updateLead(lead.id, { assigned_advisor_id: advisorId });
+
+    // Project the assignment onto the primary opportunity (profile +
+    // membership + assignment row). Failure is logged, never fatal — the
+    // legacy lead column above is what the dashboard reads today.
+    try {
+      const opportunity = await resolvePrimaryOpportunity(updatedLead);
+      if (opportunity) {
+        const membership = advisor
+          ? (await resolveAdvisorContext(advisor)).membership
+          : null;
+        await assignAdvisorToOpportunity(opportunity, membership);
+      }
+    } catch (syncError) {
+      console.error("[advisor/assign] opportunity sync failed:", syncError);
+    }
+
+    await recordLeadEvent(
+      updatedLead,
       "advisor_assigned",
       { previousAdvisorId: lead.assigned_advisor_id, advisorId },
       null,

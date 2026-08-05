@@ -9,13 +9,16 @@ const LINKS = [
   { href: "/advisor/investors", label: "Clients" },
 ];
 
+const ADMIN_LINKS = [{ href: "/advisor/territories", label: "Territories" }];
+
 /** Header nav with an active-route highlight. Client component only for usePathname. */
-export function AdvisorNav() {
+export function AdvisorNav({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
+  const links = isAdmin ? [...LINKS, ...ADMIN_LINKS] : LINKS;
 
   return (
     <nav className="flex items-center gap-1" aria-label="Main">
-      {LINKS.map((link) => {
+      {links.map((link) => {
         const active =
           link.href === "/advisor" ? pathname === "/advisor" : pathname?.startsWith(link.href);
         return (

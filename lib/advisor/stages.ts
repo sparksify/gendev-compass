@@ -1,4 +1,9 @@
 import { getStore } from "@/lib/store";
+import { recordLeadEvent } from "@/lib/domain/activities";
+import {
+  syncPrimaryOpportunityActivity,
+  syncPrimaryOpportunityStage,
+} from "@/lib/domain/opportunities";
 import { INVESTOR_STAGES, STAGE_LABELS, type InvestorStage } from "@/types/advisor";
 import type { LeadRecord } from "@/types/lead";
 
@@ -41,9 +46,10 @@ export async function autoAdvanceStage(
   if (stageRank(target) <= stageRank(current)) return;
 
   const store = getStore();
-  await store.updateLead(lead.id, { current_stage: target });
-  await store.insertEvent(
-    lead.id,
+  const updated = await store.updateLead(lead.id, { current_stage: target });
+  await syncPrimaryOpportunityStage(updated, target);
+  await recordLeadEvent(
+    updated,
     "stage_changed",
     { oldStage: current, newStage: target, automatic: true },
     null,
@@ -63,9 +69,10 @@ export async function setStageManually(
 ): Promise<void> {
   if (lead.current_stage === target) return;
   const store = getStore();
-  await store.updateLead(lead.id, { current_stage: target });
-  await store.insertEvent(
-    lead.id,
+  const updated = await store.updateLead(lead.id, { current_stage: target });
+  await syncPrimaryOpportunityStage(updated, target);
+  await recordLeadEvent(
+    updated,
     "stage_changed",
     { oldStage: lead.current_stage, newStage: target, automatic: false },
     null,
@@ -75,5 +82,6 @@ export async function setStageManually(
 
 /** Stamps last_activity_at; call whenever the investor does something. */
 export async function touchActivity(leadId: string, at: string = new Date().toISOString()): Promise<void> {
-  await getStore().updateLead(leadId, { last_activity_at: at });
+  const updated = await getStore().updateLead(leadId, { last_activity_at: at });
+  await syncPrimaryOpportunityActivity(updated, at);
 }

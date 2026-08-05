@@ -74,16 +74,45 @@ refuses on the production deployment.
 ## Supabase setup
 
 1. Create a Supabase project.
-2. Apply the migration in `supabase/migrations/0001_initial_schema.sql`:
+2. Apply **all** migrations in `supabase/migrations/` in order
+   (`0001` … `0007`):
    - with the CLI: `supabase link --project-ref <ref> && supabase db push`
-   - or paste the file into the Supabase SQL editor.
+   - or paste each file into the Supabase SQL editor, in filename order.
+
+   `0005_territory_advisor.sql` adds the Territory Advisor feature
+   (franchise_brands, territory data). `0006_platform_domain.sql` adds the
+   multi-organization platform tables (organizations, profiles,
+   memberships, clients, opportunities, …) — reusing franchise_brands as
+   THE brand entity — and `0007_platform_backfill.sql` connects every
+   existing lead to them. All are additive and safe to re-run; nothing is
+   dropped or renamed. `scripts/test-migrations.sh` verifies the full
+   sequence (including a double application) against a throwaway local
+   PostgreSQL cluster.
 3. Set in `.env.local` (and in Vercel for production):
    - `SUPABASE_URL` — the project URL
    - `SUPABASE_SERVICE_ROLE_KEY` — **server-only**, never exposed to the browser
    - `SUPABASE_ANON_KEY` — reserved for future client features (unused today)
+4. The default portal brand is the CMDT row in `franchise_brands`
+   (slug `cmdt`, seeded by `0005`); override with `DEFAULT_BRAND_SLUG` if a
+   different brand should own new portal links.
 
-All tables have row-level security enabled with no policies (deny-all); only
-the server's service-role client can read or write.
+All tables have row-level security enabled; the browser has no direct
+access (the membership-scoped read policies added in `0006` only activate
+with future Supabase Auth). Only the server's service-role client can read
+or write today.
+
+## Platform domain architecture
+
+The app is transitioning from "one lead = one journey" to a
+multi-organization, multi-brand model where one client can hold several
+brand-specific opportunities. See `docs/architecture/`:
+
+- `platform-domain-model.md` — entities, relationships, and the 18 explicit
+  architecture decisions
+- `migration-compatibility-plan.md` — dual-write/fallback rules and backfill
+- `authentication-authorization.md` — staff session → profile → membership
+- `multi-tenant-security.md` — RLS and tenancy model
+- `legacy-deprecation-roadmap.md` — what may be retired later (nothing yet)
 
 ## Wistia configuration
 
@@ -241,17 +270,27 @@ follow-up flags.
 ### Setup
 
 ```bash
-# Apply the migration (Supabase) — not needed for the local dev store:
-#   supabase/migrations/0004_advisor_backend.sql
+# Apply the migrations (Supabase) — not needed for the local dev store:
+#   supabase/migrations/0004_advisor_backend.sql (and 0005/0006 for the
+#   platform domain model)
 npm run seed:advisor    # dev-only staff users + example investors
 npm run dev
 ```
 
-Development logins (change via `SEED_ADMIN_PASSWORD` / `SEED_ADVISOR_PASSWORD`
-before seeding; never reuse these in production):
+The advisor seed also provisions the platform domain: the GenDev
+organization, two brands, staff profiles + memberships, a client and
+opportunity for every seeded lead, and one client (Maria Chen) with **two
+opportunities across different brands** — including an independent FDD
+workflow and a pending territory request — to exercise the
+multi-opportunity model end to end. It is rerunnable without duplicates.
+
+Development logins (change via `SEED_ADMIN_PASSWORD` /
+`SEED_ADVISOR_PASSWORD` / `SEED_ADVISOR2_PASSWORD` before seeding; never
+reuse these in production):
 
 - Admin: `admin@gendev.test` / `gendev-admin-dev-2026`
 - Advisor (Darko): `darko@gendev.test` / `gendev-darko-dev-2026`
+- Advisor (Jordan): `jordan@gendev.test` / `gendev-jordan-dev-2026`
 
 For production, create real users with strong passwords through
 `POST /api/advisor/users` (admin-only) or a one-off seed run with the
@@ -315,8 +354,33 @@ needs adjusting.
 
 ```bash
 npm test   # vitest: auth, RBAC, stages, follow-up rules, persistence,
-           # milestone dedup, search/filtering
+           # milestone dedup, search/filtering, territory evaluation
 ```
+
+## Territory Advisor
+
+A conversational preliminary territory-screening tool in the client portal
+(**Territory Advisor** in the sidebar): prospects enter a city, ZIP, or
+market and get a deterministic availability result (state eligibility +
+sold/reserved territory conflicts), a schematic map, a factual market
+snapshot, nearby alternatives, and a **Request Territory Review** flow that
+lands in an admin queue (and optionally a `territory.review_requested`
+webhook for GoHighLevel). Admin configuration lives at
+`/advisor/territories` (ADMIN role only): territory records with
+ZIP-list/radius definitions and CSV import, a 50-state per-brand
+eligibility grid (unconfigured states default to manual review, never
+available), search activity, and the review queue.
+
+Setup:
+
+```bash
+# Apply the migration (Supabase) — not needed for the local dev store:
+#   supabase/migrations/0005_territory_advisor.sql
+npm run seed:territory   # dev-only zip reference data + demo territories
+```
+
+Full documentation — status logic, schema, CSV template, webhook payload,
+security rules, limitations: [docs/territory-advisor.md](docs/territory-advisor.md).
 
 ## Known MVP limitations
 
@@ -330,8 +394,13 @@ npm test   # vitest: auth, RBAC, stages, follow-up rules, persistence,
 - Watch-time anti-abuse is deliberately pragmatic (accumulated-time check),
   not fraud-proof — per spec, practical qualification over anti-cheating.
 - One brand, one advisor, one video; extension points exist in
-  `lib/config/` but multi-brand routing is out of scope.
+  `lib/config/` but multi-brand routing is out of scope. (The Territory
+  Advisor's data model is brand-scoped via `franchise_brands`, ready for a
+  second brand when routing arrives.)
 - No automated emails/SMS — prospects only see in-portal state.
+- Territory Advisor ships with illustrative ZIP reference data (DFW +
+  Nashville metros); load a real ZCTA dataset for production — see
+  docs/territory-advisor.md.
 
 ## Next recommended integrations
 
@@ -353,26 +422,32 @@ app/
   api/webhooks/            calendar + FDD provider webhooks (secret-gated)
   api/leads/               lead creation (API-key/admin-password gated)
   api/portal/[token]/      portal state, opened, video-progress,
-                           questionnaire, booking, dev (dev-only)
+                           questionnaire, booking, territory-advisor, dev (dev-only)
+  api/advisor/territories/ territory records, eligibility, CSV import, reviews (ADMIN)
   api/events/              client event sink (prefixed, whitelisted)
-  p/[token]/               journey dashboard, overview, questionnaire, schedule, complete
+  p/[token]/               journey dashboard, overview, questionnaire, schedule,
+                           territory-advisor, complete
 components/
-  ui/                      design-system primitives (button, card, badge, accordion, …)
+  ui/                      design-system primitives (button, card, badge, dialog, …)
   layout/                  TopNavigation, SidebarNavigation, RightSidebar, PortalShell
   dashboard/               StatusCard, ProgressTimeline, VideoCard, Checklist, FAQ, …
   cards/                   AdvisorCard, ProgressSummaryCard, DocumentCard, ComingSoonCard
   forms/                   QuestionnaireForm (React Hook Form + Zod)
   portal/                  WistiaPlayer, CalendarEmbed, dev tools, shared portal pieces
-components/advisor/        dashboard tables, badges, staff forms
+  territory/               Territory Advisor chat, schematic map, result cards
+components/advisor/        dashboard tables, badges, staff forms, territories/ admin
 lib/
   advisor/                 auth, RBAC, stages, follow-up rules, queries
-  config/                  brand, qualification, env helpers
+  config/                  brand, qualification, territory, env helpers
+  geocoding/               provider abstraction + built-in zip-reference provider
   portal/                  state machine, qualification, progress, events, tokens
   store/                   data layer: Supabase + local dev store
   supabase/                service-role client (server-only)
+  territory/               deterministic evaluation, intent parsing, copy, webhook
   validation/              Zod schemas
 scripts/seed.ts            demo lead seeding / reset
 scripts/seed-advisor.ts    advisor-backend dev seed (staff + investors)
+scripts/seed-territory.ts  Territory Advisor dev seed (zips, eligibility, territories)
 supabase/migrations/       SQL migrations
 tests/                     vitest suite
 types/                     shared domain types

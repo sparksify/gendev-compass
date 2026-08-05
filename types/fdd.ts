@@ -27,6 +27,10 @@ export interface FddAuditRecord {
   after_values: Record<string, unknown> | null;
   error: string | null;
   created_at: string;
+  /** Platform domain links (nullable; historical rows stay untouched). */
+  organization_id: string | null;
+  opportunity_id: string | null;
+  fdd_workflow_id: string | null;
 }
 
 export interface FddAuditInsert {
@@ -39,4 +43,7 @@ export interface FddAuditInsert {
   before_values?: Record<string, unknown> | null;
   after_values?: Record<string, unknown> | null;
   error?: string | null;
+  organization_id?: string | null;
+  opportunity_id?: string | null;
+  fdd_workflow_id?: string | null;
 }

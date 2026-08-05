@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireLead } from "@/lib/portal/api";
-import { getStore } from "@/lib/store";
+import { recordLeadEvent } from "@/lib/domain/activities";
 import { clientIpFrom, rateLimit } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
@@ -49,8 +49,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     await autoAdvanceStage(resolved.lead, "QUESTIONNAIRE_STARTED", "portal");
   }
 
-  await getStore().insertEvent(
-    resolved.lead.id,
+  await recordLeadEvent(
+    resolved.lead,
     `client_${parsed.data.eventName}`,
     parsed.data.eventData ?? null,
     parsed.data.pageUrl ?? null,
