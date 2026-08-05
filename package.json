@@ -13,7 +13,8 @@
     "seed:advisor": "tsx scripts/seed-advisor.ts",
     "seed:territory": "tsx scripts/seed-territory.ts",
     "test": "vitest run",
-    "import:zips": "tsx scripts/import-zip-data.ts"
+    "import:zips": "tsx scripts/import-zip-data.ts",
+    "build:zcta": "tsx scripts/build-zcta-bundle.ts"
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "^5.3.0",

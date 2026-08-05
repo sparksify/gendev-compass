@@ -9,7 +9,8 @@ import os from "os";
 import path from "path";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { authorizedCron } from "@/lib/config/cron";
-import { pickNextPolygonState, targetPolygonStates, SUPPORTED_POLYGON_STATES } from "@/lib/territory/polygonImport";
+import { pickUncoveredStates, targetPolygonStates, SUPPORTED_POLYGON_STATES } from "@/lib/territory/polygonImport";
+import { listBundledStates, loadBundledStateRows, readZctaBundleManifest } from "@/lib/territory/zctaBundle";
 import type { PortalStore } from "@/lib/store/types";
 
 describe("authorizedCron", () => {
@@ -49,35 +50,52 @@ describe("targetPolygonStates", () => {
     else process.env.TERRITORY_POLYGON_STATES = originalStates;
   });
 
-  it("defaults to the operating states the admin panel's manual buttons cover", () => {
+  it("defaults to the whole country (all 50 states + DC)", () => {
     delete process.env.TERRITORY_POLYGON_STATES;
-    expect(targetPolygonStates()).toEqual(["TX", "TN", "FL", "CA", "IL", "NY"]);
+    expect(targetPolygonStates()).toEqual(SUPPORTED_POLYGON_STATES);
+    expect(targetPolygonStates()).toHaveLength(51);
   });
 
   it("honors TERRITORY_POLYGON_STATES, filtered to states with a real boundary source", () => {
     process.env.TERRITORY_POLYGON_STATES = "tx, oh , not-a-state";
     expect(targetPolygonStates()).toEqual(["TX", "OH"]);
   });
+});
 
-  it("every default target state has a real boundary source", () => {
-    delete process.env.TERRITORY_POLYGON_STATES;
-    for (const state of targetPolygonStates()) {
-      expect(SUPPORTED_POLYGON_STATES).toContain(state);
-    }
+describe("pickUncoveredStates", () => {
+  it("returns the target states not yet covered, in target order", () => {
+    expect(pickUncoveredStates(["TX", "TN", "FL"], new Set(["TN"]))).toEqual(["TX", "FL"]);
+  });
+
+  it("returns empty once every target state is covered (the sync becomes a no-op)", () => {
+    expect(pickUncoveredStates(["TX", "TN"], new Set(["TX", "TN"]))).toEqual([]);
   });
 });
 
-describe("pickNextPolygonState", () => {
-  it("returns the first target state not yet covered", () => {
-    expect(pickNextPolygonState(["TX", "TN", "FL"], new Set(["TX"]))).toBe("TN");
+describe("shipped ZCTA bundle (data/zcta)", () => {
+  it("covers the whole country: all 50 states + DC, tens of thousands of ZCTAs", () => {
+    const manifest = readZctaBundleManifest();
+    expect(manifest).not.toBeNull();
+    expect(listBundledStates()).toHaveLength(51);
+    expect(listBundledStates()).toEqual(expect.arrayContaining(SUPPORTED_POLYGON_STATES));
+    const totalZctas = manifest!.states.reduce((sum, s) => sum + s.zctas, 0);
+    expect(totalZctas).toBeGreaterThan(30_000);
   });
 
-  it("returns null once every target state is covered (the cron becomes a no-op)", () => {
-    expect(pickNextPolygonState(["TX", "TN"], new Set(["TX", "TN"]))).toBeNull();
+  it("loads upsert-ready rows with valid simplified geometries (spot check: DC)", () => {
+    const rows = loadBundledStateRows("DC");
+    expect(rows).not.toBeNull();
+    expect(rows!.length).toBeGreaterThan(10);
+    for (const row of rows!) {
+      expect(row.zip_code).toMatch(/^\d{5}$/);
+      expect(row.state_code).toBe("DC");
+      expect(["Polygon", "MultiPolygon"]).toContain((row.geojson as { type?: string }).type);
+      expect(row.geometry_version).toBe("census-zcta-2010/opendatade");
+    }
   });
 
-  it("returns null for an empty target list", () => {
-    expect(pickNextPolygonState([], new Set())).toBeNull();
+  it("returns null for a state that is not bundled (download fallback path)", () => {
+    expect(loadBundledStateRows("ZZ")).toBeNull();
   });
 });
 
@@ -170,5 +188,41 @@ describe("refreshZipReference / refreshDemographics / hasZipGeographiesForState 
 
     expect(await store.hasZipGeographiesForState("TX")).toBe(true);
     expect(await store.hasZipGeographiesForState("TN")).toBe(false);
+  });
+
+  it("syncPolygons loads every uncovered target state and skips covered ones on re-run", async () => {
+    vi.stubEnv("TERRITORY_POLYGON_STATES", "DC");
+    // Deterministic regardless of module-cache state: serve DC via the
+    // download fallback so the test never depends on the bundle dir's
+    // cwd binding (the bundle read path has its own tests above).
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        features: [
+          {
+            properties: { ZCTA5CE10: "20001", INTPTLAT10: "38.91", INTPTLON10: "-77.02" },
+            geometry: { type: "Polygon", coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] },
+          },
+        ],
+      }),
+    }) as unknown as typeof fetch;
+
+    const { syncPolygons } = await import("@/lib/territory/polygonImport");
+    const first = await syncPolygons(45_000);
+    expect(first.loadedStates).toEqual(["DC"]);
+    // Row count depends on which path served DC (bundle when the module
+    // cache is intact, fallback otherwise) — either way, rows landed.
+    expect(first.written).toBeGreaterThan(0);
+    expect(first.remainingStates).toEqual([]);
+    expect(await store.hasZipGeographiesForState("DC")).toBe(true);
+
+    // Second run: DC is covered → fast no-op, nothing re-fetched.
+    const fetchCallsBefore = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.length;
+    const second = await syncPolygons(45_000);
+    expect(second.loadedStates).toEqual([]);
+    expect(second.remainingStates).toEqual([]);
+    expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(fetchCallsBefore);
+
+    vi.unstubAllEnvs();
   });
 });
