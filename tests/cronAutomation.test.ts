@@ -254,6 +254,9 @@ describe("refreshZipReference / refreshDemographics / hasZipGeographiesForState 
     const result = await syncDemographics(Number.POSITIVE_INFINITY);
     expect(result.failedStates).toContain("AZ");
     expect(result.remainingStates).toContain("AZ");
+    // The real cause is surfaced, not just the state code — a stuck sync
+    // needs to be diagnosable from the admin UI alone.
+    expect(result.failedStateErrors.AZ).toBe("simulated network failure");
     // AZ's ZIP was never written — a rejected fetch never partially applies.
     const row = await store.getZipCodeReference("85001");
     expect(row?.population).toBeNull();

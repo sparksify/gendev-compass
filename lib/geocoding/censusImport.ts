@@ -322,6 +322,10 @@ export interface SyncDemographicsResult {
   /** States whose fetch failed this pass (a subset of remainingStates) —
    *  surfaced, never silent. */
   failedStates: string[];
+  /** state → error message, for whichever states in failedStates failed
+   *  this pass — the actual cause (timeout, HTTP 403, etc.), not just the
+   *  state code, so a stuck sync is diagnosable from the admin UI alone. */
+  failedStateErrors: Record<string, string>;
   vintage: string;
   existingZips: number;
 }
@@ -367,6 +371,7 @@ export async function syncDemographics(budgetMs: number): Promise<SyncDemographi
   const startedAt = Date.now();
   const loadedStates: string[] = [];
   const failedStates: string[] = [];
+  const failedStateErrors: Record<string, string> = {};
   let written = 0;
 
   async function worker() {
@@ -392,8 +397,10 @@ export async function syncDemographics(budgetMs: number): Promise<SyncDemographi
         written += rows.length;
         loadedStates.push(stateCode);
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
         console.error(`[census] ${stateCode} sync failed:`, error);
         failedStates.push(stateCode);
+        failedStateErrors[stateCode] = message;
       }
     }
   }
@@ -407,6 +414,7 @@ export async function syncDemographics(budgetMs: number): Promise<SyncDemographi
     // failed-this-pass states — both need another call to complete.
     remainingStates: [...queue, ...failedStates],
     failedStates,
+    failedStateErrors,
     vintage: DEMOGRAPHICS_VINTAGE_LABEL,
     existingZips: existingRows.length,
   };
