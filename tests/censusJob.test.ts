@@ -226,8 +226,11 @@ describe("Census import job infrastructure (dev store)", () => {
       const emptyDir = mkdtempSync(path.join(os.tmpdir(), "census-job-empty2-"));
       process.chdir(emptyDir);
       vi.resetModules();
-      const { reconcileCensusImportState: freshReconcile } = await import("@/lib/geocoding/censusHealth");
-      expect(await freshReconcile("system")).toEqual({ action: "none", job: null });
+      const { getCensusDataHealth: freshHealth, reconcileCensusImportState: freshReconcile } = await import(
+        "@/lib/geocoding/censusHealth"
+      );
+      const health = await freshHealth();
+      expect(await freshReconcile("system", health)).toEqual({ action: "none", job: null });
       process.chdir(tmpDir);
       rmSync(emptyDir, { recursive: true, force: true });
       vi.resetModules();
@@ -254,16 +257,18 @@ describe("Census import job infrastructure (dev store)", () => {
           updated_at: new Date().toISOString(),
         },
       ]);
-      const { reconcileCensusImportState: freshReconcile } = await import("@/lib/geocoding/censusHealth");
+      const { getCensusDataHealth: freshHealth, reconcileCensusImportState: freshReconcile } = await import(
+        "@/lib/geocoding/censusHealth"
+      );
       const { DEMOGRAPHICS_VINTAGE_LABEL: freshVintage } = await import("@/lib/geocoding/censusImport");
 
-      const first = await freshReconcile("system");
+      const first = await freshReconcile("system", await freshHealth());
       expect(first.action).toBe("enqueued");
       expect(first.job?.status).toBe("running");
 
       // A second check while the job is still running: neither a duplicate
       // enqueue nor a resume (it isn't stuck).
-      const second = await freshReconcile("system");
+      const second = await freshReconcile("system", await freshHealth());
       expect(second.action).toBe("none");
 
       // Simulate the job completing successfully for the current vintage.
@@ -271,7 +276,7 @@ describe("Census import job infrastructure (dev store)", () => {
         status: "succeeded",
         finished_at: new Date().toISOString(),
       });
-      const third = await freshReconcile("system");
+      const third = await freshReconcile("system", await freshHealth());
       expect(third.action).toBe("none"); // already succeeded for this vintage — quiet
       expect(freshVintage).toBe(first.job!.vintage);
 

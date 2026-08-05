@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { authorizedCron } from "@/lib/config/cron";
-import { reconcileCensusImportState } from "@/lib/geocoding/censusHealth";
+import { getCensusDataHealth, reconcileCensusImportState } from "@/lib/geocoding/censusHealth";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -23,7 +23,8 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   try {
-    const result = await reconcileCensusImportState("cron");
+    const health = await getCensusDataHealth();
+    const result = await reconcileCensusImportState("cron", health);
     return NextResponse.json({ success: true, ...result });
   } catch (error) {
     console.error("[cron/refresh-demographics] health check failed:", error);

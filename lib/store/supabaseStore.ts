@@ -1077,21 +1077,38 @@ export function createSupabaseStore(): PortalStore {
       // been bitten by twice at the network layer (see the truncation
       // notes in lib/geocoding/censusImport.ts and
       // lib/territory/polygonImport.ts) — same failure shape, this time
-      // at the database layer. Page through with .range() until a page
-      // comes back short of a full page.
+      // at the database layer.
+      //
+      // Pages are fetched with .range() IN PARALLEL, not sequentially: ~41
+      // pages awaited one at a time (round-trip latency × 41) was itself
+      // slow enough to blow a caller's own maxDuration in production (the
+      // admin Census health check, calling this from a 15–30s route) — the
+      // same "our own fix made the timeout worse" shape as the census
+      // per-state sync fixes elsewhere in this file's callers. A cheap
+      // head-count query first tells us how many pages exist, then every
+      // page request fires at once.
       const PAGE_SIZE = 1000;
-      const rows: ZipCodeReferenceRecord[] = [];
-      for (let from = 0; ; from += PAGE_SIZE) {
-        const { data, error } = await db
-          .from("zip_code_reference")
-          .select()
-          .range(from, from + PAGE_SIZE - 1);
-        if (error) throw new Error(`Failed to list zip code references: ${error.message}`);
-        if (!data || data.length === 0) break;
-        rows.push(...(data as ZipCodeReferenceRecord[]));
-        if (data.length < PAGE_SIZE) break;
-      }
-      return rows;
+      const { count, error: countError } = await db
+        .from("zip_code_reference")
+        .select("*", { count: "exact", head: true });
+      if (countError) throw new Error(`Failed to count zip code references: ${countError.message}`);
+      const total = count ?? 0;
+      if (total === 0) return [];
+
+      const pageStarts: number[] = [];
+      for (let from = 0; from < total; from += PAGE_SIZE) pageStarts.push(from);
+
+      const pages = await Promise.all(
+        pageStarts.map(async (from) => {
+          const { data, error } = await db
+            .from("zip_code_reference")
+            .select()
+            .range(from, from + PAGE_SIZE - 1);
+          if (error) throw new Error(`Failed to list zip code references: ${error.message}`);
+          return (data as ZipCodeReferenceRecord[]) ?? [];
+        }),
+      );
+      return pages.flat();
     },
 
     async upsertZipCodeReferences(rows: UpsertZipCodeReferenceInput[]): Promise<void> {

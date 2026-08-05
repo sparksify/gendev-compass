@@ -6,6 +6,13 @@
  * to geocoding/nearby-ZIP lookups and the Census demographics matcher, even
  * though the underlying table had the data. This test mocks the Supabase
  * client to simulate the cap and verifies every row still comes back.
+ *
+ * Pages are fetched in parallel (a head-count query first, then every
+ * .range() page at once) rather than one at a time — sequential pagination
+ * was itself slow enough (round-trip latency × ~41 pages) to blow a
+ * caller's own maxDuration in production. This test also asserts the count
+ * query happens and that all range calls go out, without assuming a strict
+ * sequential order between them.
  */
 import { describe, expect, it } from "vitest";
 import { vi } from "vitest";
@@ -30,20 +37,28 @@ const allRows = Array.from({ length: TOTAL_ROWS }, (_, i) => ({
 }));
 
 const rangeCalls: Array<[number, number]> = [];
+let countCalls = 0;
 
 vi.mock("@/lib/supabase/admin", () => ({
   getSupabaseAdmin: () => ({
     from: (table: string) => {
       if (table !== "zip_code_reference") throw new Error(`Unexpected table ${table}`);
       return {
-        select: () => ({
-          // Mirrors PostgREST: only ever returns up to the page size
-          // requested by the range, however many rows actually exist.
-          range: async (from: number, to: number) => {
-            rangeCalls.push([from, to]);
-            return { data: allRows.slice(from, to + 1), error: null };
-          },
-        }),
+        // Mirrors the real (chainable-or-thenable) Supabase query builder:
+        // a head-count select is awaited directly; a plain select() is
+        // chained with .range().
+        select: (_columns?: string, opts?: { count?: string; head?: boolean }) => {
+          if (opts?.head) {
+            countCalls += 1;
+            return Promise.resolve({ count: TOTAL_ROWS, error: null });
+          }
+          return {
+            range: async (from: number, to: number) => {
+              rangeCalls.push([from, to]);
+              return { data: allRows.slice(from, to + 1), error: null };
+            },
+          };
+        },
       };
     },
   }),
@@ -59,9 +74,13 @@ describe("supabaseStore.listZipCodeReferences pagination", () => {
     expect(rows).toHaveLength(TOTAL_ROWS);
     expect(rows[0].zip_code).toBe("10000");
     expect(rows[TOTAL_ROWS - 1].zip_code).toBe(String(10000 + TOTAL_ROWS - 1));
-    // 2,500 rows at 1,000/page: [0,999], [1000,1999], [2000,2999] (the last
-    // page comes back short — 500 rows — which is what stops the loop).
-    expect(rangeCalls).toEqual([
+    expect(countCalls).toBe(1);
+    // 2,500 rows at 1,000/page: [0,999], [1000,1999], [2000,2999] — every
+    // page requested, regardless of completion order. The last page's
+    // upper bound isn't clamped to the row count (same as real
+    // PostgREST/.range() semantics — requesting past the end just returns
+    // whatever rows exist, no error).
+    expect(rangeCalls.slice().sort((a, b) => a[0] - b[0])).toEqual([
       [0, 999],
       [1000, 1999],
       [2000, 2999],
