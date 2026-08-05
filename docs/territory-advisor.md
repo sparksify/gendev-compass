@@ -162,7 +162,7 @@ actually matched Census data are written, concurrently in batches.
 
 All three data sources refresh themselves on a schedule (`vercel.json`
 `crons`), calling the exact same shared functions the admin buttons call
-(`refreshZipReference`, `refreshDemographics`, `refreshStatePolygons`) —
+(`refreshZipReference`, `refreshDemographics`, `syncPolygons`) —
 the buttons are a manual override, not the only way to trigger these:
 
 - **`/api/cron/refresh-zip-data`** — daily. Refreshes the GeoNames ZIP
@@ -170,11 +170,11 @@ the buttons are a manual override, not the only way to trigger these:
 - **`/api/cron/refresh-demographics`** — weekly (ACS 5-year estimates only
   update annually). Refreshes Census demographics onto the ZIP reference.
 - **`/api/cron/backfill-polygons`** — daily. Loads boundary shapes for
-  exactly **one** not-yet-covered target state per run (boundaries rarely
-  change and one state can take up to a minute, so this incrementally
-  backfills `TERRITORY_POLYGON_STATES` — comma-separated USPS codes, default
-  `TX,TN,FL,CA,IL,NY` — across several days' worth of runs instead of one
-  long invocation); once every target state is covered it's a fast no-op.
+  every not-yet-covered target state from the **shipped nationwide bundle**
+  (see below — no runtime downloads), as many as fit in a time budget per
+  run; the whole country typically completes within one or two runs, after
+  which it's a fast no-op. `TERRITORY_POLYGON_STATES` (comma-separated USPS
+  codes) can narrow the footprint; the default is all 50 states + DC.
 
 **Securing the cron routes:** set a `CRON_SECRET` env var in Vercel —
 Vercel automatically sends it as `Authorization: Bearer <secret>` on every
@@ -194,11 +194,25 @@ cited. Nothing is fabricated; missing data is simply omitted.
 
 ### Boundary polygons and the interactive maps
 
-`POST /api/admin/import-polygons` (one state per call; buttons on `/admin`
-under Territory ZIP Data) loads Census 2010 ZCTA boundary shapes from the
-OpenDataDE GeoJSON mirror into `zip_code_geographies.geojson`, simplified to
-display weight in the serverless function (`lib/geo/simplify.ts`,
-Douglas–Peucker ~200 m tolerance). Two maps consume them (Leaflet over
+ZCTA boundary shapes are **static between decennial Censuses**, so the app
+ships them pre-processed instead of downloading them at runtime:
+`npm run build:zcta` (`scripts/build-zcta-bundle.ts`) downloads all 50
+states + DC from the OpenDataDE mirror once at development time, simplifies
+each shape to display weight (`lib/geo/simplify.ts`, Douglas–Peucker
+~200 m tolerance), and writes `data/zcta/*.json.gz` + `manifest.json`
+(~15 MB total, committed to the repo; a once-a-decade job). The routes that
+load this data include it in their serverless bundles via
+`outputFileTracingIncludes` (next.config.ts) and read it with
+`lib/territory/zctaBundle.ts` — production never fetches boundary data
+from the network (a state missing from the bundle falls back to download).
+
+`POST /api/admin/import-polygons` ("Load All Boundary Shapes" on `/admin`
+under Territory ZIP Data) syncs every uncovered target state from the
+bundle within a time budget and reports `remainingStates`; the admin UI
+keeps calling until the whole country is covered (usually 1–2 calls). Pass
+`{state}` to force-reload one state. The daily backfill cron runs the same
+`syncPolygons` logic automatically. Rows land in
+`zip_code_geographies.geojson`; two maps consume them (Leaflet over
 CARTO/OSM tiles, no API key):
 
 - **Prospect** (Territory Advisor page): real basemap with the searched

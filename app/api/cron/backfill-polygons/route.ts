@@ -1,21 +1,22 @@
 import { NextResponse } from "next/server";
 import { authorizedCron } from "@/lib/config/cron";
-import { getStore } from "@/lib/store";
-import { pickNextPolygonState, refreshStatePolygons, targetPolygonStates } from "@/lib/territory/polygonImport";
+import { syncPolygons } from "@/lib/territory/polygonImport";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+/** Stays safely inside maxDuration; the next daily run picks up any remainder. */
+const SYNC_BUDGET_MS = 45_000;
+
 /**
- * Scheduled (see vercel.json) incremental backfill of ZIP boundary
- * polygons — the automated counterpart to the per-state admin buttons,
- * which remain available as a manual override. Boundary shapes rarely
- * change (static between decennial Censuses) and one state can take up to
- * a minute, so this loads exactly ONE not-yet-covered target state per
- * run (see lib/territory/polygonImport.ts, targetPolygonStates /
- * pickNextPolygonState) instead of looping through all of them in one
- * function invocation. Once every target state is covered, this becomes a
- * fast no-op.
+ * Scheduled (see vercel.json) backfill of ZIP boundary shapes from the
+ * shipped nationwide bundle (all 50 states + DC pre-processed into
+ * data/zcta/ — no runtime downloads). Each run loads as many uncovered
+ * target states as fit in the time budget; with bundled data the whole
+ * country typically completes within one or two runs, after which this is
+ * a fast no-op. The admin "Load All Boundary Shapes" button is the manual
+ * counterpart (same shared logic: lib/territory/polygonImport.ts,
+ * syncPolygons).
  */
 export async function GET(request: Request): Promise<NextResponse> {
   if (!authorizedCron(request)) {
@@ -23,19 +24,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   try {
-    const store = getStore();
-    const targets = targetPolygonStates();
-    const coverage = await Promise.all(
-      targets.map(async (state) => [state, await store.hasZipGeographiesForState(state)] as const),
-    );
-    const covered = new Set(coverage.filter(([, has]) => has).map(([state]) => state));
-    const next = pickNextPolygonState(targets, covered);
-
-    if (!next) {
-      return NextResponse.json({ success: true, state: null, written: 0, message: "All target states covered." });
-    }
-
-    const result = await refreshStatePolygons(next);
+    const result = await syncPolygons(SYNC_BUDGET_MS);
     return NextResponse.json({ success: true, ...result });
   } catch (error) {
     console.error("[cron/backfill-polygons] failed:", error);

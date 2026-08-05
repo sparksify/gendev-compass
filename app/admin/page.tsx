@@ -417,21 +417,38 @@ function ZipDataSection({ password }: { password: string }) {
     }
   }
 
-  async function runPolygonImport(state: string) {
-    setPolygonBusy(state);
+  async function runPolygonSync() {
+    setPolygonBusy("all");
     setPolygonResult(null);
+    let loaded = 0;
+    let written = 0;
     try {
-      const response = await fetch("/api/admin/import-polygons", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-admin-password": password },
-        body: JSON.stringify({ state }),
-      });
-      const data = await response.json();
-      setPolygonResult(
-        data.success
-          ? `Loaded ${data.written} ${state} ZIP boundary shapes.`
-          : `Failed: ${data.error ?? response.status}`,
-      );
+      // The route loads as many states as fit in its time budget and reports
+      // what's left; keep calling until the whole country is covered.
+      for (let pass = 0; pass < 30; pass++) {
+        const response = await fetch("/api/admin/import-polygons", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-admin-password": password },
+          body: JSON.stringify({}),
+        });
+        const data = await response.json();
+        if (!data.success) {
+          setPolygonResult(`Failed: ${data.error ?? response.status}`);
+          return;
+        }
+        loaded += data.loadedStates.length;
+        written += data.written;
+        if (data.remainingStates.length === 0) {
+          setPolygonResult(
+            loaded === 0
+              ? "All states already covered — nothing to load."
+              : `Loaded ${written} boundary shapes across ${loaded} states. Full nationwide coverage.`,
+          );
+          return;
+        }
+        setPolygonResult(`Loading… ${data.remainingStates.length} states remaining.`);
+      }
+      setPolygonResult("Stopped after 30 passes — click again to continue.");
     } catch (error) {
       setPolygonResult(`Failed: ${error instanceof Error ? error.message : "network error"}`);
     } finally {
@@ -491,23 +508,19 @@ function ZipDataSection({ password }: { password: string }) {
       </button>
       {demoResult && <p className="mt-2 text-xs text-gray-600">{demoResult}</p>}
 
-      <p className="mt-4 text-xs font-medium text-gray-700">Boundary shapes (per state)</p>
+      <p className="mt-4 text-xs font-medium text-gray-700">Boundary shapes (nationwide)</p>
       <p className="mt-0.5 text-xs text-gray-500">
-        Loads real ZIP boundary polygons for the interactive maps. Run once per operating
-        state; each takes up to a minute.
+        Loads real ZIP boundary polygons for all 50 states + DC from data shipped inside the
+        app (no external downloads). One click covers the whole country; already-covered
+        states are skipped. The daily cron does this automatically too.
       </p>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {["TX", "TN", "FL", "CA", "IL", "NY"].map((state) => (
-          <button
-            key={state}
-            onClick={() => runPolygonImport(state)}
-            disabled={polygonBusy !== null}
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-          >
-            {polygonBusy === state ? `Loading ${state}…` : state}
-          </button>
-        ))}
-      </div>
+      <button
+        onClick={runPolygonSync}
+        disabled={polygonBusy !== null}
+        className="mt-2 rounded-lg border border-gray-300 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+      >
+        {polygonBusy ? "Loading boundary shapes…" : "Load All Boundary Shapes"}
+      </button>
       {polygonResult && <p className="mt-2 text-xs text-gray-600">{polygonResult}</p>}
     </div>
   );

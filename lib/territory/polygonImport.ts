@@ -2,11 +2,18 @@ import { simplifyGeometry, vertexCount, type GeoJsonAreaGeometry } from "@/lib/g
 import type { UpsertZipGeographyInput } from "@/types/territory";
 
 /**
- * Per-state ZCTA boundary import (US Census 2010 ZCTAs via the OpenDataDE
- * GeoJSON mirror). Download, parse, and simplification all happen in the
- * calling Node/serverless process — the database only receives batched
- * upserts of display-grade geometries (docs/territory-advisor.md,
- * "Nationwide ZIP data pipeline" hard rule).
+ * ZCTA boundary preparation (US Census 2010 ZCTAs via the OpenDataDE
+ * GeoJSON mirror). Parsing and simplification happen in the calling
+ * Node/serverless process — the database only receives batched upserts of
+ * display-grade geometries (docs/territory-advisor.md, "Nationwide ZIP
+ * data pipeline" hard rule).
+ *
+ * At runtime the app never downloads boundary data: ZCTA shapes are
+ * static between decennial Censuses, so all 50 states + DC are
+ * pre-processed by scripts/build-zcta-bundle.ts and shipped INSIDE the
+ * app (data/zcta/*.json.gz — see lib/territory/zctaBundle.ts). The
+ * download path below exists for the build script and as a fallback for
+ * a state missing from the bundle.
  */
 
 export const POLYGON_SOURCE_VERSION = "census-zcta-2010/opendatade";
@@ -34,27 +41,26 @@ const STATE_FILE_SLUGS: Record<string, string> = {
 export const SUPPORTED_POLYGON_STATES = Object.keys(STATE_FILE_SLUGS);
 
 /**
- * Operating states to backfill automatically (see the polygon backfill cron
- * job, app/api/cron/backfill-polygons/route.ts). Configurable via
- * TERRITORY_POLYGON_STATES (comma-separated USPS codes) so a deployment can
- * target its own operating footprint; defaults to the states the admin
- * panel's manual buttons cover today.
+ * States whose boundary shapes the app should carry. Defaults to the whole
+ * country (all 50 states + DC); TERRITORY_POLYGON_STATES (comma-separated
+ * USPS codes) can narrow it for a deployment that wants a smaller footprint.
  */
 export function targetPolygonStates(): string[] {
   const configured = process.env.TERRITORY_POLYGON_STATES;
-  const states = configured
-    ? configured.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)
-    : ["TX", "TN", "FL", "CA", "IL", "NY"];
-  return states.filter((s) => SUPPORTED_POLYGON_STATES.includes(s));
+  if (!configured) return [...SUPPORTED_POLYGON_STATES];
+  return configured
+    .split(",")
+    .map((s) => s.trim().toUpperCase())
+    .filter((s) => SUPPORTED_POLYGON_STATES.includes(s));
 }
 
 /**
- * Picks the first target state with no boundary coverage yet — pure and
- * testable independent of the store. Returns null once every target state
- * is covered (the cron becomes a fast no-op from then on).
+ * The target states not yet covered, in target order — pure and testable
+ * independent of the store. Empty once everything is loaded (the cron and
+ * the admin sync become fast no-ops from then on).
  */
-export function pickNextPolygonState(targetStates: string[], coveredStates: Set<string>): string | null {
-  return targetStates.find((state) => !coveredStates.has(state)) ?? null;
+export function pickUncoveredStates(targetStates: string[], coveredStates: Set<string>): string[] {
+  return targetStates.filter((state) => !coveredStates.has(state));
 }
 
 export function polygonSourceUrl(stateCode: string): string {
@@ -69,28 +75,15 @@ interface ZctaFeature {
 }
 
 /**
- * Downloads and prepares one state's ZCTA polygons: simplified GeoJSON per
- * ZIP, ready for store upsert. Throws on download/parse failure.
+ * Parses a raw OpenDataDE state FeatureCollection into simplified,
+ * upsert-ready rows. Pure (no I/O) — shared by the runtime fallback
+ * download and the offline bundle build script.
  */
-/**
- * Well under any reasonable function `maxDuration` (see the same-shaped bug
- * fixed in lib/geocoding/censusImport.ts — a fetch timeout longer than the
- * route's own execution budget lets the platform kill the function first
- * and return an HTML error page instead of a JSON one).
- */
-const FETCH_TIMEOUT_MS = 45_000;
-
-export async function downloadStatePolygons(
+export function parseStatePolygons(
+  collection: { features?: ZctaFeature[] },
   stateCode: string,
-): Promise<UpsertZipGeographyInput[]> {
-  const url = polygonSourceUrl(stateCode);
-  const response = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-  if (!response.ok) {
-    throw new Error(`ZCTA download for ${stateCode} failed: HTTP ${response.status}`);
-  }
-  const collection = (await response.json()) as { features?: ZctaFeature[] };
+): UpsertZipGeographyInput[] {
   const rows: UpsertZipGeographyInput[] = [];
-
   for (const feature of collection.features ?? []) {
     const zip = feature.properties?.ZCTA5CE10;
     const geometry = feature.geometry as GeoJsonAreaGeometry | undefined;
@@ -117,22 +110,34 @@ export async function downloadStatePolygons(
   return rows;
 }
 
-export interface RefreshStatePolygonsResult {
-  state: string;
-  written: number;
-}
+/**
+ * Well under any reasonable function `maxDuration` (see the same-shaped bug
+ * fixed in lib/geocoding/censusImport.ts — a fetch timeout longer than the
+ * route's own execution budget lets the platform kill the function first
+ * and return an HTML error page instead of a JSON one).
+ */
+const FETCH_TIMEOUT_MS = 45_000;
 
 /**
- * The full refresh for one state: download, simplify, and batched upsert.
- * Shared by the admin-triggered route and the polygon backfill cron so both
- * go through identical logic.
+ * Runtime fallback: downloads and prepares one state's ZCTA polygons.
+ * Only used when a state is missing from the shipped bundle.
  */
-export async function refreshStatePolygons(stateCode: string): Promise<RefreshStatePolygonsResult> {
-  const rows = await downloadStatePolygons(stateCode);
-  // Imported lazily so merely importing the pure download/state-list
-  // helpers above never has the side effect of binding the store
-  // singleton (see the store's cwd-at-first-import binding in
-  // lib/store/devStore.ts).
+export async function downloadStatePolygons(
+  stateCode: string,
+): Promise<UpsertZipGeographyInput[]> {
+  const url = polygonSourceUrl(stateCode);
+  const response = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+  if (!response.ok) {
+    throw new Error(`ZCTA download for ${stateCode} failed: HTTP ${response.status}`);
+  }
+  const collection = (await response.json()) as { features?: ZctaFeature[] };
+  return parseStatePolygons(collection, stateCode);
+}
+
+async function upsertRows(rows: UpsertZipGeographyInput[]): Promise<number> {
+  // Imported lazily so merely importing the pure helpers in this module
+  // never has the side effect of binding the store singleton (see the
+  // store's cwd-at-first-import binding in lib/store/devStore.ts).
   const { getStore } = await import("@/lib/store");
   const store = getStore();
   const BATCH = 200;
@@ -141,5 +146,70 @@ export async function refreshStatePolygons(stateCode: string): Promise<RefreshSt
     await store.upsertZipGeographies(rows.slice(i, i + BATCH));
     written += Math.min(BATCH, rows.length - i);
   }
-  return { state: stateCode, written };
+  return written;
+}
+
+export interface RefreshStatePolygonsResult {
+  state: string;
+  written: number;
+  /** Where the rows came from: the shipped bundle or the network fallback. */
+  source: "bundle" | "download";
+}
+
+/**
+ * The full refresh for one state: bundled data when shipped (no network),
+ * download fallback otherwise, then batched upsert. Shared by the admin
+ * sync route and the polygon backfill cron so both go through identical
+ * logic.
+ */
+export async function refreshStatePolygons(stateCode: string): Promise<RefreshStatePolygonsResult> {
+  const { loadBundledStateRows } = await import("./zctaBundle");
+  const bundled = loadBundledStateRows(stateCode);
+  const rows = bundled ?? (await downloadStatePolygons(stateCode));
+  const written = await upsertRows(rows);
+  return { state: stateCode, written, source: bundled ? "bundle" : "download" };
+}
+
+export interface SyncPolygonsResult {
+  /** States loaded during this invocation, in order. */
+  loadedStates: string[];
+  written: number;
+  /** Target states still uncovered when the time budget ran out. */
+  remainingStates: string[];
+}
+
+/**
+ * Loads boundary shapes for every target state that has no coverage yet,
+ * within a time budget that stays safely inside the route's maxDuration.
+ * With bundled data each state takes a few seconds, so the whole country
+ * typically completes in one or two invocations; callers re-invoke while
+ * `remainingStates` is non-empty. Once covered, this is a fast no-op.
+ */
+export async function syncPolygons(budgetMs: number): Promise<SyncPolygonsResult> {
+  const { getStore } = await import("@/lib/store");
+  const store = getStore();
+  const targets = targetPolygonStates();
+  const coverage = await Promise.all(
+    targets.map(async (state) => [state, await store.hasZipGeographiesForState(state)] as const),
+  );
+  const uncovered = pickUncoveredStates(
+    targets,
+    new Set(coverage.filter(([, has]) => has).map(([state]) => state)),
+  );
+
+  const startedAt = Date.now();
+  const loadedStates: string[] = [];
+  let written = 0;
+  for (const state of uncovered) {
+    if (Date.now() - startedAt > budgetMs) break;
+    const result = await refreshStatePolygons(state);
+    loadedStates.push(state);
+    written += result.written;
+  }
+
+  return {
+    loadedStates,
+    written,
+    remainingStates: uncovered.filter((state) => !loadedStates.includes(state)),
+  };
 }
