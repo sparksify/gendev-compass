@@ -193,6 +193,81 @@ and detailed financial answers never leave Supabase.
 Production **requires** Supabase configuration — the file-backed dev store
 refuses to run in production, and dev tools/simulation are disabled there.
 
+## Advisor backend (internal dashboard)
+
+A secure internal dashboard at **`/advisor`** lets the team track every
+investor in one place: pipeline stage, questionnaire answers, activity
+timeline, consultations, FDD status, video engagement, notes, and rule-based
+follow-up flags.
+
+### Setup
+
+```bash
+# Apply the migration (Supabase) — not needed for the local dev store:
+#   supabase/migrations/0004_advisor_backend.sql
+npm run seed:advisor    # dev-only staff users + example investors
+npm run dev
+```
+
+Development logins (change via `SEED_ADMIN_PASSWORD` / `SEED_ADVISOR_PASSWORD`
+before seeding; never reuse these in production):
+
+- Admin: `admin@gendev.test` / `gendev-admin-dev-2026`
+- Advisor (Darko): `darko@gendev.test` / `gendev-darko-dev-2026`
+
+For production, create real users with strong passwords through
+`POST /api/advisor/users` (admin-only) or a one-off seed run with the
+password env vars set — the seed script's fictional investors are for
+development only.
+
+### Authentication & authorization
+
+- Email + password (scrypt via Node crypto), server-side sessions stored as
+  SHA-256 hashes with 7-day expiry, HttpOnly/SameSite=Lax cookie
+  (Secure in production).
+- Login is rate-limited per IP and per account; unknown email and wrong
+  password return the same error.
+- Roles: `ADMIN` (everything, including assigning advisors, managing users,
+  CSV export) and `ADVISOR` (viewing investors, notes, stage updates).
+- All permissions are enforced server-side on every page and API route.
+- Pilot default `ADVISOR_SEES_ALL=true` lets Darko see all investors; set to
+  `false` to restrict advisors to assigned investors.
+
+### Pipeline stages
+
+`NEW_LEAD → PORTAL_ACTIVE → ENGAGED → QUESTIONNAIRE_STARTED →
+QUESTIONNAIRE_COMPLETED → CONSULTATION_SCHEDULED → CONSULTATION_COMPLETED →
+FDD_SENT → FDD_ACKNOWLEDGED` plus the manual judgment stages
+`DUE_DILIGENCE`, `QUALIFIED`, `NOT_A_FIT`, `CLOSED_INVESTED`.
+
+Portal and webhook events advance stages automatically (forward-only, never
+into/out of a manual judgment stage); staff can set any stage manually. All
+changes are recorded as `stage_changed` events with the acting user.
+
+### Provider webhooks (integration points)
+
+Both endpoints are inert until their shared secret is configured, and match
+investors by `leadId` or email — they never fabricate records.
+
+- `POST /api/webhooks/calendar` (`x-webhook-secret: $CALENDAR_WEBHOOK_SECRET`)
+  — normalized payload `{action: booked|rescheduled|cancelled|completed|no_show,
+  externalAppointmentId, leadId?, inviteeEmail?, scheduledStart?, …}`.
+  Point Calendly/HighLevel/Cal.com notifications here via a thin
+  payload-mapping step.
+- `POST /api/webhooks/fdd` (`x-webhook-secret: $FDD_WEBHOOK_SECRET`) —
+  `{action: sent|delivered|opened|acknowledged|delivery_failed|resent,
+  leadId?, recipientEmail?, documentVersion?, providerTransactionId?,
+  auditCertificateUrl?, timeZone?, occurredAt?}`. The FDD provider remains
+  the source of truth for acknowledgment; no legal eligibility dates are
+  computed.
+
+### Tests
+
+```bash
+npm test   # vitest: auth, RBAC, stages, follow-up rules, persistence,
+           # milestone dedup, search/filtering
+```
+
 ## Known MVP limitations
 
 - Booking detection relies on embed postMessage events plus a manual
@@ -223,6 +298,9 @@ refuses to run in production, and dev tools/simulation are disabled there.
 ```
 app/
   admin/create-lead/       internal testing page (password-gated)
+  advisor/                 internal advisor/admin dashboard (session auth)
+  api/advisor/             staff auth, notes, stage, assign, users, export
+  api/webhooks/            calendar + FDD provider webhooks (secret-gated)
   api/leads/               lead creation (API-key/admin-password gated)
   api/portal/[token]/      portal state, opened, video-progress,
                            questionnaire, booking, dev (dev-only)
@@ -235,13 +313,17 @@ components/
   cards/                   AdvisorCard, ProgressSummaryCard, DocumentCard, ComingSoonCard
   forms/                   QuestionnaireForm (React Hook Form + Zod)
   portal/                  WistiaPlayer, CalendarEmbed, dev tools, shared portal pieces
+components/advisor/        dashboard tables, badges, staff forms
 lib/
+  advisor/                 auth, RBAC, stages, follow-up rules, queries
   config/                  brand, qualification, env helpers
   portal/                  state machine, qualification, progress, events, tokens
   store/                   data layer: Supabase + local dev store
   supabase/                service-role client (server-only)
   validation/              Zod schemas
 scripts/seed.ts            demo lead seeding / reset
+scripts/seed-advisor.ts    advisor-backend dev seed (staff + investors)
 supabase/migrations/       SQL migrations
+tests/                     vitest suite
 types/                     shared domain types
 ```

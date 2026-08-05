@@ -5,6 +5,7 @@ export const createLeadSchema = z.object({
   lastName: z.string().trim().min(1).max(100),
   email: z.string().trim().email().max(320),
   phone: z.string().trim().max(30).optional(),
+  state: z.string().trim().max(100).optional(),
   liquidCapital: z.string().trim().max(100).optional(),
   netWorth: z.string().trim().max(100).optional(),
   ownedBusinessBefore: z.boolean().optional(),

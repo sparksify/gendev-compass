@@ -60,8 +60,20 @@ export async function POST(
 
   try {
     if (!lead.fdd_requested_at) {
-      await store.updateLead(lead.id, { fdd_requested_at: now });
+      await store.updateLead(lead.id, { fdd_requested_at: now, last_activity_at: now });
     }
+
+    // Advisor-backend FDD record. Status stays at REQUESTED until the
+    // document provider reports the send (webhook) — nothing is fabricated.
+    const existingRecord = await store.getFddRecordForLead(lead.id);
+    if (!existingRecord || existingRecord.status === "NOT_REQUESTED") {
+      await store.upsertFddRecord(lead.id, {
+        status: "REQUESTED",
+        requested_at: lead.fdd_requested_at ?? now,
+        destination_email: lead.email,
+      });
+    }
+
     await trackEvent(lead, "fdd_requested", { resend: isResend }, "schedule");
 
     return NextResponse.json({

@@ -7,6 +7,8 @@ export interface VideoProgressRecord {
   last_playhead_position: number;
   started: boolean;
   completed: boolean;
+  play_count: number;
+  first_played_at: string | null;
   last_event_at: string | null;
   created_at: string;
   updated_at: string;
