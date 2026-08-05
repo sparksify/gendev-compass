@@ -5,8 +5,13 @@ import { syncDemographics } from "@/lib/geocoding/censusImport";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-/** Stays safely inside maxDuration; the next scheduled run picks up any remainder. */
-const SYNC_BUDGET_MS = 45_000;
+/**
+ * Leaves real margin under maxDuration — see the identical note in
+ * app/api/admin/import-demographics/route.ts for why 45s wasn't safe: a
+ * worker that picks up a new state right as the budget check passes can
+ * still run up to FETCH_TIMEOUT_MS (20s) plus write time afterward.
+ */
+const SYNC_BUDGET_MS = 30_000;
 
 /**
  * Scheduled (see vercel.json) refresh of Census ACS demographics onto the

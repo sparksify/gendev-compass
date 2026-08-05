@@ -218,10 +218,10 @@ describe("buildDemographicsUpsertRows", () => {
 });
 
 describe("coveredDemographicsStates", () => {
-  it("marks a state covered only when one of its rows carries the current vintage label", () => {
+  it("marks a state covered once enough of its rows carry the current vintage label", () => {
     const covered = coveredDemographicsStates([
       { state_code: "TX", demographics_vintage: DEMOGRAPHICS_VINTAGE_LABEL },
-      { state_code: "TX", demographics_vintage: null }, // another TX ZIP with no match yet — still covered
+      { state_code: "TX", demographics_vintage: null }, // 1 of 2 TX rows (50%) — above the threshold
       { state_code: "CA", demographics_vintage: "2018-2022" }, // stale vintage from a prior ACS release
       { state_code: "NY", demographics_vintage: null },
     ]);
@@ -231,5 +231,24 @@ describe("coveredDemographicsStates", () => {
   it("returns an empty set when nothing has the current vintage yet", () => {
     expect(coveredDemographicsStates([{ state_code: "TX", demographics_vintage: null }])).toEqual(new Set());
     expect(coveredDemographicsStates([])).toEqual(new Set());
+  });
+
+  it("does not mark a state covered from a small stale leftover — the real production bug", () => {
+    // 19 of 2,600 TX rows carrying the vintage (0.7%) was the actual state
+    // of production: leftover from the original truncated import, which
+    // an earlier ">0 rows" check treated as "done" and skipped forever.
+    const rows = [
+      { state_code: "TX", demographics_vintage: DEMOGRAPHICS_VINTAGE_LABEL },
+      ...Array.from({ length: 99 }, () => ({ state_code: "TX", demographics_vintage: null })),
+    ];
+    expect(coveredDemographicsStates(rows)).toEqual(new Set());
+  });
+
+  it("marks a state covered once a real majority of its rows carry the current vintage", () => {
+    const rows = [
+      ...Array.from({ length: 25 }, () => ({ state_code: "TX", demographics_vintage: DEMOGRAPHICS_VINTAGE_LABEL })),
+      ...Array.from({ length: 75 }, () => ({ state_code: "TX", demographics_vintage: null })),
+    ];
+    expect(coveredDemographicsStates(rows)).toEqual(new Set(["TX"]));
   });
 });

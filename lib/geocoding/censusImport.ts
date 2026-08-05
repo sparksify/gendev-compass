@@ -279,14 +279,35 @@ export async function refreshDemographics(): Promise<RefreshDemographicsResult> 
  *  coveredDemographicsStates). */
 export const DEMOGRAPHICS_VINTAGE_LABEL = `${CENSUS_CURRENT_VINTAGE - 4}-${CENSUS_CURRENT_VINTAGE}`;
 
+/**
+ * A state counts as covered once at least this fraction of its existing
+ * ZIP rows carry the current vintage. Not 100% — plenty of GeoNames ZIP
+ * entries (PO boxes, unique large-employer ZIPs) simply have no Census
+ * ZCTA match — but high enough that a handful of leftover rows from an
+ * old, incomplete import (e.g. 19 of TX's 2,600 ZIPs, a real value seen in
+ * production before this threshold existed) can never again masquerade as
+ * "done" and get skipped forever.
+ */
+const COVERAGE_RATIO_THRESHOLD = 0.2;
+
 /** State codes whose ZIPs already carry demographics for the current
- *  vintage — used to skip already-covered states on a re-run/retry. */
+ *  vintage, above COVERAGE_RATIO_THRESHOLD — used to skip already-covered
+ *  states on a re-run/retry. */
 export function coveredDemographicsStates(
   rows: Array<{ state_code: string; demographics_vintage: string | null }>,
 ): Set<string> {
-  const covered = new Set<string>();
+  const totalByState = new Map<string, number>();
+  const currentByState = new Map<string, number>();
   for (const row of rows) {
-    if (row.demographics_vintage === DEMOGRAPHICS_VINTAGE_LABEL) covered.add(row.state_code);
+    totalByState.set(row.state_code, (totalByState.get(row.state_code) ?? 0) + 1);
+    if (row.demographics_vintage === DEMOGRAPHICS_VINTAGE_LABEL) {
+      currentByState.set(row.state_code, (currentByState.get(row.state_code) ?? 0) + 1);
+    }
+  }
+  const covered = new Set<string>();
+  for (const [state, total] of totalByState) {
+    const current = currentByState.get(state) ?? 0;
+    if (total > 0 && current / total >= COVERAGE_RATIO_THRESHOLD) covered.add(state);
   }
   return covered;
 }
@@ -340,9 +361,8 @@ export async function syncDemographics(budgetMs: number): Promise<SyncDemographi
     else byState.set(row.state_code, [row]);
   }
 
-  const queue = Object.keys(STATE_FIPS_CODES).filter(
-    (state) => !coveredDemographicsStates(existingRows).has(state),
-  );
+  const covered = coveredDemographicsStates(existingRows);
+  const queue = Object.keys(STATE_FIPS_CODES).filter((state) => !covered.has(state));
 
   const startedAt = Date.now();
   const loadedStates: string[] = [];
