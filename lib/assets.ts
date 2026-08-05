@@ -170,6 +170,57 @@ export async function saveSiteAsset(input: SaveAssetInput): Promise<SiteAsset> {
   return asset;
 }
 
+/**
+ * Create a short-lived signed URL the browser can PUT the file to directly.
+ * Bypasses the serverless request-size ceiling for large documents.
+ */
+export async function createSignedAssetUpload(
+  key: string,
+  filename: string,
+): Promise<{ signedUrl: string; path: string }> {
+  const supabase = getSupabaseAdmin();
+  const path = `${key}/${Date.now()}-${sanitizeFilename(filename)}`;
+  const { data, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(path);
+  if (error || !data) throw error ?? new Error("Could not create signed upload URL");
+  return { signedUrl: data.signedUrl, path: data.path };
+}
+
+/**
+ * Record a browser-completed signed upload after verifying the object
+ * actually landed in storage (size read from storage metadata).
+ */
+export async function commitSignedAsset(input: {
+  key: string;
+  path: string;
+  filename: string;
+  contentType: string;
+}): Promise<SiteAsset> {
+  const supabase = getSupabaseAdmin();
+  const objectName = input.path.slice(input.key.length + 1);
+  const { data: entries, error: listError } = await supabase.storage
+    .from(BUCKET)
+    .list(input.key, { limit: 100, search: objectName });
+  if (listError) throw listError;
+  const object = (entries ?? []).find((entry) => entry.name === objectName);
+  if (!object) throw new Error("Uploaded file not found in storage");
+
+  const { data: publicUrl } = supabase.storage.from(BUCKET).getPublicUrl(input.path);
+  const metadata = object.metadata as { size?: number; mimetype?: string } | null;
+  const asset: SiteAsset = {
+    key: input.key,
+    url: publicUrl.publicUrl,
+    filename: sanitizeFilename(input.filename),
+    content_type: metadata?.mimetype ?? input.contentType,
+    size_bytes: metadata?.size ?? null,
+    updated_at: new Date().toISOString(),
+  };
+  const { error: upsertError } = await supabase
+    .from("site_assets")
+    .upsert(asset, { onConflict: "key" });
+  if (upsertError) throw upsertError;
+  return asset;
+}
+
 /** Dev-only: raw file bytes for /api/assets/[key]. */
 export async function readDevAssetFile(
   key: string,

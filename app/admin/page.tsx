@@ -50,34 +50,92 @@ function SlotCard({
 
   const isImage = slot.accept.some((type) => type.startsWith("image/"));
 
+  async function directUpload(): Promise<SiteAsset> {
+    const form = new FormData();
+    form.set("key", slot.key);
+    form.set("file", file as File);
+    const response = await fetch("/api/admin/assets", {
+      method: "POST",
+      headers: { "x-admin-password": password },
+      body: form,
+    });
+    const data = (await response.json()) as { success: boolean; asset?: SiteAsset; error?: string };
+    if (!data.success || !data.asset) throw new Error(data.error ?? "Upload failed.");
+    return data.asset;
+  }
+
   async function upload() {
     if (!file) return;
+    if (file.size > slot.maxBytes) {
+      setError(`File is too large (max ${Math.round(slot.maxBytes / (1024 * 1024))} MB).`);
+      return;
+    }
     setBusy(true);
     setError(null);
     setDone(false);
     try {
-      const form = new FormData();
-      form.set("key", slot.key);
-      form.set("file", file);
-      const response = await fetch("/api/admin/assets", {
+      // Authorize, then stream the file straight to storage — large files
+      // never pass through the app server.
+      const signResponse = await fetch("/api/admin/assets/sign", {
         method: "POST",
-        headers: { "x-admin-password": password },
-        body: form,
+        headers: { "Content-Type": "application/json", "x-admin-password": password },
+        body: JSON.stringify({
+          key: slot.key,
+          filename: file.name,
+          contentType: file.type,
+          size: file.size,
+        }),
       });
-      const data = (await response.json()) as {
+      const sign = (await signResponse.json()) as {
         success: boolean;
-        asset?: SiteAsset;
+        mode?: "signed" | "direct";
+        signedUrl?: string;
+        path?: string;
         error?: string;
       };
-      if (data.success && data.asset) {
-        onUploaded(data.asset);
-        setFile(null);
-        setDone(true);
+      if (!sign.success) throw new Error(sign.error ?? "Upload could not be authorized.");
+
+      let asset: SiteAsset;
+      if (sign.mode === "signed" && sign.signedUrl && sign.path) {
+        const put = await fetch(sign.signedUrl, {
+          method: "PUT",
+          headers: { "Content-Type": file.type },
+          body: file,
+        });
+        if (!put.ok) throw new Error(`Storage upload failed (${put.status}).`);
+
+        const commitResponse = await fetch("/api/admin/assets/commit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-admin-password": password },
+          body: JSON.stringify({
+            key: slot.key,
+            path: sign.path,
+            filename: file.name,
+            contentType: file.type,
+          }),
+        });
+        const commit = (await commitResponse.json()) as {
+          success: boolean;
+          asset?: SiteAsset;
+          error?: string;
+        };
+        if (!commit.success || !commit.asset) {
+          throw new Error(commit.error ?? "Upload could not be recorded.");
+        }
+        asset = commit.asset;
       } else {
-        setError(data.error ?? "Upload failed.");
+        asset = await directUpload();
       }
-    } catch {
-      setError("Upload failed. Check your connection and try again.");
+
+      onUploaded(asset);
+      setFile(null);
+      setDone(true);
+    } catch (uploadError) {
+      setError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : "Upload failed. Check your connection and try again.",
+      );
     } finally {
       setBusy(false);
     }
