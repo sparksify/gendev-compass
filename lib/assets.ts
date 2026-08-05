@@ -64,14 +64,14 @@ export const ASSET_SLOTS: AssetSlot[] = [
     label: "CMDT Franchise Opportunity Presentation",
     description: "PDF served by the presentation document card and the header download button.",
     accept: PDF_TYPES,
-    maxBytes: 50 * MB,
+    maxBytes: 150 * MB,
   },
   {
     key: "brand-one-sheet",
     label: "CMDT Opportunity One Sheet",
     description: "PDF served by the one-sheet document card.",
     accept: PDF_TYPES,
-    maxBytes: 20 * MB,
+    maxBytes: 50 * MB,
   },
 ];
 
