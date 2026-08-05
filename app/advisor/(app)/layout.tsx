@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireStaffUser } from "@/lib/advisor/auth";
+import { isAdmin } from "@/lib/advisor/access";
 import { getSiteLogoUrl } from "@/lib/assets";
 import { AdvisorNav } from "@/components/advisor/AdvisorNav";
 import { LogoutButton } from "@/components/advisor/LogoutButton";
@@ -28,7 +29,7 @@ export default async function AdvisorAppLayout({ children }: { children: React.R
                 </span>
               )}
             </Link>
-            <AdvisorNav />
+            <AdvisorNav isAdmin={isAdmin(user)} />
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">

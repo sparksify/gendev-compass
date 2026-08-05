@@ -9,6 +9,7 @@ import {
   HelpCircle,
   FolderOpen,
   CalendarDays,
+  Compass,
   Headphones,
   Lock,
 } from "lucide-react";
@@ -34,6 +35,7 @@ export function SidebarNavigation({
     { label: "Your Investment Journey", href: base, icon: Home, exact: true },
     { label: "My Progress", href: `${base}#progress`, icon: LineChart, anchor: true },
     { label: "Opportunity Overview", href: `${base}/opportunity`, icon: Building2 },
+    { label: "Territory Advisor", href: `${base}/territory-advisor`, icon: Compass },
     { label: "Investor FAQ", href: `${base}#faq`, icon: HelpCircle, anchor: true },
     { label: "Resources", href: `${base}/opportunity#documents`, icon: FolderOpen, anchor: true },
     {
@@ -108,7 +110,7 @@ export function SidebarNavigation({
         Coming Soon
       </p>
       <ul className="flex flex-col gap-1 px-3">
-        {[COMING_SOON[0], COMING_SOON[2]].map((item) => (
+        {COMING_SOON.map((item) => (
           <li
             key={item.key}
             className="flex items-center gap-3 whitespace-nowrap px-3 py-[9px] text-[13px] text-faint-foreground"

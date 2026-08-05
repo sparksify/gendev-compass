@@ -7,14 +7,21 @@ import type { VideoProgressRecord } from "@/types/portal";
 import type {
   AppointmentPatch,
   CreateAppointmentInput,
+  CreateFranchiseBrandInput,
   CreateLeadRecordInput,
   CreateQuestionnaireInput,
   CreateStaffUserInput,
   CreateSubmissionInput,
+  CreateTerritoryDefinitionInput,
+  CreateTerritoryReviewRequestInput,
+  CreateTerritorySearchInput,
   InsertEventOptions,
   LeadPatch,
   PortalStore,
   StaffUserPatch,
+  TerritoryDefinitionPatch,
+  TerritoryReviewRequestPatch,
+  UpsertStateEligibilityInput,
   VideoProgressPatch,
 } from "./types";
 import type { PortalEventRecord } from "@/types/analytics";
@@ -28,6 +35,15 @@ import type {
   StaffSessionRecord,
   StaffUserRecord,
 } from "@/types/advisor";
+import type {
+  BrandStateEligibilityRecord,
+  FranchiseBrandRecord,
+  TerritoryDefinitionRecord,
+  TerritoryReviewRequestRecord,
+  TerritorySearchRecord,
+  TerritoryZipCodeRecord,
+  ZipCodeReferenceRecord,
+} from "@/types/territory";
 
 /**
  * File-backed development store used when Supabase is not configured.
@@ -47,6 +63,13 @@ interface DevData {
   advisor_notes: AdvisorNoteRecord[];
   appointments: AppointmentRecord[];
   fdd_audit_log: FddAuditRecord[];
+  franchise_brands: FranchiseBrandRecord[];
+  brand_state_eligibility: BrandStateEligibilityRecord[];
+  territory_definitions: TerritoryDefinitionRecord[];
+  territory_zip_codes: TerritoryZipCodeRecord[];
+  zip_code_reference: ZipCodeReferenceRecord[];
+  territory_searches: TerritorySearchRecord[];
+  territory_review_requests: TerritoryReviewRequestRecord[];
 }
 
 const DATA_DIR = path.join(process.cwd(), ".dev-data");
@@ -64,7 +87,29 @@ const EMPTY: DevData = {
   advisor_notes: [],
   appointments: [],
   fdd_audit_log: [],
+  franchise_brands: [],
+  brand_state_eligibility: [],
+  territory_definitions: [],
+  territory_zip_codes: [],
+  zip_code_reference: [],
+  territory_searches: [],
+  territory_review_requests: [],
 };
+
+/** Mirrors the migration's `on conflict (slug) do nothing` seed of the single existing brand. */
+const DEFAULT_BRAND_SLUG = "cmdt";
+function ensureDefaultBrand(data: DevData): void {
+  if (data.franchise_brands.length > 0) return;
+  data.franchise_brands.push({
+    id: randomUUID(),
+    slug: DEFAULT_BRAND_SLUG,
+    name: "Complete Mobile Drug Testing",
+    active: true,
+    default_radius_miles: 10,
+    created_at: nowIso(),
+    updated_at: nowIso(),
+  });
+}
 
 /** Default FDD workflow fields for new and reset leads. */
 const FDD_DEFAULTS = {
@@ -82,15 +127,26 @@ const FDD_DEFAULTS = {
 };
 
 async function readData(): Promise<DevData> {
+  let data: DevData;
   try {
     const raw = await fs.readFile(DATA_FILE, "utf8");
-    const data = { ...EMPTY, ...(JSON.parse(raw) as Partial<DevData>) };
+    data = { ...EMPTY, ...(JSON.parse(raw) as Partial<DevData>) };
     // Backfill FDD defaults for leads created before the FDD workflow existed.
     data.leads = data.leads.map((lead) => ({ ...FDD_DEFAULTS, ...lead }));
-    return data;
   } catch {
-    return structuredClone(EMPTY);
+    data = structuredClone(EMPTY);
   }
+  if (data.franchise_brands.length === 0) {
+    ensureDefaultBrand(data);
+    // Persist immediately so the seeded brand's id stays stable across reads
+    // (territory records foreign-key to it) instead of regenerating per call.
+    try {
+      await writeData(data);
+    } catch {
+      // Non-fatal — worst case the id changes on the next successful write.
+    }
+  }
+  return data;
 }
 
 async function writeData(data: DevData): Promise<void> {
@@ -525,6 +581,306 @@ export function createDevStore(): PortalStore {
       return (await readData()).portal_events
         .filter((e) => e.lead_id === leadId)
         .sort((a, b) => b.created_at.localeCompare(a.created_at));
+    },
+
+    // -----------------------------------------------------------------------
+    // Territory Advisor
+    // -----------------------------------------------------------------------
+
+    async getBrandBySlug(slug: string): Promise<FranchiseBrandRecord | null> {
+      return (await readData()).franchise_brands.find((b) => b.slug === slug) ?? null;
+    },
+
+    async getBrandById(id: string): Promise<FranchiseBrandRecord | null> {
+      return (await readData()).franchise_brands.find((b) => b.id === id) ?? null;
+    },
+
+    async listBrands(): Promise<FranchiseBrandRecord[]> {
+      return (await readData()).franchise_brands;
+    },
+
+    async createBrand(input: CreateFranchiseBrandInput): Promise<FranchiseBrandRecord> {
+      return withLock(async () => {
+        const data = await readData();
+        if (data.franchise_brands.some((b) => b.slug === input.slug)) {
+          throw new Error(`Brand already exists: ${input.slug}`);
+        }
+        const record: FranchiseBrandRecord = {
+          id: randomUUID(),
+          slug: input.slug,
+          name: input.name,
+          active: input.active ?? true,
+          default_radius_miles: input.default_radius_miles ?? 10,
+          created_at: nowIso(),
+          updated_at: nowIso(),
+        };
+        data.franchise_brands.push(record);
+        await writeData(data);
+        return record;
+      });
+    },
+
+    async getStateEligibility(
+      brandId: string,
+      stateCode: string,
+    ): Promise<BrandStateEligibilityRecord | null> {
+      const data = await readData();
+      return (
+        data.brand_state_eligibility.find(
+          (r) => r.brand_id === brandId && r.state_code === stateCode.toUpperCase(),
+        ) ?? null
+      );
+    },
+
+    async listStateEligibility(brandId: string): Promise<BrandStateEligibilityRecord[]> {
+      return (await readData()).brand_state_eligibility.filter((r) => r.brand_id === brandId);
+    },
+
+    async upsertStateEligibility(
+      input: UpsertStateEligibilityInput,
+    ): Promise<BrandStateEligibilityRecord> {
+      return withLock(async () => {
+        const data = await readData();
+        const stateCode = input.state_code.toUpperCase();
+        let record = data.brand_state_eligibility.find(
+          (r) => r.brand_id === input.brand_id && r.state_code === stateCode,
+        );
+        if (!record) {
+          record = {
+            id: randomUUID(),
+            brand_id: input.brand_id,
+            state_code: stateCode,
+            status: input.status,
+            effective_date: input.effective_date ?? null,
+            expiration_date: input.expiration_date ?? null,
+            notes_internal: input.notes_internal ?? null,
+            created_at: nowIso(),
+            updated_at: nowIso(),
+          };
+          data.brand_state_eligibility.push(record);
+        } else {
+          Object.assign(record, {
+            status: input.status,
+            effective_date: input.effective_date ?? record.effective_date,
+            expiration_date: input.expiration_date ?? record.expiration_date,
+            notes_internal: input.notes_internal ?? record.notes_internal,
+            updated_at: nowIso(),
+          });
+        }
+        await writeData(data);
+        return record;
+      });
+    },
+
+    async listTerritoryDefinitions(brandId: string): Promise<TerritoryDefinitionRecord[]> {
+      return (await readData()).territory_definitions.filter((t) => t.brand_id === brandId);
+    },
+
+    async getTerritoryDefinition(id: string): Promise<TerritoryDefinitionRecord | null> {
+      return (await readData()).territory_definitions.find((t) => t.id === id) ?? null;
+    },
+
+    async createTerritoryDefinition(
+      input: CreateTerritoryDefinitionInput,
+    ): Promise<TerritoryDefinitionRecord> {
+      return withLock(async () => {
+        const data = await readData();
+        const record: TerritoryDefinitionRecord = {
+          id: randomUUID(),
+          brand_id: input.brand_id,
+          territory_name: input.territory_name,
+          territory_code: input.territory_code ?? null,
+          definition_type: input.definition_type,
+          status: input.status ?? "available",
+          center_latitude: input.center_latitude ?? null,
+          center_longitude: input.center_longitude ?? null,
+          radius_miles: input.radius_miles ?? null,
+          public_display_level: input.public_display_level ?? "hidden",
+          internal_notes: input.internal_notes ?? null,
+          awarded_at: input.awarded_at ?? null,
+          reserved_until: input.reserved_until ?? null,
+          created_at: nowIso(),
+          updated_at: nowIso(),
+        };
+        data.territory_definitions.push(record);
+        await writeData(data);
+        return record;
+      });
+    },
+
+    async updateTerritoryDefinition(
+      id: string,
+      patch: TerritoryDefinitionPatch,
+    ): Promise<TerritoryDefinitionRecord> {
+      return withLock(async () => {
+        const data = await readData();
+        const record = data.territory_definitions.find((t) => t.id === id);
+        if (!record) throw new Error(`Territory definition not found: ${id}`);
+        Object.assign(record, patch, { updated_at: nowIso() });
+        await writeData(data);
+        return record;
+      });
+    },
+
+    async listZipCodesForTerritory(territoryDefinitionId: string): Promise<TerritoryZipCodeRecord[]> {
+      return (await readData()).territory_zip_codes.filter(
+        (z) => z.territory_definition_id === territoryDefinitionId,
+      );
+    },
+
+    async addTerritoryZipCodes(
+      territoryDefinitionId: string,
+      zipCodes: string[],
+    ): Promise<TerritoryZipCodeRecord[]> {
+      return withLock(async () => {
+        const data = await readData();
+        const existing = new Set(
+          data.territory_zip_codes
+            .filter((z) => z.territory_definition_id === territoryDefinitionId)
+            .map((z) => z.zip_code),
+        );
+        const added: TerritoryZipCodeRecord[] = [];
+        for (const raw of zipCodes) {
+          const zip = raw.trim();
+          if (!zip || existing.has(zip)) continue;
+          const record: TerritoryZipCodeRecord = {
+            id: randomUUID(),
+            territory_definition_id: territoryDefinitionId,
+            zip_code: zip,
+            created_at: nowIso(),
+          };
+          data.territory_zip_codes.push(record);
+          added.push(record);
+          existing.add(zip);
+        }
+        await writeData(data);
+        return added;
+      });
+    },
+
+    async removeTerritoryZipCode(id: string): Promise<void> {
+      await withLock(async () => {
+        const data = await readData();
+        data.territory_zip_codes = data.territory_zip_codes.filter((z) => z.id !== id);
+        await writeData(data);
+      });
+    },
+
+    async getZipCodeReference(zipCode: string): Promise<ZipCodeReferenceRecord | null> {
+      return (await readData()).zip_code_reference.find((z) => z.zip_code === zipCode) ?? null;
+    },
+
+    async listZipCodeReferences(): Promise<ZipCodeReferenceRecord[]> {
+      return (await readData()).zip_code_reference;
+    },
+
+    async upsertZipCodeReferences(rows: ZipCodeReferenceRecord[]): Promise<void> {
+      await withLock(async () => {
+        const data = await readData();
+        for (const row of rows) {
+          const index = data.zip_code_reference.findIndex((z) => z.zip_code === row.zip_code);
+          if (index === -1) data.zip_code_reference.push(row);
+          else data.zip_code_reference[index] = row;
+        }
+        await writeData(data);
+      });
+    },
+
+    async createTerritorySearch(input: CreateTerritorySearchInput): Promise<TerritorySearchRecord> {
+      return withLock(async () => {
+        const data = await readData();
+        const record: TerritorySearchRecord = {
+          id: randomUUID(),
+          lead_id: input.lead_id,
+          brand_id: input.brand_id,
+          raw_query: input.raw_query,
+          normalized_location: input.normalized_location ?? null,
+          latitude: input.latitude ?? null,
+          longitude: input.longitude ?? null,
+          city: input.city ?? null,
+          state_code: input.state_code ?? null,
+          zip_code: input.zip_code ?? null,
+          radius_miles: input.radius_miles ?? null,
+          result_status: input.result_status,
+          result_summary: input.result_summary ?? null,
+          matched_territory_count: input.matched_territory_count ?? 0,
+          request_manual_review: input.request_manual_review ?? false,
+          created_at: nowIso(),
+        };
+        data.territory_searches.push(record);
+        await writeData(data);
+        return record;
+      });
+    },
+
+    async getTerritorySearch(id: string): Promise<TerritorySearchRecord | null> {
+      return (await readData()).territory_searches.find((s) => s.id === id) ?? null;
+    },
+
+    async listTerritorySearchesForLead(leadId: string): Promise<TerritorySearchRecord[]> {
+      return (await readData()).territory_searches
+        .filter((s) => s.lead_id === leadId)
+        .sort((a, b) => b.created_at.localeCompare(a.created_at));
+    },
+
+    async listTerritorySearches(): Promise<TerritorySearchRecord[]> {
+      return (await readData()).territory_searches.sort((a, b) =>
+        b.created_at.localeCompare(a.created_at),
+      );
+    },
+
+    async createTerritoryReviewRequest(
+      input: CreateTerritoryReviewRequestInput,
+    ): Promise<TerritoryReviewRequestRecord> {
+      return withLock(async () => {
+        const data = await readData();
+        const record: TerritoryReviewRequestRecord = {
+          id: randomUUID(),
+          lead_id: input.lead_id,
+          brand_id: input.brand_id,
+          territory_search_id: input.territory_search_id ?? null,
+          status: "new",
+          prospect_message: input.prospect_message ?? null,
+          assigned_to: null,
+          reviewed_at: null,
+          internal_notes: null,
+          created_at: nowIso(),
+          updated_at: nowIso(),
+        };
+        data.territory_review_requests.push(record);
+        await writeData(data);
+        return record;
+      });
+    },
+
+    async getTerritoryReviewRequest(id: string): Promise<TerritoryReviewRequestRecord | null> {
+      return (await readData()).territory_review_requests.find((r) => r.id === id) ?? null;
+    },
+
+    async listTerritoryReviewRequestsForLead(leadId: string): Promise<TerritoryReviewRequestRecord[]> {
+      return (await readData()).territory_review_requests
+        .filter((r) => r.lead_id === leadId)
+        .sort((a, b) => b.created_at.localeCompare(a.created_at));
+    },
+
+    async listTerritoryReviewRequests(): Promise<TerritoryReviewRequestRecord[]> {
+      return (await readData()).territory_review_requests.sort((a, b) =>
+        b.created_at.localeCompare(a.created_at),
+      );
+    },
+
+    async updateTerritoryReviewRequest(
+      id: string,
+      patch: TerritoryReviewRequestPatch,
+    ): Promise<TerritoryReviewRequestRecord> {
+      return withLock(async () => {
+        const data = await readData();
+        const record = data.territory_review_requests.find((r) => r.id === id);
+        if (!record) throw new Error(`Territory review request not found: ${id}`);
+        Object.assign(record, patch, { updated_at: nowIso() });
+        await writeData(data);
+        return record;
+      });
     },
   };
 }

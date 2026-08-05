@@ -32,7 +32,18 @@ export type PortalEventName =
   | "consultation_no_show"
   | "note_added"
   | "stage_changed"
-  | "advisor_assigned";
+  | "advisor_assigned"
+  // Territory Advisor events.
+  | "territory_advisor_viewed"
+  | "territory_search_submitted"
+  | "territory_search_completed"
+  | "territory_search_failed"
+  | "territory_result_available"
+  | "territory_result_partial"
+  | "territory_result_unavailable"
+  | "territory_result_state_restricted"
+  | "territory_review_requested"
+  | "territory_alternative_selected";
 
 export interface PortalEventRecord {
   id: string;

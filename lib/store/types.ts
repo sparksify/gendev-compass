@@ -12,6 +12,18 @@ import type {
   StaffSessionRecord,
   StaffUserRecord,
 } from "@/types/advisor";
+import type {
+  BrandStateEligibilityRecord,
+  FranchiseBrandRecord,
+  StateEligibilityStatus,
+  TerritoryDefinitionRecord,
+  TerritoryDefinitionType,
+  TerritoryReviewRequestRecord,
+  TerritorySearchRecord,
+  TerritoryStatus,
+  TerritoryZipCodeRecord,
+  ZipCodeReferenceRecord,
+} from "@/types/territory";
 
 export interface CreateLeadRecordInput {
   portal_token: string;
@@ -146,6 +158,86 @@ export type AppointmentPatch = Partial<
   >
 >;
 
+// ---------------------------------------------------------------------------
+// Territory Advisor
+// ---------------------------------------------------------------------------
+
+export interface CreateFranchiseBrandInput {
+  slug: string;
+  name: string;
+  active?: boolean;
+  default_radius_miles?: number;
+}
+
+export interface UpsertStateEligibilityInput {
+  brand_id: string;
+  state_code: string;
+  status: StateEligibilityStatus;
+  effective_date?: string | null;
+  expiration_date?: string | null;
+  notes_internal?: string | null;
+}
+
+export interface CreateTerritoryDefinitionInput {
+  brand_id: string;
+  territory_name: string;
+  territory_code?: string | null;
+  definition_type: TerritoryDefinitionType;
+  status?: TerritoryStatus;
+  center_latitude?: number | null;
+  center_longitude?: number | null;
+  radius_miles?: number | null;
+  public_display_level?: "hidden" | "generalized" | "exact";
+  internal_notes?: string | null;
+  awarded_at?: string | null;
+  reserved_until?: string | null;
+}
+
+export type TerritoryDefinitionPatch = Partial<
+  Pick<
+    TerritoryDefinitionRecord,
+    | "territory_name"
+    | "territory_code"
+    | "definition_type"
+    | "status"
+    | "center_latitude"
+    | "center_longitude"
+    | "radius_miles"
+    | "public_display_level"
+    | "internal_notes"
+    | "awarded_at"
+    | "reserved_until"
+  >
+>;
+
+export interface CreateTerritorySearchInput {
+  lead_id: string;
+  brand_id: string;
+  raw_query: string;
+  normalized_location?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  city?: string | null;
+  state_code?: string | null;
+  zip_code?: string | null;
+  radius_miles?: number | null;
+  result_status: TerritorySearchRecord["result_status"];
+  result_summary?: Record<string, unknown> | null;
+  matched_territory_count?: number;
+  request_manual_review?: boolean;
+}
+
+export interface CreateTerritoryReviewRequestInput {
+  lead_id: string;
+  brand_id: string;
+  territory_search_id?: string | null;
+  prospect_message?: string | null;
+}
+
+export type TerritoryReviewRequestPatch = Partial<
+  Pick<TerritoryReviewRequestRecord, "status" | "assigned_to" | "reviewed_at" | "internal_notes">
+>;
+
 export interface PortalStore {
   createLead(input: CreateLeadRecordInput): Promise<LeadRecord>;
   getLeadByToken(token: string): Promise<LeadRecord | null>;
@@ -213,6 +305,49 @@ export interface PortalStore {
   listAppointments(): Promise<AppointmentRecord[]>;
 
   getEventsForLead(leadId: string): Promise<PortalEventRecord[]>;
+
+  // -------------------------------------------------------------------------
+  // Territory Advisor. Same simplicity trade as the advisor backend above:
+  // list methods return full (brand-scoped, where applicable) sets and
+  // callers filter/compute in application code — datasets stay small at
+  // pilot scale and this keeps the Supabase and dev stores identical.
+  // -------------------------------------------------------------------------
+  getBrandBySlug(slug: string): Promise<FranchiseBrandRecord | null>;
+  getBrandById(id: string): Promise<FranchiseBrandRecord | null>;
+  listBrands(): Promise<FranchiseBrandRecord[]>;
+  createBrand(input: CreateFranchiseBrandInput): Promise<FranchiseBrandRecord>;
+
+  getStateEligibility(brandId: string, stateCode: string): Promise<BrandStateEligibilityRecord | null>;
+  listStateEligibility(brandId: string): Promise<BrandStateEligibilityRecord[]>;
+  upsertStateEligibility(input: UpsertStateEligibilityInput): Promise<BrandStateEligibilityRecord>;
+
+  listTerritoryDefinitions(brandId: string): Promise<TerritoryDefinitionRecord[]>;
+  getTerritoryDefinition(id: string): Promise<TerritoryDefinitionRecord | null>;
+  createTerritoryDefinition(input: CreateTerritoryDefinitionInput): Promise<TerritoryDefinitionRecord>;
+  updateTerritoryDefinition(id: string, patch: TerritoryDefinitionPatch): Promise<TerritoryDefinitionRecord>;
+
+  listZipCodesForTerritory(territoryDefinitionId: string): Promise<TerritoryZipCodeRecord[]>;
+  /** Bulk insert; silently skips zip codes already attached to this territory. */
+  addTerritoryZipCodes(territoryDefinitionId: string, zipCodes: string[]): Promise<TerritoryZipCodeRecord[]>;
+  removeTerritoryZipCode(id: string): Promise<void>;
+
+  getZipCodeReference(zipCode: string): Promise<ZipCodeReferenceRecord | null>;
+  listZipCodeReferences(): Promise<ZipCodeReferenceRecord[]>;
+  upsertZipCodeReferences(rows: ZipCodeReferenceRecord[]): Promise<void>;
+
+  createTerritorySearch(input: CreateTerritorySearchInput): Promise<TerritorySearchRecord>;
+  getTerritorySearch(id: string): Promise<TerritorySearchRecord | null>;
+  listTerritorySearchesForLead(leadId: string): Promise<TerritorySearchRecord[]>;
+  listTerritorySearches(): Promise<TerritorySearchRecord[]>;
+
+  createTerritoryReviewRequest(input: CreateTerritoryReviewRequestInput): Promise<TerritoryReviewRequestRecord>;
+  getTerritoryReviewRequest(id: string): Promise<TerritoryReviewRequestRecord | null>;
+  listTerritoryReviewRequestsForLead(leadId: string): Promise<TerritoryReviewRequestRecord[]>;
+  listTerritoryReviewRequests(): Promise<TerritoryReviewRequestRecord[]>;
+  updateTerritoryReviewRequest(
+    id: string,
+    patch: TerritoryReviewRequestPatch,
+  ): Promise<TerritoryReviewRequestRecord>;
 }
 
 /** Forward-only ordering used to avoid regressing a lead's status. */
