@@ -316,6 +316,12 @@ export function coveredDemographicsStates(
   return covered;
 }
 
+/** ACS variables requested for the current (primary) vintage — population,
+ *  households, median household income. Exported so callers that persist
+ *  the raw per-state response (lib/geocoding/censusJob.ts) can label it
+ *  with exactly what was requested. */
+export const CURRENT_VINTAGE_VARIABLES = ["B01003_001E", "B11001_001E", "B19013_001E"];
+
 export interface SyncDemographicsResult {
   /** States successfully fetched and written during this invocation. */
   loadedStates: string[];
@@ -332,6 +338,25 @@ export interface SyncDemographicsResult {
   failedStateErrors: Record<string, string>;
   vintage: string;
   existingZips: number;
+  /** How many of the 51 target states meet the coverage threshold as of
+   *  this call — a fresh count, not an incrementally accumulated one, so
+   *  callers tracking job-level progress never risk double-counting a
+   *  state that failed once and succeeded on a later retry. */
+  statesCovered: number;
+}
+
+/** One state's outcome, reported as soon as that state's work finishes —
+ *  lets a caller (the job worker) persist a raw audit record and update
+ *  job-level progress incrementally, without waiting for the whole
+ *  budgeted chunk to finish. */
+export interface StateSyncResult {
+  state: string;
+  success: boolean;
+  writtenRows: number;
+  /** The current-vintage Census figures per ZCTA, exactly as fetched —
+   *  present on success, for the caller's raw-audit storage. */
+  rawPayload?: Record<string, Record<string, number | null>>;
+  error?: string;
 }
 
 /**
@@ -354,7 +379,10 @@ export interface SyncDemographicsResult {
  * admin UI auto-repeats and the weekly cron picks up any remainder on its
  * next scheduled run.
  */
-export async function syncDemographics(budgetMs: number): Promise<SyncDemographicsResult> {
+export async function syncDemographics(
+  budgetMs: number,
+  onStateResult?: (result: StateSyncResult) => Promise<void> | void,
+): Promise<SyncDemographicsResult> {
   const { getStore } = await import("@/lib/store");
   const store = getStore();
   const existingRows = await store.listZipCodeReferences();
@@ -392,11 +420,7 @@ export async function syncDemographics(budgetMs: number): Promise<SyncDemographi
         // predating when the Census API's ZCTA-by-state support was
         // introduced) must never discard population/income data that
         // fetched successfully. Growth simply stays null for that state.
-        const current = await fetchAcsForState(
-          CENSUS_CURRENT_VINTAGE,
-          ["B01003_001E", "B11001_001E", "B19013_001E"],
-          fips,
-        );
+        const current = await fetchAcsForState(CENSUS_CURRENT_VINTAGE, CURRENT_VINTAGE_VARIABLES, fips);
         let prior = new Map<string, Record<string, number | null>>();
         try {
           prior = await fetchAcsForState(CENSUS_PRIOR_VINTAGE, ["B01003_001E"], fips);
@@ -415,11 +439,22 @@ export async function syncDemographics(budgetMs: number): Promise<SyncDemographi
         }
         written += rows.length;
         loadedStates.push(stateCode);
+        if (onStateResult) {
+          await onStateResult({
+            state: stateCode,
+            success: true,
+            writtenRows: rows.length,
+            rawPayload: Object.fromEntries(current),
+          });
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.error(`[census] ${stateCode} sync failed:`, error);
         failedStates.push(stateCode);
         failedStateErrors[stateCode] = message;
+        if (onStateResult) {
+          await onStateResult({ state: stateCode, success: false, writtenRows: 0, error: message });
+        }
       }
     }
   }
@@ -436,6 +471,7 @@ export async function syncDemographics(budgetMs: number): Promise<SyncDemographi
     failedStateErrors,
     vintage: DEMOGRAPHICS_VINTAGE_LABEL,
     existingZips: existingRows.length,
+    statesCovered: covered.size + loadedStates.length,
   };
 }
 
