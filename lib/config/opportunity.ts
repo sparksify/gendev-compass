@@ -40,6 +40,16 @@ export interface SnapshotEntry {
   emphasize?: boolean;
 }
 
+export interface PnlLine {
+  key: string;
+  label: string;
+  amount: string;
+  /** Share of sales, e.g. "49%". */
+  percentOfSales?: string;
+  /** Visual treatment on the statement. */
+  variant: "revenue" | "expense" | "subtotal" | "total" | "deduction" | "result";
+}
+
 export interface OpportunityDocument {
   key: string;
   title: string;
@@ -71,8 +81,9 @@ export interface OpportunityProfile {
   features: OpportunityFeature[];
   customers: CustomerSegment[];
   financial: {
-    headlineValue: string;
-    headlineLabel: string;
+    /** Statement heading shown beside the section title, e.g. "2025 Profit & Loss". */
+    statementLabel: string;
+    pnl: PnlLine[];
     disclaimer: string;
   };
   snapshot: {
@@ -183,10 +194,20 @@ export const CMDT_PROFILE: OpportunityProfile = {
     },
   ],
   financial: {
-    headlineValue: "$961,764",
-    headlineLabel: "Reported Average Unit Volume",
+    statementLabel: "2025 Profit & Loss",
+    pnl: [
+      { key: "sales", label: "Sales", amount: "$889,003", percentOfSales: "100%", variant: "revenue" },
+      { key: "cogs", label: "Cost of Goods Sold", amount: "$21,611", percentOfSales: "2%", variant: "expense" },
+      { key: "labor", label: "Labor Cost", amount: "$436,703", percentOfSales: "49%", variant: "expense" },
+      { key: "rent", label: "Rent", amount: "$26,840", percentOfSales: "3%", variant: "expense" },
+      { key: "other", label: "Other Costs", amount: "$9,719", percentOfSales: "1%", variant: "expense" },
+      { key: "total-expenses", label: "Total Expenses", amount: "$494,873", percentOfSales: "56%", variant: "subtotal" },
+      { key: "net-profit", label: "Net Profit", amount: "$394,130", percentOfSales: "44%", variant: "total" },
+      { key: "royalty", label: "Royalty Fee (10%)", amount: "($88,900)", percentOfSales: "10%", variant: "deduction" },
+      { key: "net-after-royalty", label: "Net Profit After Royalty", amount: "$305,230", percentOfSales: "34%", variant: "result" },
+    ],
     disclaimer:
-      "Financial performance information is contained in Item 19 of the franchisor's Franchise Disclosure Document. Individual results vary, and a franchisee's results may differ from the reported figure.",
+      "Financial performance information is contained in Item 19 of the franchisor's Franchise Disclosure Document. Individual results vary, and a franchisee's results may differ from the reported figures.",
   },
   snapshot: {
     entries: [
