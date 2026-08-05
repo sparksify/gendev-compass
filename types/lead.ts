@@ -57,6 +57,10 @@ export interface LeadRecord {
   fdd_request_source: string | null;
   fdd_last_error: string | null;
   fdd_retry_count: number;
+  brand_slug: string;
+  highlevel_contact_id: string | null;
+  highlevel_location_id: string | null;
+  advisor_id: string | null;
 }
 
 export interface CreateLeadInput {

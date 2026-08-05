@@ -2,6 +2,13 @@ import type { LeadRecord, LeadStatus } from "@/types/lead";
 import type { QuestionnaireRecord } from "@/types/questionnaire";
 import type { VideoProgressRecord } from "@/types/portal";
 import type { FddAuditInsert, FddAuditRecord, FddStatus } from "@/types/fdd";
+import type {
+  ActivationPatch,
+  CreateActivationInput,
+  CreateExternalLeadInput,
+  ExternalLeadRecord,
+  PortalActivationRecord,
+} from "@/types/portalActivation";
 
 export interface CreateLeadRecordInput {
   portal_token: string;
@@ -17,6 +24,10 @@ export interface CreateLeadRecordInput {
   initial_liquid_capital: string | null;
   initial_net_worth: string | null;
   initial_business_owner: boolean | null;
+  brand_slug?: string;
+  highlevel_contact_id?: string | null;
+  highlevel_location_id?: string | null;
+  advisor_id?: string | null;
 }
 
 export interface CreateQuestionnaireInput {
@@ -60,6 +71,9 @@ export type LeadPatch = Partial<
     | "fdd_request_source"
     | "fdd_last_error"
     | "fdd_retry_count"
+    | "highlevel_contact_id"
+    | "highlevel_location_id"
+    | "advisor_id"
   >
 >;
 
@@ -107,6 +121,43 @@ export interface PortalStore {
 
   /** Development helper: wipe progress so the demo flow can be replayed. */
   resetLeadProgress(leadId: string): Promise<void>;
+
+  // -- Facebook lead → activation flow -------------------------------------
+
+  /** Locate the existing portal user for this brand + HighLevel contact, if any. */
+  getLeadByBrandAndHighLevelContact(brandSlug: string, contactId: string): Promise<LeadRecord | null>;
+  /** Secondary reuse check (no HighLevel contact match) so repeat submissions don't duplicate a portal user. */
+  getLeadByBrandAndEmail(brandSlug: string, normalizedEmail: string): Promise<LeadRecord | null>;
+
+  /**
+   * Idempotent upsert keyed on (highlevel_contact_id, highlevel_location_id).
+   * A duplicate webhook delivery updates attribution fields only — it never
+   * resets claimed_at/claimed_by_activation_id on an already-claimed lead.
+   */
+  upsertExternalLead(
+    input: CreateExternalLeadInput,
+  ): Promise<{ record: ExternalLeadRecord; duplicate: boolean }>;
+  getExternalLeadById(id: string): Promise<ExternalLeadRecord | null>;
+  /** Unclaimed leads for a brand with received_at inside [startIso, endIso]. */
+  findEligibleExternalLeads(
+    brandSlug: string,
+    startIso: string,
+    endIso: string,
+  ): Promise<ExternalLeadRecord[]>;
+  /**
+   * Atomic conditional claim: succeeds only if the row is still unclaimed.
+   * Returns null when the claim loses a race (caller should retry matching).
+   */
+  claimExternalLead(externalLeadId: string, activationId: string): Promise<ExternalLeadRecord | null>;
+  linkExternalLeadToPortalLead(externalLeadId: string, leadId: string): Promise<void>;
+
+  createActivation(input: CreateActivationInput): Promise<PortalActivationRecord>;
+  getActivationByPublicId(publicId: string): Promise<PortalActivationRecord | null>;
+  updateActivation(id: string, patch: ActivationPatch): Promise<PortalActivationRecord>;
+
+  /** Admin/debug view (spec: structured diagnostics), newest first. */
+  listRecentActivations(limit: number): Promise<PortalActivationRecord[]>;
+  listRecentExternalLeads(limit: number): Promise<ExternalLeadRecord[]>;
 }
 
 /** Forward-only ordering used to avoid regressing a lead's status. */

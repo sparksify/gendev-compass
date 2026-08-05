@@ -71,6 +71,36 @@ Development tools (simulate/reset buttons and the dev API route) render
 outside production and on Vercel preview deployments; the API independently
 refuses on the production deployment.
 
+Run the automated tests (no Supabase or network dependency):
+
+```bash
+npm test
+```
+
+To exercise the Facebook lead activation flow locally, set
+`HIGHLEVEL_INBOUND_WEBHOOK_SECRET` in `.env.local` (the one credential in
+this app with no dev fallback — see
+[Environment variables](#environment-variables)), then:
+
+```bash
+curl -X POST http://localhost:3000/api/integrations/highlevel/facebook-lead \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $HIGHLEVEL_INBOUND_WEBHOOK_SECRET" \
+  -d '{
+    "contactId": "test-contact-1",
+    "locationId": "test-location",
+    "firstName": "Test",
+    "lastName": "Lead",
+    "email": "test@example.com",
+    "phone": "+12145551212",
+    "brandSlug": "cmdt",
+    "source": "facebook_lead_ad"
+  }'
+```
+
+Then open `http://localhost:3000/activate?brand=cmdt` within ~2 minutes —
+it should redirect straight into a private portal.
+
 ## Supabase setup
 
 1. Create a Supabase project.
@@ -159,11 +189,16 @@ button to exercise the waiting-period flow locally.
 See [.env.example](.env.example) for the full annotated list. Key rules:
 
 - Secrets (`SUPABASE_SERVICE_ROLE_KEY`, `INTERNAL_API_KEY`,
-  `ADMIN_TEST_PASSWORD`, `POSTHOG_KEY`) are server-only — never `NEXT_PUBLIC_`.
+  `ADMIN_TEST_PASSWORD`, `POSTHOG_KEY`, `HIGHLEVEL_INBOUND_WEBHOOK_SECRET`)
+  are server-only — never `NEXT_PUBLIC_`.
 - `NEXT_PUBLIC_APP_URL` is used to build portal links returned by the API.
 - In production, `INTERNAL_API_KEY` and/or `ADMIN_TEST_PASSWORD` **must** be
   set — without them every `POST /api/leads` request is rejected. (Only in
   local development with neither configured is the endpoint open.)
+- `HIGHLEVEL_INBOUND_WEBHOOK_SECRET` **must** be set in every environment,
+  including local development — unlike `/api/leads`, the HighLevel webhook
+  has no open dev fallback since it's reachable from the public internet.
+  See [Facebook lead → private portal activation](#facebook-lead--private-portal-activation).
 
 ## Creating a test lead
 
@@ -242,26 +277,153 @@ refuses to run in production, and dev tools/simulation are disabled there.
   interaction; timestamp finalized at submission).
 - Watch-time anti-abuse is deliberately pragmatic (accumulated-time check),
   not fraud-proof — per spec, practical qualification over anti-cheating.
-- One brand, one advisor, one video; extension points exist in
-  `lib/config/` but multi-brand routing is out of scope.
+- One brand (CMDT), one advisor, one video today. The activation flow below
+  adds a lightweight brand *registry* (`lib/config/brands.ts`) and
+  brand/HighLevel columns on `leads` so a second brand can be onboarded
+  without a schema change — but the portal UI itself, `lib/config/brand.ts`,
+  and `lib/config/opportunity.ts` are still single-brand; wiring a second
+  brand's portal presentation is a separate piece of work.
 - No automated emails/SMS — prospects only see in-portal state.
+
+## Facebook lead → private portal activation
+
+A person completes a Facebook Instant Lead Form; HighLevel forwards it to
+Compass immediately; clicking **"Create My Private Portal"** on Facebook's
+completion screen opens `/activate?brand=cmdt`, which authenticates the
+browser and redirects into the private portal within seconds — no email
+re-entry, SMS code, or password.
+
+```
+Facebook Instant Form → HighLevel → POST /api/integrations/highlevel/facebook-lead
+  (unclaimed external_leads row)
+
+Facebook completion screen "Create My Private Portal"
+  → /activate?brand=cmdt[&form=&campaign=&ad=&page=&source=]
+  → POST /api/portal-activation/start   (opaque activation id in an HTTP-only cookie)
+  → GET  /api/portal-activation/status  (polled every ~1.5s)
+      → one unclaimed lead matches → atomic claim → portal user provisioned
+        → redirect to /p/<portal_token>
+      → zero or multiple plausible leads → last-four phone fallback
+        → POST /api/portal-activation/phone-last-four
+```
+
+**This is a deliberate MVP tradeoff, not strong authentication.** Matching
+is time-window + attribution-context correlation, with last-four phone
+digits as the disambiguation fallback — the shared Facebook completion URL
+carries no unique lead identifier. The flow **never guesses** between
+multiple plausible leads: ambiguity always routes to the last-four
+fallback, never to "pick the newest one." See `lib/portalActivation/matching.ts`
+for the tiering/ambiguity rules and `HIGHLEVEL_SETUP.md` for the HighLevel
+workflow configuration.
+
+**⚠️ Residual risk to flag explicitly:** the portal this flow grants access
+to *does* collect sensitive investor-supplied financial data once inside
+(`questionnaire_responses`: liquid capital, net worth, business ownership —
+see "How qualification works" below). A successful match under this
+lightweight scheme grants entry to that portal. This is accepted as
+reasonable for a franchise-opportunity MVP (not a banking/medical/credit
+system, per spec) but is worth re-evaluating before scaling volume or if
+the questionnaire ever collects more sensitive data than it does today.
+
+### Data model
+
+Reuses the existing `leads` table as the portal user + opportunity record
+(one row already represents one person's brand engagement) rather than
+introducing parallel account/opportunity tables. Adds:
+
+- `leads.brand_slug`, `highlevel_contact_id`, `highlevel_location_id`,
+  `advisor_id` — brand/HighLevel identity on the existing record.
+- `external_leads` — Facebook/HighLevel intake staging, unclaimed until
+  matched. Idempotent on `(highlevel_contact_id, highlevel_location_id, brand_slug)`.
+- `portal_activations` — one row per browser's activation attempt,
+  correlated by an opaque id in an HTTP-only cookie (`pa_id`) — never in
+  the URL, never an email/phone/contact id.
+
+See `supabase/migrations/0004_portal_activation.sql` for the full schema,
+indexes, and the partial unique index that backs the atomic claim
+(`claimed_by_activation_id` unique where not null).
+
+### Matching & atomic claiming
+
+`lib/portalActivation/matching.ts` is pure, store-agnostic logic (unit
+tested in isolation): unclaimed + right brand + inside the arrival window,
+then cascading tiers from most to least specific — **form + campaign/ad/page
+context → form only → brand + source + time**. A tier that resolves to
+exactly one candidate matches; a tier with more than one is ambiguous and
+the flow does **not** fall through to a broader tier (broader tiers only
+add candidates, never resolve ambiguity) — it goes to the last-four
+fallback instead.
+
+Claiming is a single conditional `UPDATE … WHERE claimed_at IS NULL`
+(`lib/store/*Store.ts` → `claimExternalLead`) — atomic at the row level, so
+two activations racing for the same lead can never both win; the loser
+retries the match live rather than reusing the already-claimed record.
+
+### Configuration
+
+```
+HIGHLEVEL_INBOUND_WEBHOOK_SECRET=      # required — see HIGHLEVEL_SETUP.md
+PORTAL_AUTO_MATCH_BEFORE_SECONDS=120   # lead may have arrived up to this long before activation
+PORTAL_AUTO_MATCH_AFTER_SECONDS=30     # or up to this long after
+PORTAL_ACTIVATION_MAX_WAIT_SECONDS=30  # how long the browser polls before the fallback is offered
+PORTAL_ACTIVATION_POLL_INTERVAL_MS=1500
+PORTAL_ACTIVATION_TTL_MINUTES=15
+PORTAL_LAST_FOUR_MAX_ATTEMPTS=5
+PORTAL_TIME_MATCHING_ENABLED=true      # set "false" to force last-four fallback for every activation
+```
+
+### Diagnostics
+
+`/admin` → **Facebook Lead Activation** shows automatic-match success rate
+and recent activations (brand, status, matching tier, candidate count,
+failure reason — never phone/email/HighLevel ids). The same data is
+available at `GET /api/admin/portal-activation` (admin-password gated).
+Structured, PII-free events (`lead_received`, `activation_started`,
+`activation_matched`, `activation_ambiguous`, `activation_fallback_required`,
+`activation_expired`, …) are also written to the server log via
+`lib/portalActivation/log.ts`.
+
+### Testing
+
+```bash
+npm test          # lib/portalActivation/*.test.ts + app/api/**/route.test.ts
+npm run test:watch
+```
+
+Tests use an in-memory fake store (`lib/portalActivation/fakeStore.ts`, via
+`vi.mock("@/lib/store")`) — no Supabase or filesystem dependency. Coverage
+includes: pure-tier matching and ambiguity detection, one unique lead
+auto-matched, delayed/early lead arrival, two simultaneous leads, two
+simultaneous activations racing an atomic claim, last-four resolving a
+unique lead vs. staying ambiguous vs. exceeding max attempts, duplicate
+HighLevel webhook idempotency, activation reuse on refresh, existing portal
+user reuse, an existing user gaining access to a new brand without a
+duplicate account, expired activation, invalid brand, and unauthorized
+webhook calls.
 
 ## Next recommended integrations
 
-1. **Facebook Lead Ads webhook** → `POST /api/leads` (endpoint is ready;
-   add signature verification).
-2. **Calendar provider webhook** for authoritative booking capture
+1. **Calendar provider webhook** for authoritative booking capture
    (appointment ID, start time, reschedules, cancellations).
-3. **CRM sync** (HighLevel/CloseBot) on `lead_qualified` / `booked`.
-4. **Email/SMS nudges** for stalled prospects (video started, not finished).
-5. **PostHog dashboards** for the funnel metrics listed in the spec.
+2. **CRM sync** (HighLevel/CloseBot) on `lead_qualified` / `booked`.
+3. **Email/SMS nudges** for stalled prospects (video started, not finished).
+4. **PostHog dashboards** for the funnel metrics listed in the spec.
+5. **Second brand onboarding**: add an entry to `lib/config/brands.ts` and
+   extend `lib/config/opportunity.ts`/`lib/config/brand.ts` for
+   per-brand presentation — the activation flow's data model already
+   supports it.
 
 ## Project structure
 
 ```
 app/
+  activate/                Facebook completion-screen destination (activation UI)
   admin/create-lead/       internal testing page (password-gated)
+  admin/                   asset uploads, FDD dashboard, activation diagnostics
   api/leads/               lead creation (API-key/admin-password gated)
+  api/portal-activation/   start, status (polled), phone-last-four
+  api/integrations/highlevel/facebook-lead/   inbound HighLevel webhook
+  api/admin/portal-activation/   activation diagnostics API
   api/portal/[token]/      portal state, opened, video-progress,
                            questionnaire, booking, dev (dev-only)
   api/events/              client event sink (prefixed, whitelisted)
@@ -272,14 +434,16 @@ components/
   dashboard/               StatusCard, ProgressTimeline, VideoCard, Checklist, FAQ, …
   cards/                   AdvisorCard, ProgressSummaryCard, DocumentCard, ComingSoonCard
   forms/                   QuestionnaireForm (React Hook Form + Zod)
-  portal/                  WistiaPlayer, CalendarEmbed, dev tools, shared portal pieces
+  portal/                  WistiaPlayer, CalendarEmbed, dev tools, ActivationScreen, shared portal pieces
 lib/
-  config/                  brand, qualification, env helpers
+  config/                  brand, brands (registry), qualification, portalActivation, env helpers
   portal/                  state machine, qualification, progress, events, tokens
+  portalActivation/        matching engine, service, normalize, cookies, log, fakeStore (tests)
   store/                   data layer: Supabase + local dev store
   supabase/                service-role client (server-only)
   validation/              Zod schemas
 scripts/seed.ts            demo lead seeding / reset
 supabase/migrations/       SQL migrations
 types/                     shared domain types
+HIGHLEVEL_SETUP.md          HighLevel workflow/webhook configuration guide
 ```

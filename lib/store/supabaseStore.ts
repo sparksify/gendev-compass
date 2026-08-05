@@ -4,6 +4,13 @@ import type { QuestionnaireRecord } from "@/types/questionnaire";
 import type { VideoProgressRecord } from "@/types/portal";
 import type { FddAuditInsert, FddAuditRecord } from "@/types/fdd";
 import type {
+  ActivationPatch,
+  CreateActivationInput,
+  CreateExternalLeadInput,
+  ExternalLeadRecord,
+  PortalActivationRecord,
+} from "@/types/portalActivation";
+import type {
   CreateLeadRecordInput,
   CreateQuestionnaireInput,
   LeadPatch,
@@ -219,6 +226,189 @@ export function createSupabaseStore(): PortalStore {
           updated_at: nowIso(),
         })
         .eq("id", leadId);
+    },
+
+    async getLeadByBrandAndHighLevelContact(
+      brandSlug: string,
+      contactId: string,
+    ): Promise<LeadRecord | null> {
+      const { data, error } = await db
+        .from("leads")
+        .select()
+        .eq("brand_slug", brandSlug)
+        .eq("highlevel_contact_id", contactId)
+        .maybeSingle();
+      if (error) throw new Error(`Failed to look up lead by HighLevel contact: ${error.message}`);
+      return (data as LeadRecord | null) ?? null;
+    },
+
+    async getLeadByBrandAndEmail(brandSlug: string, normalizedEmail: string): Promise<LeadRecord | null> {
+      const { data, error } = await db
+        .from("leads")
+        .select()
+        .eq("brand_slug", brandSlug)
+        .ilike("email", normalizedEmail)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw new Error(`Failed to look up lead by email: ${error.message}`);
+      return (data as LeadRecord | null) ?? null;
+    },
+
+    async upsertExternalLead(
+      input: CreateExternalLeadInput,
+    ): Promise<{ record: ExternalLeadRecord; duplicate: boolean }> {
+      const { data: existing, error: lookupError } = await db
+        .from("external_leads")
+        .select()
+        .eq("highlevel_contact_id", input.highlevel_contact_id)
+        .eq("highlevel_location_id", input.highlevel_location_id)
+        .eq("brand_slug", input.brand_slug)
+        .maybeSingle();
+      if (lookupError) throw new Error(`Failed to look up external lead: ${lookupError.message}`);
+
+      if (existing) {
+        // Duplicate delivery: refresh attribution/profile fields only. Never
+        // touch claimed_at/claimed_by_activation_id — a claim must stand.
+        const { data, error } = await db
+          .from("external_leads")
+          .update({
+            brand_slug: input.brand_slug,
+            advisor_id: input.advisor_id,
+            first_name: input.first_name,
+            last_name: input.last_name,
+            normalized_email: input.normalized_email,
+            normalized_phone: input.normalized_phone,
+            phone_last_four: input.phone_last_four,
+            source: input.source,
+            facebook_page_id: input.facebook_page_id,
+            facebook_form_id: input.facebook_form_id,
+            facebook_campaign_id: input.facebook_campaign_id,
+            facebook_ad_id: input.facebook_ad_id,
+            submitted_at: input.submitted_at,
+            updated_at: nowIso(),
+          })
+          .eq("id", (existing as ExternalLeadRecord).id)
+          .select()
+          .single();
+        if (error) throw new Error(`Failed to update external lead: ${error.message}`);
+        return { record: data as ExternalLeadRecord, duplicate: true };
+      }
+
+      const { data, error } = await db.from("external_leads").insert(input).select().single();
+      if (error) {
+        // Race: another concurrent delivery inserted first. Treat as duplicate.
+        if (error.code === "23505") {
+          const { data: raced, error: racedError } = await db
+            .from("external_leads")
+            .select()
+            .eq("highlevel_contact_id", input.highlevel_contact_id)
+            .eq("highlevel_location_id", input.highlevel_location_id)
+            .eq("brand_slug", input.brand_slug)
+            .single();
+          if (racedError) throw new Error(`Failed to load raced external lead: ${racedError.message}`);
+          return { record: raced as ExternalLeadRecord, duplicate: true };
+        }
+        throw new Error(`Failed to create external lead: ${error.message}`);
+      }
+      return { record: data as ExternalLeadRecord, duplicate: false };
+    },
+
+    async getExternalLeadById(id: string): Promise<ExternalLeadRecord | null> {
+      const { data, error } = await db.from("external_leads").select().eq("id", id).maybeSingle();
+      if (error) throw new Error(`Failed to load external lead: ${error.message}`);
+      return (data as ExternalLeadRecord | null) ?? null;
+    },
+
+    async findEligibleExternalLeads(
+      brandSlug: string,
+      startIso: string,
+      endIso: string,
+    ): Promise<ExternalLeadRecord[]> {
+      const { data, error } = await db
+        .from("external_leads")
+        .select()
+        .eq("brand_slug", brandSlug)
+        .is("claimed_at", null)
+        .gte("received_at", startIso)
+        .lte("received_at", endIso)
+        .order("received_at", { ascending: true });
+      if (error) throw new Error(`Failed to find eligible external leads: ${error.message}`);
+      return (data as ExternalLeadRecord[]) ?? [];
+    },
+
+    async claimExternalLead(
+      externalLeadId: string,
+      activationId: string,
+    ): Promise<ExternalLeadRecord | null> {
+      const { data, error } = await db
+        .from("external_leads")
+        .update({ claimed_at: nowIso(), claimed_by_activation_id: activationId, updated_at: nowIso() })
+        .eq("id", externalLeadId)
+        .is("claimed_at", null)
+        .select()
+        .maybeSingle();
+      if (error) throw new Error(`Failed to claim external lead: ${error.message}`);
+      return (data as ExternalLeadRecord | null) ?? null;
+    },
+
+    async linkExternalLeadToPortalLead(externalLeadId: string, leadId: string): Promise<void> {
+      const { error } = await db
+        .from("external_leads")
+        .update({ matched_lead_id: leadId, updated_at: nowIso() })
+        .eq("id", externalLeadId);
+      if (error) throw new Error(`Failed to link external lead: ${error.message}`);
+    },
+
+    async createActivation(input: CreateActivationInput): Promise<PortalActivationRecord> {
+      const { data, error } = await db
+        .from("portal_activations")
+        .insert({ ...input, status: "pending" })
+        .select()
+        .single();
+      if (error) throw new Error(`Failed to create activation: ${error.message}`);
+      return data as PortalActivationRecord;
+    },
+
+    async getActivationByPublicId(publicId: string): Promise<PortalActivationRecord | null> {
+      const { data, error } = await db
+        .from("portal_activations")
+        .select()
+        .eq("public_activation_id", publicId)
+        .maybeSingle();
+      if (error) throw new Error(`Failed to load activation: ${error.message}`);
+      return (data as PortalActivationRecord | null) ?? null;
+    },
+
+    async updateActivation(id: string, patch: ActivationPatch): Promise<PortalActivationRecord> {
+      const { data, error } = await db
+        .from("portal_activations")
+        .update({ ...patch, updated_at: nowIso() })
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw new Error(`Failed to update activation: ${error.message}`);
+      return data as PortalActivationRecord;
+    },
+
+    async listRecentActivations(limit: number): Promise<PortalActivationRecord[]> {
+      const { data, error } = await db
+        .from("portal_activations")
+        .select()
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (error) throw new Error(`Failed to list activations: ${error.message}`);
+      return (data as PortalActivationRecord[]) ?? [];
+    },
+
+    async listRecentExternalLeads(limit: number): Promise<ExternalLeadRecord[]> {
+      const { data, error } = await db
+        .from("external_leads")
+        .select()
+        .order("received_at", { ascending: false })
+        .limit(limit);
+      if (error) throw new Error(`Failed to list external leads: ${error.message}`);
+      return (data as ExternalLeadRecord[]) ?? [];
     },
   };
 }

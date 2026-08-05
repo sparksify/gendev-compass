@@ -447,6 +447,114 @@ function FddSection({ password }: { password: string }) {
   );
 }
 
+interface ActivationSummary {
+  totalActivations: number;
+  readyCount: number;
+  autoMatchedCount: number;
+  lastFourResolvedCount: number;
+  autoMatchSuccessRate: number | null;
+}
+
+interface ActivationRow {
+  id: string;
+  brand_slug: string;
+  source: string | null;
+  status: string;
+  last_match_tier: string | null;
+  last_candidate_count: number | null;
+  last_failure_reason: string | null;
+  fallback_attempts: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Activation-flow diagnostics (spec: admin/debug view). Read-only summary of
+ * automatic-match performance and recent activations — no phone/email/ids.
+ */
+function ActivationSection({ password }: { password: string }) {
+  const [summary, setSummary] = useState<ActivationSummary | null>(null);
+  const [activations, setActivations] = useState<ActivationRow[] | null>(null);
+  const [timeMatchingEnabled, setTimeMatchingEnabled] = useState<boolean | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch("/api/admin/portal-activation", {
+          headers: { "x-admin-password": password },
+        });
+        const data = (await response.json()) as {
+          success: boolean;
+          summary?: ActivationSummary;
+          activations?: ActivationRow[];
+          config?: { timeMatchingEnabled: boolean };
+          error?: string;
+        };
+        if (cancelled) return;
+        if (data.success) {
+          setSummary(data.summary ?? null);
+          setActivations(data.activations ?? []);
+          setTimeMatchingEnabled(data.config?.timeMatchingEnabled ?? null);
+        } else {
+          setError(data.error ?? "Could not load activation diagnostics.");
+        }
+      } catch {
+        if (!cancelled) setError("Could not load activation diagnostics.");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [password]);
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-5">
+      <h3 className="text-sm font-semibold text-gray-900">Facebook Lead Activation</h3>
+      <p className="mt-0.5 text-xs text-gray-500">
+        Automatic time-based matching performance for the /activate flow (last 100 activations).
+      </p>
+      {timeMatchingEnabled !== null && (
+        <p className="mt-2 text-xs text-gray-600">
+          Time-based matching: {timeMatchingEnabled ? "enabled" : "disabled (last-four required)"}
+        </p>
+      )}
+      {summary && (
+        <p className="mt-2 text-xs text-gray-600">
+          {summary.totalActivations} activations · {summary.autoMatchedCount} auto-matched ·{" "}
+          {summary.lastFourResolvedCount} resolved via last-four ·{" "}
+          {summary.autoMatchSuccessRate ?? "—"}% auto-match rate
+        </p>
+      )}
+      {error && <p className="mt-3 text-xs text-red-700">{error}</p>}
+      <div className="mt-3 max-h-96 space-y-1.5 overflow-y-auto">
+        {activations === null && !error && <p className="text-xs text-gray-500">Loading…</p>}
+        {activations?.length === 0 && <p className="text-xs text-gray-500">No activations yet.</p>}
+        {activations?.map((activation) => (
+          <div
+            key={activation.id}
+            className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-xs text-gray-700"
+          >
+            <span className="font-medium">{activation.brand_slug}</span> · {activation.status}
+            {activation.last_match_tier ? ` · tier: ${activation.last_match_tier}` : ""}
+            {activation.last_candidate_count !== null
+              ? ` · candidates: ${activation.last_candidate_count}`
+              : ""}
+            {activation.last_failure_reason ? ` · ${activation.last_failure_reason}` : ""}
+            {activation.fallback_attempts > 0
+              ? ` · last-four attempts: ${activation.fallback_attempts}`
+              : ""}
+            <div className="mt-0.5 text-[11px] text-gray-400">
+              created {new Date(activation.created_at).toLocaleString()}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDashboardPage() {
   const [password, setPassword] = useState("");
   const [unlocked, setUnlocked] = useState(false);
@@ -534,6 +642,8 @@ export default function AdminDashboardPage() {
           ))}
 
           <FddSection password={password} />
+
+          <ActivationSection password={password} />
 
           <div className="rounded-xl border border-gray-200 bg-white p-5">
             <h3 className="text-sm font-semibold text-gray-900">Test Leads</h3>
