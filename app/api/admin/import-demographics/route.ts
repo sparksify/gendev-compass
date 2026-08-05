@@ -1,38 +1,25 @@
 import { NextResponse } from "next/server";
 import { authorizedAdminRequest } from "@/lib/advisor/adminAccess";
 import { clientIpFrom, rateLimit } from "@/lib/rateLimit";
-import { syncDemographics } from "@/lib/geocoding/censusImport";
+import { enqueueCensusImportJob } from "@/lib/geocoding/censusJob";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 10;
 
 /**
- * Leaves real margin under maxDuration: a worker can pick up a new state
- * right as the budget check passes and then run for up to
- * FETCH_TIMEOUT_MS (20s) plus write time before yielding, so the gap to
- * maxDuration has to absorb that tail — not just be "close to" it. 45s
- * was observed in production to let the platform kill the function
- * mid-write for whichever states landed last in a pass, so those states
- * never finished and the same "N states remaining" count never budged
- * across repeated clicks. The client re-invokes while remainingStates is
- * non-empty.
- */
-const SYNC_BUDGET_MS = 30_000;
-
-/**
- * Loads real Census ACS demographics (population, households, median income,
- * 5-year growth) onto the nationwide ZIP reference already loaded by "Load
- * Nationwide ZIP Data" — see lib/geocoding/censusImport.ts (syncDemographics)
- * for the actual work. Each call loads as many uncovered states as fit in
- * the time budget and reports what's left; the admin UI keeps calling until
- * `remainingStates` is empty, the same pattern as import-polygons. Also runs
- * automatically via the weekly cron job (app/api/cron/refresh-demographics/
- * route.ts); this button is a manual override, not the only way to trigger it.
+ * "Run Manual Refresh" — a secondary, admin-only recovery tool now that
+ * Census demographics load automatically (see lib/geocoding/censusHealth.ts
+ * and the daily health-check cron). This enqueues a backend job and
+ * returns immediately; it does not fetch or write any Census data itself,
+ * and closing this request (or the browser tab that made it) has no
+ * effect on the job — see app/api/cron/census-worker/route.ts for the
+ * actual worker, which runs independently, chunk by chunk, until done.
  *
- * Idempotent: upserts by zip_code; safe to run repeatedly.
+ * Idempotent: if a job is already running, this returns it instead of
+ * starting a second one.
  */
 export async function POST(request: Request): Promise<NextResponse> {
-  if (!rateLimit(`import-demographics:${clientIpFrom(request)}`, 20, 60_000)) {
+  if (!rateLimit(`import-demographics:${clientIpFrom(request)}`, 5, 60_000)) {
     return NextResponse.json({ success: false, error: "Too many requests" }, { status: 429 });
   }
   if (!(await authorizedAdminRequest(request))) {
@@ -40,17 +27,13 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    const result = await syncDemographics(SYNC_BUDGET_MS);
-    return NextResponse.json({ success: true, ...result });
+    const { job, alreadyRunning } = await enqueueCensusImportJob("manual");
+    return NextResponse.json({ success: true, job, alreadyRunning });
   } catch (error) {
-    console.error("[admin/import-demographics] failed:", error);
-    const message =
-      error instanceof Error && error.name === "TimeoutError"
-        ? "Census API did not respond in time — please try again."
-        : error instanceof Error
-          ? error.message
-          : "Import failed";
-    const status = error instanceof Error && /No ZIP reference/.test(error.message) ? 409 : 500;
-    return NextResponse.json({ success: false, error: message }, { status });
+    console.error("[admin/import-demographics] failed to enqueue job:", error);
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : "Failed to enqueue job" },
+      { status: 500 },
+    );
   }
 }

@@ -393,67 +393,6 @@ function ZipDataSection({ authHeaders }: { authHeaders: Record<string, string> }
   const [result, setResult] = useState<string | null>(null);
   const [polygonBusy, setPolygonBusy] = useState<string | null>(null);
   const [polygonResult, setPolygonResult] = useState<string | null>(null);
-  const [demoBusy, setDemoBusy] = useState(false);
-  const [demoResult, setDemoResult] = useState<string | null>(null);
-
-  async function runDemographicsImport() {
-    setDemoBusy(true);
-    setDemoResult(null);
-    let loaded = 0;
-    let written = 0;
-    const everFailed = new Map<string, string>();
-    try {
-      // Each call loads as many uncovered states as fit in its time budget
-      // and reports what's left (states are written to the database as
-      // soon as each one is fetched, not batched at the end — see
-      // syncDemographics) — keep calling until the whole country is
-      // covered, the same pattern as the boundary-shapes loader below.
-      for (let pass = 0; pass < 30; pass++) {
-        const response = await fetch("/api/admin/import-demographics", {
-          method: "POST",
-          headers: authHeaders,
-        });
-        const data = await response.json();
-        if (!data.success) {
-          setDemoResult(`Failed: ${data.error ?? response.status}`);
-          return;
-        }
-        loaded += data.loadedStates.length;
-        written += data.written;
-        const failedThisPass: string[] = data.failedStates ?? [];
-        const errors: Record<string, string> = data.failedStateErrors ?? {};
-        failedThisPass.forEach((state) => everFailed.set(state, errors[state] ?? "unknown error"));
-        if (data.remainingStates.length === 0) {
-          const failedNote = everFailed.size
-            ? ` (retry failed: ${[...everFailed].map(([s, e]) => `${s} — ${e}`).join("; ")})`
-            : "";
-          setDemoResult(
-            loaded === 0
-              ? "All states already covered — nothing to load."
-              : `Loaded Census demographics for ${written} ZIPs across ${loaded} states (ACS ${data.vintage}). Full nationwide coverage.${failedNote}`,
-          );
-          return;
-        }
-        // Surfaced every pass, not just on final completion — a sync that
-        // never finishes should still tell you why, not just how much is
-        // left.
-        const failNote = failedThisPass.length
-          ? ` — ${failedThisPass.length} failed this pass: ${failedThisPass
-              .slice(0, 3)
-              .map((s) => `${s} (${errors[s] ?? "unknown error"})`)
-              .join(", ")}${failedThisPass.length > 3 ? ", …" : ""}`
-          : "";
-        setDemoResult(
-          `Loading… ${data.remainingStates.length} states remaining (${data.loadedStates.length} loaded this pass).${failNote}`,
-        );
-      }
-      setDemoResult("Stopped after 30 passes — click again to continue.");
-    } catch (error) {
-      setDemoResult(`Failed: ${error instanceof Error ? error.message : "network error"}`);
-    } finally {
-      setDemoBusy(false);
-    }
-  }
 
   async function runPolygonSync() {
     setPolygonBusy("all");
@@ -531,22 +470,6 @@ function ZipDataSection({ authHeaders }: { authHeaders: Record<string, string> }
       </button>
       {result && <p className="mt-2 text-xs text-gray-600">{result}</p>}
 
-      <p className="mt-4 text-xs font-medium text-gray-700">Market demographics (Census ACS)</p>
-      <p className="mt-0.5 text-xs text-gray-500">
-        Loads real population, households, median income, and 5-year growth for every ZIP
-        from the U.S. Census Bureau&apos;s ACS 5-Year data. Powers the Market Analysis panel.
-        One click covers the whole country; already-covered states are skipped on a re-run.
-        The weekly cron does this automatically too.
-      </p>
-      <button
-        onClick={runDemographicsImport}
-        disabled={demoBusy}
-        className="mt-2 rounded-lg border border-gray-300 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-      >
-        {demoBusy ? "Loading Census data…" : "Load Census Demographics"}
-      </button>
-      {demoResult && <p className="mt-2 text-xs text-gray-600">{demoResult}</p>}
-
       <p className="mt-4 text-xs font-medium text-gray-700">Boundary shapes (nationwide)</p>
       <p className="mt-0.5 text-xs text-gray-500">
         Loads real ZIP boundary polygons for all 50 states + DC from data shipped inside the
@@ -561,6 +484,208 @@ function ZipDataSection({ authHeaders }: { authHeaders: Record<string, string> }
         {polygonBusy ? "Loading boundary shapes…" : "Load All Boundary Shapes"}
       </button>
       {polygonResult && <p className="mt-2 text-xs text-gray-600">{polygonResult}</p>}
+    </div>
+  );
+}
+
+interface CensusDataHealth {
+  vintage: string;
+  totalGeographyRecords: number;
+  totalDemographicRecords: number;
+  coveragePercent: number;
+  statesCovered: number;
+  statesTotal: number;
+  lastSuccessfulImport: { id: string; vintage: string; startedAt: string; finishedAt: string | null; statesDone: number } | null;
+  lastFailedImport: { id: string; vintage: string; startedAt: string; finishedAt: string | null; error: string | null } | null;
+  currentJob: {
+    id: string;
+    status: "running" | "succeeded" | "failed";
+    trigger: "cron" | "manual" | "system";
+    statesDone: number;
+    statesFailed: number;
+    statesTotal: number;
+    startedAt: string;
+    lastError: string | null;
+  } | null;
+  nextScheduledRefresh: string;
+}
+
+function formatDateTime(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+/**
+ * Census demographics as backend infrastructure: this panel is what an
+ * admin actually looks at day to day — data health, not a button they
+ * have to remember to click. "Run Manual Refresh" is a secondary recovery
+ * tool for development or when something needs a nudge; it enqueues a
+ * backend job and returns immediately (see
+ * app/api/admin/import-demographics/route.ts) — the job then runs to
+ * completion server-side (app/api/cron/census-worker/route.ts), entirely
+ * independent of this page staying open. The panel polls while a job is
+ * active so progress is visible, but closing the tab never stops it.
+ */
+function CensusDataHealthSection({ authHeaders }: { authHeaders: Record<string, string> }) {
+  const [health, setHealth] = useState<CensusDataHealth | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function loadHealth() {
+    try {
+      const response = await fetch("/api/admin/census-health", { headers: authHeaders });
+      const data = await response.json();
+      if (!data.success) {
+        setError(data.error ?? `Failed to load (${response.status})`);
+        return;
+      }
+      setError(null);
+      setHealth(data.health as CensusDataHealth);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "network error");
+    }
+  }
+
+  useEffect(() => {
+    loadHealth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!health?.currentJob) return;
+    // A job is actively running server-side — poll to show live progress.
+    // This interval is purely cosmetic: stopping it (by navigating away)
+    // has no effect on the job itself.
+    const interval = setInterval(loadHealth, 5000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [health?.currentJob?.id]);
+
+  async function runManualRefresh() {
+    setRefreshing(true);
+    try {
+      const response = await fetch("/api/admin/import-demographics", {
+        method: "POST",
+        headers: authHeaders,
+      });
+      const data = await response.json();
+      if (!data.success) {
+        setError(data.error ?? `Failed to enqueue (${response.status})`);
+        return;
+      }
+      await loadHealth();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "network error");
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-5">
+      <h3 className="text-sm font-semibold text-gray-900">Census Data Health</h3>
+      <p className="mt-0.5 text-xs text-gray-500">
+        Real population, households, median income, and 5-year growth from the U.S. Census
+        Bureau&apos;s ACS 5-Year data, loaded automatically as backend infrastructure — a daily
+        job checks for an incomplete or outdated import and runs it server-side, independent of
+        this page. Territory searches always read from the database below, never live from
+        census.gov.
+      </p>
+
+      {error && (
+        <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {error}
+        </p>
+      )}
+
+      {!health ? (
+        <p className="mt-3 text-xs text-gray-500">Loading…</p>
+      ) : (
+        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-4">
+          <div>
+            <dt className="text-[11px] text-gray-500">Active ACS vintage</dt>
+            <dd className="text-sm font-medium text-gray-900">{health.vintage}</dd>
+          </div>
+          <div>
+            <dt className="text-[11px] text-gray-500">Geography records</dt>
+            <dd className="text-sm font-medium text-gray-900">
+              {health.totalGeographyRecords.toLocaleString()}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[11px] text-gray-500">Demographic records</dt>
+            <dd className="text-sm font-medium text-gray-900">
+              {health.totalDemographicRecords.toLocaleString()}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[11px] text-gray-500">Coverage</dt>
+            <dd className="text-sm font-medium text-gray-900">
+              {health.coveragePercent}% · {health.statesCovered}/{health.statesTotal} states
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[11px] text-gray-500">Current job</dt>
+            <dd className="text-sm font-medium text-gray-900">
+              {health.currentJob ? (
+                <>
+                  Running ({health.currentJob.trigger}) —{" "}
+                  {health.currentJob.statesDone}/{health.currentJob.statesTotal} states
+                  {health.currentJob.statesFailed > 0 && `, ${health.currentJob.statesFailed} retrying`}
+                </>
+              ) : (
+                "Idle"
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[11px] text-gray-500">Next scheduled refresh</dt>
+            <dd className="text-sm font-medium text-gray-900">
+              {formatDateTime(health.nextScheduledRefresh)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[11px] text-gray-500">Last successful import</dt>
+            <dd className="text-sm font-medium text-gray-900">
+              {health.lastSuccessfulImport
+                ? `${formatDateTime(health.lastSuccessfulImport.finishedAt)} (${health.lastSuccessfulImport.statesDone} states)`
+                : "Never"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[11px] text-gray-500">Last failed import</dt>
+            <dd className="text-sm font-medium text-gray-900">
+              {health.lastFailedImport ? formatDateTime(health.lastFailedImport.finishedAt) : "None"}
+            </dd>
+          </div>
+        </dl>
+      )}
+
+      {health?.lastFailedImport?.error && (
+        <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          Last failure: {health.lastFailedImport.error}
+        </p>
+      )}
+      {health?.currentJob?.lastError && (
+        <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          Retrying — most recent error: {health.currentJob.lastError}
+        </p>
+      )}
+
+      <button
+        onClick={runManualRefresh}
+        disabled={refreshing || health?.currentJob != null}
+        className="mt-4 rounded-lg border border-gray-300 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+      >
+        {health?.currentJob ? "Refresh in progress…" : refreshing ? "Enqueuing…" : "Run Manual Refresh"}
+      </button>
+      <p className="mt-1.5 text-[11px] text-gray-400">
+        A recovery tool for development or a forced update — enqueues a backend job and returns
+        immediately. Not required for normal operation.
+      </p>
     </div>
   );
 }
@@ -682,6 +807,7 @@ export function AdminSections({ authHeaders }: { authHeaders: Record<string, str
       <AssetsSection authHeaders={authHeaders} />
       <FddSection authHeaders={authHeaders} />
       <ZipDataSection authHeaders={authHeaders} />
+      <CensusDataHealthSection authHeaders={authHeaders} />
       <div className="rounded-xl border border-gray-200 bg-white p-5">
         <h3 className="text-sm font-semibold text-gray-900">Test Leads</h3>
         <p className="mt-0.5 text-xs text-gray-500">

@@ -41,7 +41,11 @@ import type {
 } from "@/types/domain";
 import type {
   BrandStateEligibilityRecord,
+  CensusImportJobPatch,
+  CensusImportJobRecord,
+  CreateCensusImportJobInput,
   FranchiseBrandRecord,
+  RecordCensusRawImportInput,
   StateEligibilityStatus,
   TerritoryDefinitionRecord,
   TerritoryDefinitionType,
@@ -501,6 +505,23 @@ export interface PortalStore {
   listZipGeographies(zipCodes: string[]): Promise<ZipGeographyRecord[]>;
   /** True once at least one boundary shape has been loaded for the state — used by the polygon backfill cron to pick the next uncovered state. */
   hasZipGeographiesForState(stateCode: string): Promise<boolean>;
+
+  /**
+   * Backend job tracking for the Census ACS import (lib/geocoding/censusJob.ts)
+   * — the server-side worker's source of truth, independent of any browser
+   * tab. See types/territory.ts for the full architecture note.
+   */
+  createCensusImportJob(input: CreateCensusImportJobInput): Promise<CensusImportJobRecord>;
+  updateCensusImportJob(id: string, patch: CensusImportJobPatch): Promise<CensusImportJobRecord>;
+  getCensusImportJob(id: string): Promise<CensusImportJobRecord | null>;
+  /** Most recent job with status 'running', or null if nothing is in flight. */
+  getActiveCensusImportJob(): Promise<CensusImportJobRecord | null>;
+  /** Most recent jobs first — used to derive "last successful"/"last failed" for the admin health view. */
+  listCensusImportJobs(limit: number): Promise<CensusImportJobRecord[]>;
+  /** Upserts the raw ACS capture for one (vintage, state) — see CensusAcsRawRecord. */
+  recordCensusRawImport(input: RecordCensusRawImportInput): Promise<void>;
+  /** Total distinct (vintage, state) raw captures on file — used by the admin health view. */
+  countCensusAcsRaw(): Promise<number>;
 }
 
 /** Forward-only ordering used to avoid regressing a lead's status. */

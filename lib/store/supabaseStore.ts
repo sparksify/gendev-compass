@@ -35,7 +35,11 @@ import type {
 } from "./types";
 import type {
   BrandStateEligibilityRecord,
+  CensusImportJobPatch,
+  CensusImportJobRecord,
+  CreateCensusImportJobInput,
   FranchiseBrandRecord,
+  RecordCensusRawImportInput,
   TerritoryDefinitionRecord,
   TerritoryReviewRequestRecord,
   TerritorySearchRecord,
@@ -1244,6 +1248,85 @@ export function createSupabaseStore(): PortalStore {
         .single();
       if (error) throw new Error(`Failed to update territory review request: ${error.message}`);
       return data as TerritoryReviewRequestRecord;
+    },
+
+    async createCensusImportJob(input: CreateCensusImportJobInput): Promise<CensusImportJobRecord> {
+      const { data, error } = await db
+        .from("census_import_jobs")
+        .insert({
+          status: "running",
+          trigger: input.trigger,
+          vintage: input.vintage,
+          states_total: input.states_total,
+        })
+        .select()
+        .single();
+      if (error) throw new Error(`Failed to create census import job: ${error.message}`);
+      return data as CensusImportJobRecord;
+    },
+
+    async updateCensusImportJob(id: string, patch: CensusImportJobPatch): Promise<CensusImportJobRecord> {
+      const { data, error } = await db
+        .from("census_import_jobs")
+        .update({ ...patch, updated_at: nowIso() })
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw new Error(`Failed to update census import job: ${error.message}`);
+      return data as CensusImportJobRecord;
+    },
+
+    async getCensusImportJob(id: string): Promise<CensusImportJobRecord | null> {
+      const { data, error } = await db.from("census_import_jobs").select().eq("id", id).maybeSingle();
+      if (error) throw new Error(`Failed to load census import job: ${error.message}`);
+      return (data as CensusImportJobRecord | null) ?? null;
+    },
+
+    async getActiveCensusImportJob(): Promise<CensusImportJobRecord | null> {
+      const { data, error } = await db
+        .from("census_import_jobs")
+        .select()
+        .eq("status", "running")
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw new Error(`Failed to load active census import job: ${error.message}`);
+      return (data as CensusImportJobRecord | null) ?? null;
+    },
+
+    async listCensusImportJobs(limit: number): Promise<CensusImportJobRecord[]> {
+      const { data, error } = await db
+        .from("census_import_jobs")
+        .select()
+        .order("started_at", { ascending: false })
+        .limit(limit);
+      if (error) throw new Error(`Failed to list census import jobs: ${error.message}`);
+      return (data as CensusImportJobRecord[]) ?? [];
+    },
+
+    async recordCensusRawImport(input: RecordCensusRawImportInput): Promise<void> {
+      const { error } = await db
+        .from("census_acs_raw")
+        .upsert(
+          {
+            job_id: input.job_id,
+            vintage: input.vintage,
+            state_code: input.state_code,
+            variables: input.variables,
+            payload: input.payload,
+            fetched_at: nowIso(),
+          },
+          { onConflict: "vintage,state_code" },
+        );
+      if (error) throw new Error(`Failed to record raw Census import: ${error.message}`);
+    },
+
+    async countCensusAcsRaw(): Promise<number> {
+      const { count, error } = await db
+        .from("census_acs_raw")
+        .select("*", { count: "exact", head: true });
+      if (error) throw new Error(`Failed to count raw Census imports: ${error.message}`);
+      return count ?? 0;
     },
   };
 }

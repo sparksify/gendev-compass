@@ -325,3 +325,69 @@ export interface UpsertZipGeographyInput {
   geometry_source: string;
   geometry_version: string;
 }
+
+// ---------------------------------------------------------------------------
+// census_import_jobs (0011) — backend job tracking for the Census ACS
+// import. Census data is infrastructure: it's loaded and refreshed by a
+// server-side job independent of the browser, never by a user clicking a
+// button and waiting on a request loop. See lib/geocoding/censusJob.ts.
+// ---------------------------------------------------------------------------
+export type CensusImportJobStatus = "running" | "succeeded" | "failed";
+/** What started the job: the scheduled health-check cron, a staff member's
+ *  manual "Run Manual Refresh" click, or the system auto-detecting empty
+ *  data (e.g. right after a fresh deploy) with no human involved. */
+export type CensusImportJobTrigger = "cron" | "manual" | "system";
+
+export interface CensusImportJobRecord {
+  id: string;
+  status: CensusImportJobStatus;
+  trigger: CensusImportJobTrigger;
+  vintage: string;
+  states_total: number;
+  states_done: number;
+  states_failed: number;
+  last_error: string | null;
+  started_at: string;
+  finished_at: string | null;
+  updated_at: string;
+}
+
+export interface CreateCensusImportJobInput {
+  trigger: CensusImportJobTrigger;
+  vintage: string;
+  states_total: number;
+}
+
+export interface CensusImportJobPatch {
+  status?: CensusImportJobStatus;
+  states_done?: number;
+  states_failed?: number;
+  last_error?: string | null;
+  finished_at?: string | null;
+}
+
+/**
+ * Durable raw layer: the Census figures per ZCTA exactly as returned by the
+ * ACS API for one state/vintage, before being joined onto our own ZIP
+ * reference (city/state/lat/lng) and written to zip_code_reference (the
+ * normalized layer the application actually queries). Lets a bad
+ * normalization run be reprocessed without re-fetching from census.gov.
+ * One row per (vintage, state) — a re-fetch replaces the prior capture.
+ */
+export interface CensusAcsRawRecord {
+  id: string;
+  job_id: string | null;
+  vintage: string;
+  state_code: string;
+  variables: string[];
+  payload: Record<string, Record<string, number | null>>;
+  fetched_at: string;
+}
+
+export interface RecordCensusRawImportInput {
+  job_id: string | null;
+  vintage: string;
+  state_code: string;
+  variables: string[];
+  payload: Record<string, Record<string, number | null>>;
+}
