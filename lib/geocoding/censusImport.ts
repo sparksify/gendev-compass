@@ -274,6 +274,124 @@ export async function refreshDemographics(): Promise<RefreshDemographicsResult> 
   };
 }
 
+/** Current ACS 5-Year vintage label, e.g. "2019-2023" — also used to detect
+ *  which states already have up-to-date demographics (see
+ *  coveredDemographicsStates). */
+export const DEMOGRAPHICS_VINTAGE_LABEL = `${CENSUS_CURRENT_VINTAGE - 4}-${CENSUS_CURRENT_VINTAGE}`;
+
+/** State codes whose ZIPs already carry demographics for the current
+ *  vintage — used to skip already-covered states on a re-run/retry. */
+export function coveredDemographicsStates(
+  rows: Array<{ state_code: string; demographics_vintage: string | null }>,
+): Set<string> {
+  const covered = new Set<string>();
+  for (const row of rows) {
+    if (row.demographics_vintage === DEMOGRAPHICS_VINTAGE_LABEL) covered.add(row.state_code);
+  }
+  return covered;
+}
+
+export interface SyncDemographicsResult {
+  /** States successfully fetched and written during this invocation. */
+  loadedStates: string[];
+  written: number;
+  /** Target states still needing demographics — budget-cut or failed this
+   *  pass, either way retried automatically on the next call. */
+  remainingStates: string[];
+  /** States whose fetch failed this pass (a subset of remainingStates) —
+   *  surfaced, never silent. */
+  failedStates: string[];
+  vintage: string;
+  existingZips: number;
+}
+
+/**
+ * Loads Census demographics one state at a time (bounded concurrency),
+ * writing each state's rows to the store as soon as they're ready instead
+ * of batching every state's data together and writing once at the very
+ * end. This matters because a single invocation is capped by the
+ * platform's function duration: fetching all 51 states nationwide before
+ * writing anything risks the platform killing the function partway
+ * through and silently discarding everything that hadn't been written
+ * yet — the same failure shape as the single-wildcard-request truncation
+ * this module's docstring describes, just at the invocation level instead
+ * of the request level (and the likely reason the "Load Census
+ * Demographics" button could be clicked repeatedly without nationwide
+ * coverage ever accumulating — each run's writes replaced the last
+ * instead of building on it).
+ *
+ * Callers re-invoke while `remainingStates` is non-empty, exactly like
+ * lib/territory/polygonImport.ts's syncPolygons for boundary shapes: the
+ * admin UI auto-repeats and the weekly cron picks up any remainder on its
+ * next scheduled run.
+ */
+export async function syncDemographics(budgetMs: number): Promise<SyncDemographicsResult> {
+  const { getStore } = await import("@/lib/store");
+  const store = getStore();
+  const existingRows = await store.listZipCodeReferences();
+  if (existingRows.length === 0) {
+    throw new Error('No ZIP reference data loaded yet — run the ZIP reference refresh first.');
+  }
+
+  const byState = new Map<string, typeof existingRows>();
+  for (const row of existingRows) {
+    const list = byState.get(row.state_code);
+    if (list) list.push(row);
+    else byState.set(row.state_code, [row]);
+  }
+
+  const queue = Object.keys(STATE_FIPS_CODES).filter(
+    (state) => !coveredDemographicsStates(existingRows).has(state),
+  );
+
+  const startedAt = Date.now();
+  const loadedStates: string[] = [];
+  const failedStates: string[] = [];
+  let written = 0;
+
+  async function worker() {
+    while (queue.length > 0 && Date.now() - startedAt < budgetMs) {
+      const stateCode = queue.shift();
+      if (!stateCode) return;
+      const fips = STATE_FIPS_CODES[stateCode];
+      try {
+        const [current, prior] = await Promise.all([
+          fetchAcsForState(CENSUS_CURRENT_VINTAGE, ["B01003_001E", "B11001_001E", "B19013_001E"], fips),
+          fetchAcsForState(CENSUS_PRIOR_VINTAGE, ["B01003_001E"], fips),
+        ]);
+        const demographics = buildDemographics(current, prior);
+        const rows = buildDemographicsUpsertRows(
+          byState.get(stateCode) ?? [],
+          { demographics, vintageLabel: DEMOGRAPHICS_VINTAGE_LABEL },
+          new Date().toISOString(),
+        );
+        const BATCH = 1000;
+        for (let i = 0; i < rows.length; i += BATCH) {
+          await store.upsertZipCodeReferences(rows.slice(i, i + BATCH));
+        }
+        written += rows.length;
+        loadedStates.push(stateCode);
+      } catch (error) {
+        console.error(`[census] ${stateCode} sync failed:`, error);
+        failedStates.push(stateCode);
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(STATE_FETCH_CONCURRENCY, queue.length) }, worker));
+
+  return {
+    loadedStates,
+    written,
+    // Union of never-started (still queued when the budget ran out) and
+    // failed-this-pass states — both need another call to complete.
+    remainingStates: [...queue, ...failedStates],
+    failedStates,
+    vintage: DEMOGRAPHICS_VINTAGE_LABEL,
+    existingZips: existingRows.length,
+  };
+}
+
 /**
  * Merges Census figures onto already-loaded ZIP reference rows — no
  * external GeoNames re-download needed, since those rows already satisfy

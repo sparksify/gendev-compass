@@ -399,19 +399,40 @@ function ZipDataSection({ authHeaders }: { authHeaders: Record<string, string> }
   async function runDemographicsImport() {
     setDemoBusy(true);
     setDemoResult(null);
+    let loaded = 0;
+    let written = 0;
+    const everFailed = new Set<string>();
     try {
-      const response = await fetch("/api/admin/import-demographics", {
-        method: "POST",
-        headers: authHeaders,
-      });
-      const data = await response.json();
-      const failedNote =
-        data.success && data.failedStates?.length ? ` (retry failed: ${data.failedStates.join(", ")})` : "";
-      setDemoResult(
-        data.success
-          ? `Loaded Census demographics for ${data.withDemographics} of ${data.existingZips} ZIPs (ACS ${data.vintage}).${failedNote}`
-          : `Failed: ${data.error ?? response.status}`,
-      );
+      // Each call loads as many uncovered states as fit in its time budget
+      // and reports what's left (states are written to the database as
+      // soon as each one is fetched, not batched at the end — see
+      // syncDemographics) — keep calling until the whole country is
+      // covered, the same pattern as the boundary-shapes loader below.
+      for (let pass = 0; pass < 30; pass++) {
+        const response = await fetch("/api/admin/import-demographics", {
+          method: "POST",
+          headers: authHeaders,
+        });
+        const data = await response.json();
+        if (!data.success) {
+          setDemoResult(`Failed: ${data.error ?? response.status}`);
+          return;
+        }
+        loaded += data.loadedStates.length;
+        written += data.written;
+        (data.failedStates ?? []).forEach((state: string) => everFailed.add(state));
+        if (data.remainingStates.length === 0) {
+          const failedNote = everFailed.size ? ` (retry failed: ${[...everFailed].join(", ")})` : "";
+          setDemoResult(
+            loaded === 0
+              ? "All states already covered — nothing to load."
+              : `Loaded Census demographics for ${written} ZIPs across ${loaded} states (ACS ${data.vintage}). Full nationwide coverage.${failedNote}`,
+          );
+          return;
+        }
+        setDemoResult(`Loading… ${data.remainingStates.length} states remaining.`);
+      }
+      setDemoResult("Stopped after 30 passes — click again to continue.");
     } catch (error) {
       setDemoResult(`Failed: ${error instanceof Error ? error.message : "network error"}`);
     } finally {
@@ -499,7 +520,8 @@ function ZipDataSection({ authHeaders }: { authHeaders: Record<string, string> }
       <p className="mt-0.5 text-xs text-gray-500">
         Loads real population, households, median income, and 5-year growth for every ZIP
         from the U.S. Census Bureau&apos;s ACS 5-Year data. Powers the Market Analysis panel.
-        Safe to re-run; takes up to a minute.
+        One click covers the whole country; already-covered states are skipped on a re-run.
+        The weekly cron does this automatically too.
       </p>
       <button
         onClick={runDemographicsImport}
