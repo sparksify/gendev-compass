@@ -25,7 +25,9 @@ export function AdvisorNav() {
             aria-current={active ? "page" : undefined}
             className={cn(
               "rounded-control px-3 py-1.5 text-sm font-medium transition-colors",
-              active ? "bg-white/20 text-white" : "text-white/80 hover:bg-white/10 hover:text-white",
+              active
+                ? "bg-primary-soft text-primary"
+                : "text-secondary-foreground hover:bg-surface hover:text-foreground",
             )}
           >
             {link.label}
