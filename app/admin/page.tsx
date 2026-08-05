@@ -386,6 +386,50 @@ function FddLeadRow({ lead, password }: { lead: FddLeadSummary; password: string
   );
 }
 
+function ZipDataSection({ password }: { password: string }) {
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+
+  async function runImport() {
+    setBusy(true);
+    setResult(null);
+    try {
+      const response = await fetch("/api/admin/import-zips", {
+        method: "POST",
+        headers: { "x-admin-password": password },
+      });
+      const data = await response.json();
+      setResult(
+        data.success
+          ? `Loaded ${data.written} ZIP codes nationwide.`
+          : `Failed: ${data.error ?? response.status}`,
+      );
+    } catch (error) {
+      setResult(`Failed: ${error instanceof Error ? error.message : "network error"}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-5">
+      <h3 className="text-sm font-semibold text-gray-900">Territory ZIP Data</h3>
+      <p className="mt-0.5 text-xs text-gray-500">
+        Load the nationwide GeoNames ZIP reference (~41k ZIPs: city, state, county,
+        coordinates) for the Territory Advisor. Safe to re-run; takes up to a minute.
+      </p>
+      <button
+        onClick={runImport}
+        disabled={busy}
+        className="mt-3 rounded-lg border border-gray-300 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+      >
+        {busy ? "Loading nationwide data…" : "Load Nationwide ZIP Data"}
+      </button>
+      {result && <p className="mt-2 text-xs text-gray-600">{result}</p>}
+    </div>
+  );
+}
+
 function FddSection({ password }: { password: string }) {
   const [leads, setLeads] = useState<FddLeadSummary[] | null>(null);
   const [config, setConfig] = useState<{
@@ -534,6 +578,8 @@ export default function AdminDashboardPage() {
           ))}
 
           <FddSection password={password} />
+
+          <ZipDataSection password={password} />
 
           <div className="rounded-xl border border-gray-200 bg-white p-5">
             <h3 className="text-sm font-semibold text-gray-900">Test Leads</h3>

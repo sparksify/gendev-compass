@@ -140,9 +140,12 @@ echo "==> Applying 0006 + 0007 (first pass)"
 run_file "$MIGRATIONS_DIR/0006_platform_domain.sql"
 run_file "$MIGRATIONS_DIR/0007_platform_backfill.sql"
 
-echo "==> Applying 0006 + 0007 AGAIN (rerun safety)"
+run_file "$MIGRATIONS_DIR/0008_zip_geographies.sql"
+
+echo "==> Applying 0006 + 0007 + 0008 AGAIN (rerun safety)"
 run_file "$MIGRATIONS_DIR/0006_platform_domain.sql"
 run_file "$MIGRATIONS_DIR/0007_platform_backfill.sql"
+run_file "$MIGRATIONS_DIR/0008_zip_geographies.sql"
 
 echo "==> Asserting backfill invariants"
 assert_eq "organizations (gendev, exactly one)" 1 \

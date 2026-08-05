@@ -121,6 +121,21 @@ with no policies (service-role only), matching the app's deny-all model:
 | `zip_code_reference` | Geocoding source for the built-in provider: city, state, lat/lng, optional demographics. |
 | `territory_searches` | One row per evaluated prospect search (sales follow-up + analytics). |
 | `territory_review_requests` | The manual-review queue (`new → in_review → contacted → approved/declined → closed`). |
+| `zip_code_geographies` | PostGIS boundary layer (`0008_zip_geographies.sql`): ZCTA polygons + centroids for future exact-boundary evaluation. Not yet read by the app. |
+
+## Nationwide ZIP data pipeline
+
+`npm run import:zips` loads the full US ZIP reference (~41k rows: city,
+state, county, lat/lng) from the GeoNames postal dataset (CC BY 4.0) into
+`zip_code_reference`. Add `-- --dry` to parse and report without writing.
+
+**Hard rule:** all downloading and parsing happens in the script process —
+the database only receives small batched upserts through the normal store
+layer. Never run HTTP fetches or GeoJSON parsing inside Postgres: the first
+import attempt did exactly that against production and froze the database
+(out-of-memory) until it was force-restarted. Polygon/boundary loading into
+`zip_code_geographies` must follow the same pattern (process the OpenDataDE
+state GeoJSON files client-side, then write batched rows).
 
 `leads` is the canonical prospect identity (there is no separate portal
 "user" table), so prospect-scoped tables FK to `leads.id`.
@@ -252,11 +267,11 @@ receiver) — this is the CRM integration hook; no new CRM was built.
 
 ## Known limitations
 
-- **Bundled ZIP reference data is illustrative**, covering the DFW metro,
-  Nashville metro, and a few spot cities, with placeholder demographics.
-  For production, load a real ZCTA dataset (e.g. Census Gazetteer +
-  licensed demographics) into `zip_code_reference` via
-  `store.upsertZipCodeReferences()`; the schema and provider need no changes.
+- **Demographics are not loaded.** `npm run import:zips` provides real
+  nationwide names/coordinates, but population/household/income columns are
+  null until a real Census/licensed demographics source is added (the demo
+  seed's figures were placeholders and are intentionally replaced). The app
+  renders gracefully without them.
 - The `local` geocoder only resolves what's in the reference table; typo
   tolerance and true neighborhood/POI lookup need a real geocoding provider
   (the abstraction is ready).
