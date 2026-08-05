@@ -293,3 +293,69 @@ remain indefinitely.
 - **Open:** whether advisors should be restricted per-brand within an org
   (not modeled yet — `opportunity_assignments` covers per-deal teams; brand
   scoping would be a follow-up membership attribute).
+
+## 13. Explicit architecture decisions
+
+1. **Is `leads` the acquisition record while `clients` is the canonical
+   person?** Yes. `leads` permanently records how a person arrived (source,
+   campaign, portal token); `clients` is the canonical person within an
+   organization. `clients.source_lead_id` records provenance.
+2. **Is `opportunities` the canonical home for brand-specific pipeline
+   stages?** Yes. `leads.current_stage` is a synchronized mirror of the
+   lead's *primary* opportunity only, maintained by the stage service.
+3. **Where does qualification live?** On the opportunity
+   (`qualification_score/result/reasons`), dual-written to the legacy lead
+   columns at submission time. Qualification is brand-specific by nature.
+4. **Where does the current/latest questionnaire snapshot live?**
+   `questionnaire_responses` (1:1 with the lead, now opportunity-linked) —
+   unchanged portal behavior.
+5. **Where does immutable questionnaire history live?**
+   `questionnaire_submissions` + `questionnaire_answers`, append-only, now
+   linked to organization/client/opportunity/brand.
+6. **Where does FDD state live?** `opportunity_fdd_workflows` (one row per
+   opportunity); `fdd_audit_log` remains the immutable history with added
+   opportunity/workflow links.
+7. **How are legacy `leads.fdd_*` values synchronized?** One direction only:
+   the FDD engine writes the lead mirror first, then
+   `syncFddWorkflowFromLead` projects it onto the workflow row. Nothing
+   writes lead FDD fields from the workflow. No triggers.
+8. **How does a staff session resolve to a profile?**
+   `staff_sessions → staff_users → profiles.legacy_staff_user_id`, via
+   `resolveAdvisorContext` (get-or-create so pre-backfill environments
+   converge).
+9. **How is organization access enforced?** Server-side, through active
+   `organization_memberships` (`canAccessOrganization` /
+   `requireOrganizationMembership`); RLS policies enforce the same rule for
+   future direct authenticated access.
+10. **How is a default brand selected for current portal links?** By slug:
+    `DEFAULT_BRAND_SLUG` (default `default`) within the default organization
+    (`DEFAULT_ORGANIZATION_SLUG`, default `gendev`), created on demand as a
+    placeholder flagged `requires_configuration`.
+11. **How are duplicate clients detected without unsafe merging?**
+    `findDuplicateCandidates` surfaces same-organization case-insensitive
+    email matches as *candidates*; nothing ever merges automatically.
+12. **How are GoHighLevel contact IDs stored?** In
+    `external_record_mappings` (provider `gohighlevel`, entity type
+    `client`), registered at intake when `externalContactId` is supplied.
+13. **How are GoHighLevel opportunity IDs stored?** Same table, entity type
+    `opportunity`, via `externalOpportunityId` at intake or the mapping
+    service later.
+14. **How are provider webhook events deduplicated?** FDD: external event
+    IDs in the immutable `fdd_audit_log` (unchanged). Activity events: a
+    partial unique index on (organization, event_source, external_event_id)
+    plus `hasActivityExternalEvent`. Calendar: appointment upsert by
+    `external_appointment_id` plus a composed activity external ID.
+15. **How does the local datastore emulate the new model?** The file-backed
+    dev store implements every new `PortalStore` method with the same
+    uniqueness semantics as the SQL constraints; `ensureLeadDomainChain`
+    gives it the same backfill behavior at runtime.
+16. **What is the migration path to Supabase Auth?** Documented in
+    `authentication-authorization.md`: invite-based auth user creation, link
+    `profiles.auth_user_id`, swap session resolution behind
+    `resolveAdvisorContext`, retire custom sessions. Not executed now.
+17. **What can be safely deprecated later?** See
+    `legacy-deprecation-roadmap.md`: lead mirror fields, custom sessions,
+    portal_events dual-write — each gated on parity monitoring.
+18. **What must remain indefinitely?** `leads` (with unchanged
+    `portal_token`s), `fdd_audit_log`, `questionnaire_submissions/answers`,
+    and historical event rows — legal and audit requirements.

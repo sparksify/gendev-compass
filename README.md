@@ -74,16 +74,44 @@ refuses on the production deployment.
 ## Supabase setup
 
 1. Create a Supabase project.
-2. Apply the migration in `supabase/migrations/0001_initial_schema.sql`:
+2. Apply **all** migrations in `supabase/migrations/` in order
+   (`0001` … `0006`):
    - with the CLI: `supabase link --project-ref <ref> && supabase db push`
-   - or paste the file into the Supabase SQL editor.
+   - or paste each file into the Supabase SQL editor, in filename order.
+
+   `0005_platform_domain.sql` adds the multi-organization / multi-brand
+   platform tables (organizations, profiles, memberships, clients, brands,
+   opportunities, …) and `0006_platform_backfill.sql` connects every
+   existing lead to them. Both are additive and safe to re-run; nothing is
+   dropped or renamed. `scripts/test-migrations.sh` verifies the full
+   sequence (including a double application) against a throwaway local
+   PostgreSQL cluster.
 3. Set in `.env.local` (and in Vercel for production):
    - `SUPABASE_URL` — the project URL
    - `SUPABASE_SERVICE_ROLE_KEY` — **server-only**, never exposed to the browser
    - `SUPABASE_ANON_KEY` — reserved for future client features (unused today)
+4. After applying `0006`, rename the placeholder brand (created as
+   "GenDev Compass Default Brand", slug `default`) to the real brand in the
+   `brands` table, or create the real brand and point `DEFAULT_BRAND_SLUG`
+   at its slug.
 
-All tables have row-level security enabled with no policies (deny-all); only
-the server's service-role client can read or write.
+All tables have row-level security enabled; the browser has no direct
+access (the membership-scoped read policies added in `0005` only activate
+with future Supabase Auth). Only the server's service-role client can read
+or write today.
+
+## Platform domain architecture
+
+The app is transitioning from "one lead = one journey" to a
+multi-organization, multi-brand model where one client can hold several
+brand-specific opportunities. See `docs/architecture/`:
+
+- `platform-domain-model.md` — entities, relationships, and the 18 explicit
+  architecture decisions
+- `migration-compatibility-plan.md` — dual-write/fallback rules and backfill
+- `authentication-authorization.md` — staff session → profile → membership
+- `multi-tenant-security.md` — RLS and tenancy model
+- `legacy-deprecation-roadmap.md` — what may be retired later (nothing yet)
 
 ## Wistia configuration
 
@@ -241,17 +269,27 @@ follow-up flags.
 ### Setup
 
 ```bash
-# Apply the migration (Supabase) — not needed for the local dev store:
-#   supabase/migrations/0004_advisor_backend.sql
+# Apply the migrations (Supabase) — not needed for the local dev store:
+#   supabase/migrations/0004_advisor_backend.sql (and 0005/0006 for the
+#   platform domain model)
 npm run seed:advisor    # dev-only staff users + example investors
 npm run dev
 ```
 
-Development logins (change via `SEED_ADMIN_PASSWORD` / `SEED_ADVISOR_PASSWORD`
-before seeding; never reuse these in production):
+The advisor seed also provisions the platform domain: the GenDev
+organization, two brands, staff profiles + memberships, a client and
+opportunity for every seeded lead, and one client (Maria Chen) with **two
+opportunities across different brands** — including an independent FDD
+workflow and a pending territory request — to exercise the
+multi-opportunity model end to end. It is rerunnable without duplicates.
+
+Development logins (change via `SEED_ADMIN_PASSWORD` /
+`SEED_ADVISOR_PASSWORD` / `SEED_ADVISOR2_PASSWORD` before seeding; never
+reuse these in production):
 
 - Admin: `admin@gendev.test` / `gendev-admin-dev-2026`
 - Advisor (Darko): `darko@gendev.test` / `gendev-darko-dev-2026`
+- Advisor (Jordan): `jordan@gendev.test` / `gendev-jordan-dev-2026`
 
 For production, create real users with strong passwords through
 `POST /api/advisor/users` (admin-only) or a one-off seed run with the
