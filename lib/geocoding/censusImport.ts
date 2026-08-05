@@ -73,9 +73,26 @@ export function parseAcsResponse(
   return result;
 }
 
+/**
+ * Well under the route's `maxDuration` (60s) so a slow/unresponsive Census
+ * API produces a proper JSON error from our own catch block instead of
+ * being killed by the platform's function timeout — which returns an HTML
+ * error page that breaks `response.json()` on the client ("Unexpected
+ * token '<'"). Optional CENSUS_API_KEY (free, instant signup at
+ * api.census.gov/data/key_signup.html) avoids the anonymous per-IP rate
+ * limit that can make responses slow or unreliable.
+ */
+export const FETCH_TIMEOUT_MS = 35_000;
+
 async function fetchAcs(vintage: number, variables: string[]): Promise<Map<string, Record<string, number | null>>> {
-  const url = `${CENSUS_API_BASE}/${vintage}/acs/acs5?get=${variables.join(",")}&for=zip%20code%20tabulation%20area:*`;
-  const response = await fetch(url, { signal: AbortSignal.timeout(120_000) });
+  const key = process.env.CENSUS_API_KEY;
+  const url =
+    `${CENSUS_API_BASE}/${vintage}/acs/acs5?get=${variables.join(",")}&for=zip%20code%20tabulation%20area:*` +
+    (key ? `&key=${key}` : "");
+  const response = await fetch(url, {
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    headers: { "User-Agent": "GenDevCompass/1.0 (Territory Intelligence market data import)" },
+  });
   if (!response.ok) {
     throw new Error(`Census ACS ${vintage} download failed: HTTP ${response.status}`);
   }
@@ -118,4 +135,62 @@ export async function downloadCensusDemographics(): Promise<{
     demographics: buildDemographics(current, prior),
     vintageLabel: `${CENSUS_CURRENT_VINTAGE - 4}-${CENSUS_CURRENT_VINTAGE}`,
   };
+}
+
+/**
+ * Merges Census figures onto already-loaded ZIP reference rows — no
+ * external GeoNames re-download needed, since those rows already satisfy
+ * zip_code_reference's NOT NULL constraints (city/state/lat/lng). Only ZIPs
+ * that actually matched Census data are returned; everything else is left
+ * untouched (fewer, cheaper writes than a full re-upsert of every row).
+ */
+export function buildDemographicsUpsertRows<
+  Row extends {
+    zip_code: string;
+    city: string;
+    state_code: string;
+    county_name: string | null;
+    latitude: number;
+    longitude: number;
+    timezone: string | null;
+    created_at: string;
+  },
+>(
+  existingRows: Row[],
+  census: { demographics: Map<string, ZipDemographics>; vintageLabel: string },
+  now: string,
+): Array<
+  Pick<Row, "zip_code" | "city" | "state_code" | "county_name" | "latitude" | "longitude" | "timezone" | "created_at"> & {
+    updated_at: string;
+    population: number | null;
+    households: number | null;
+    median_household_income: number | null;
+    population_growth_pct: number | null;
+    demographics_source: string;
+    demographics_vintage: string;
+  }
+> {
+  const rows = [];
+  for (const row of existingRows) {
+    const demo = census.demographics.get(row.zip_code);
+    if (!demo) continue;
+    rows.push({
+      zip_code: row.zip_code,
+      city: row.city,
+      state_code: row.state_code,
+      county_name: row.county_name,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      timezone: row.timezone,
+      created_at: row.created_at,
+      updated_at: now,
+      population: demo.population,
+      households: demo.households,
+      median_household_income: demo.medianHouseholdIncome,
+      population_growth_pct: demo.populationGrowthPct,
+      demographics_source: CENSUS_SOURCE_LABEL,
+      demographics_vintage: census.vintageLabel,
+    });
+  }
+  return rows;
 }
