@@ -26,6 +26,19 @@ export function devToolsEnabled(): boolean {
   return !isProduction();
 }
 
+/**
+ * Platform domain defaults. The slugs identify which organization and brand
+ * lead intake and portal links attach to when the caller does not specify
+ * one (single-tenant deployments never need to set these).
+ */
+export function getDefaultOrganizationSlug(): string {
+  return process.env.DEFAULT_ORGANIZATION_SLUG ?? "gendev";
+}
+
+export function getDefaultBrandSlug(): string {
+  return process.env.DEFAULT_BRAND_SLUG ?? "default";
+}
+
 export function getAppUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
 }

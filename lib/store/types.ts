@@ -74,6 +74,8 @@ export interface CreateQuestionnaireInput {
   decision_criteria: string;
   decision_participants: string;
   accuracy_confirmed: boolean;
+  /** Platform domain link (optional during the transition). */
+  opportunity_id?: string | null;
 }
 
 export type LeadPatch = Partial<
@@ -126,6 +128,10 @@ export type VideoProgressPatch = Partial<
     | "play_count"
     | "first_played_at"
     | "last_event_at"
+    | "organization_id"
+    | "client_id"
+    | "opportunity_id"
+    | "brand_id"
   >
 >;
 
@@ -157,6 +163,11 @@ export interface CreateSubmissionInput {
     answer_value: string;
     answer_display_value: string;
   }>;
+  /** Platform domain links (optional during the transition). */
+  organization_id?: string | null;
+  client_id?: string | null;
+  opportunity_id?: string | null;
+  brand_id?: string | null;
 }
 
 export interface CreateAppointmentInput {
@@ -168,6 +179,11 @@ export interface CreateAppointmentInput {
   time_zone?: string | null;
   status?: AppointmentStatus;
   booking_url?: string | null;
+  /** Platform domain links (optional during the transition). */
+  organization_id?: string | null;
+  client_id?: string | null;
+  opportunity_id?: string | null;
+  advisor_profile_id?: string | null;
 }
 
 export type AppointmentPatch = Partial<
@@ -240,7 +256,18 @@ export interface PortalStore {
   createSubmission(input: CreateSubmissionInput): Promise<QuestionnaireSubmissionWithAnswers>;
   getSubmissionsForLead(leadId: string): Promise<QuestionnaireSubmissionWithAnswers[]>;
 
-  createNote(leadId: string, staffUserId: string, note: string): Promise<AdvisorNoteRecord>;
+  createNote(
+    leadId: string,
+    staffUserId: string,
+    note: string,
+    links?: {
+      organization_id?: string | null;
+      client_id?: string | null;
+      /** Null with client_id set = intentionally client-level note. */
+      opportunity_id?: string | null;
+      author_profile_id?: string | null;
+    },
+  ): Promise<AdvisorNoteRecord>;
   getNotesForLead(leadId: string): Promise<AdvisorNoteRecord[]>;
 
   createAppointment(input: CreateAppointmentInput): Promise<AppointmentRecord>;

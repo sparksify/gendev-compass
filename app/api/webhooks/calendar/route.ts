@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getStore } from "@/lib/store";
 import { autoAdvanceStage } from "@/lib/advisor/stages";
+import { ensureLeadDomainChain, type LeadDomainChain } from "@/lib/domain/chain";
+import { recordLeadEvent } from "@/lib/domain/activities";
+import { syncPrimaryOpportunityActivity } from "@/lib/domain/opportunities";
 import { clientIpFrom, rateLimit } from "@/lib/rateLimit";
 import type { PortalEventName } from "@/types/analytics";
 import type { AppointmentStatus } from "@/types/advisor";
@@ -77,7 +80,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   const payload = parsed.data;
 
   const store = getStore();
-  const lead = payload.leadId
+  let lead = payload.leadId
     ? await store.getLeadById(payload.leadId)
     : payload.inviteeEmail
       ? await store.getLeadByEmail(payload.inviteeEmail)
@@ -87,6 +90,16 @@ export async function POST(request: Request): Promise<NextResponse> {
       { success: false, error: "No matching investor for this appointment" },
       { status: 404 },
     );
+  }
+
+  // Resolve the opportunity chain so the appointment lands on the client's
+  // journey; failure never blocks the booking (legacy fields still work).
+  let chain: LeadDomainChain | null = null;
+  try {
+    chain = await ensureLeadDomainChain(lead);
+    lead = chain.lead;
+  } catch (error) {
+    console.error(`[webhooks/calendar] chain resolution failed for lead ${lead.id}:`, error);
   }
 
   try {
@@ -103,24 +116,32 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (existing) {
       await store.updateAppointment(existing.id, patch);
     } else {
+      const advisorProfile = lead.assigned_advisor_id
+        ? await store.getProfileByLegacyStaffUserId(lead.assigned_advisor_id)
+        : null;
       await store.createAppointment({
         lead_id: lead.id,
         advisor_id: lead.assigned_advisor_id,
         external_appointment_id: payload.externalAppointmentId,
         ...patch,
+        organization_id: chain?.organization.id ?? null,
+        client_id: chain?.client.id ?? null,
+        opportunity_id: chain?.opportunity.id ?? null,
+        advisor_profile_id: advisorProfile?.id ?? null,
       });
     }
 
     const now = new Date().toISOString();
-    await store.updateLead(lead.id, {
+    const updatedLead = await store.updateLead(lead.id, {
       last_activity_at: now,
       ...(payload.action === "booked" && !lead.booked_at
         ? { booked_at: now, appointment_start_at: payload.scheduledStart ?? null }
         : {}),
     });
+    await syncPrimaryOpportunityActivity(updatedLead, now);
 
-    await store.insertEvent(
-      lead.id,
+    await recordLeadEvent(
+      updatedLead,
       ACTION_TO_EVENT[payload.action],
       {
         externalAppointmentId: payload.externalAppointmentId,
@@ -128,7 +149,11 @@ export async function POST(request: Request): Promise<NextResponse> {
         timeZone: payload.timeZone ?? null,
       },
       null,
-      { source: "webhook_calendar", occurredAt: payload.occurredAt ?? null },
+      {
+        source: "webhook_calendar",
+        occurredAt: payload.occurredAt ?? null,
+        externalEventId: `calendar:${payload.externalAppointmentId}:${payload.action}:${payload.occurredAt ?? ""}`,
+      },
     );
 
     if (payload.action === "booked" || payload.action === "rescheduled") {

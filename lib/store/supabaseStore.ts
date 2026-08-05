@@ -224,6 +224,27 @@ export function createSupabaseStore(): PortalStore {
       await db.from("video_progress").delete().eq("lead_id", leadId);
       await db.from("questionnaire_responses").delete().eq("lead_id", leadId);
       await db.from("fdd_audit_log").delete().eq("lead_id", leadId);
+      // Development helper only: reset the primary opportunity's mirrored
+      // state so the demo flow replays cleanly end to end.
+      const { data: opportunity } = await db
+        .from("opportunities")
+        .select("id")
+        .eq("source_lead_id", leadId)
+        .maybeSingle();
+      if (opportunity) {
+        await db.from("opportunity_fdd_workflows").delete().eq("opportunity_id", opportunity.id);
+        await db
+          .from("opportunities")
+          .update({
+            stage: "NEW_LEAD",
+            qualification_score: null,
+            qualification_result: null,
+            qualification_reasons: null,
+            last_activity_at: null,
+            updated_at: nowIso(),
+          })
+          .eq("id", opportunity.id);
+      }
       await db
         .from("leads")
         .update({
@@ -362,6 +383,10 @@ export function createSupabaseStore(): PortalStore {
           lead_id: input.lead_id,
           questionnaire_version: input.questionnaire_version,
           submitted_at: input.submitted_at,
+          organization_id: input.organization_id ?? null,
+          client_id: input.client_id ?? null,
+          opportunity_id: input.opportunity_id ?? null,
+          brand_id: input.brand_id ?? null,
         })
         .select()
         .single();
@@ -386,10 +411,18 @@ export function createSupabaseStore(): PortalStore {
       return (data as QuestionnaireSubmissionWithAnswers[]) ?? [];
     },
 
-    async createNote(leadId: string, staffUserId: string, note: string): Promise<AdvisorNoteRecord> {
+    async createNote(leadId, staffUserId, note, links): Promise<AdvisorNoteRecord> {
       const { data, error } = await db
         .from("advisor_notes")
-        .insert({ lead_id: leadId, staff_user_id: staffUserId, note })
+        .insert({
+          lead_id: leadId,
+          staff_user_id: staffUserId,
+          note,
+          organization_id: links?.organization_id ?? null,
+          client_id: links?.client_id ?? null,
+          opportunity_id: links?.opportunity_id ?? null,
+          author_profile_id: links?.author_profile_id ?? null,
+        })
         .select()
         .single();
       if (error) throw new Error(`Failed to create note: ${error.message}`);

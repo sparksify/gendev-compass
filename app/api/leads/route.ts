@@ -3,6 +3,8 @@ import { getStore } from "@/lib/store";
 import { generatePortalToken } from "@/lib/portal/tokens";
 import { trackEvent } from "@/lib/portal/events";
 import { createLeadSchema } from "@/lib/validation/lead";
+import { ensureLeadDomainChain, type LeadDomainChain } from "@/lib/domain/chain";
+import { upsertMapping } from "@/lib/domain/mappings";
 import { getAdminTestPassword, getAppUrl, getInternalApiKey, isProduction } from "@/lib/config/env";
 import { clientIpFrom, rateLimit } from "@/lib/rateLimit";
 
@@ -65,7 +67,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       );
     }
 
-    const lead = await store.createLead({
+    let lead = await store.createLead({
       portal_token: generatePortalToken(),
       first_name: input.firstName,
       last_name: input.lastName,
@@ -81,6 +83,42 @@ export async function POST(request: Request): Promise<NextResponse> {
       initial_net_worth: input.netWorth ?? null,
       initial_business_owner: input.ownedBusinessBefore ?? null,
     });
+
+    // Optional pre-assignment: only an existing, active staff user is
+    // accepted — the caller-supplied ID is verified, never trusted.
+    if (input.assignedAdvisorId) {
+      const advisor = await store.getStaffUserById(input.assignedAdvisorId);
+      if (advisor?.active) {
+        lead = await store.updateLead(lead.id, { assigned_advisor_id: advisor.id });
+      } else {
+        console.warn(`[leads] ignoring unknown assignedAdvisorId ${input.assignedAdvisorId}`);
+      }
+    }
+
+    // Build the domain chain: organization → brand → client → opportunity.
+    // supabase-js has no multi-statement transactions, so this runs as
+    // sequential idempotent get-or-create steps; on failure the lead still
+    // exists and the chain is repaired on the next portal load
+    // (ensureLeadDomainChain is the same code path).
+    let chain: LeadDomainChain | null = null;
+    try {
+      chain = await ensureLeadDomainChain(lead, {
+        organizationSlug: input.organizationSlug ?? null,
+        brandSlug: input.brandSlug ?? null,
+      });
+      lead = chain.lead;
+
+      await registerExternalMappings(chain, {
+        facebookLeadId: input.facebookLeadId ?? null,
+        externalContactId: input.externalContactId ?? null,
+        externalOpportunityId: input.externalOpportunityId ?? null,
+      });
+    } catch (chainError) {
+      console.error(
+        `[leads] domain chain creation failed for lead ${lead.id} (will self-repair on portal load):`,
+        chainError,
+      );
+    }
 
     await trackEvent(lead, "lead_created", {
       source: lead.source,
@@ -98,6 +136,61 @@ export async function POST(request: Request): Promise<NextResponse> {
       { success: false, error: "Lead creation failed. Please try again." },
       { status: 500 },
     );
+  }
+}
+
+/**
+ * Registers provider ID mappings for a freshly created lead. Mapping
+ * failures are logged, never fatal — the legacy columns
+ * (leads.facebook_lead_id) still carry the IDs.
+ */
+async function registerExternalMappings(
+  chain: LeadDomainChain,
+  ids: {
+    facebookLeadId: string | null;
+    externalContactId: string | null;
+    externalOpportunityId: string | null;
+  },
+): Promise<void> {
+  const jobs: Array<Promise<unknown>> = [];
+  if (ids.facebookLeadId) {
+    jobs.push(
+      upsertMapping({
+        organization_id: chain.organization.id,
+        provider: "facebook",
+        entity_type: "lead",
+        internal_entity_id: chain.lead.id,
+        external_id: ids.facebookLeadId,
+      }),
+    );
+  }
+  if (ids.externalContactId) {
+    jobs.push(
+      upsertMapping({
+        organization_id: chain.organization.id,
+        provider: "gohighlevel",
+        entity_type: "client",
+        internal_entity_id: chain.client.id,
+        external_id: ids.externalContactId,
+      }),
+    );
+  }
+  if (ids.externalOpportunityId) {
+    jobs.push(
+      upsertMapping({
+        organization_id: chain.organization.id,
+        provider: "gohighlevel",
+        entity_type: "opportunity",
+        internal_entity_id: chain.opportunity.id,
+        external_id: ids.externalOpportunityId,
+      }),
+    );
+  }
+  const results = await Promise.allSettled(jobs);
+  for (const result of results) {
+    if (result.status === "rejected") {
+      console.error("[leads] external mapping failed:", result.reason);
+    }
   }
 }
 

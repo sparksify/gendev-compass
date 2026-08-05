@@ -287,8 +287,8 @@ export function createDevStore(): PortalStore {
         const data = await readData();
         const record: QuestionnaireRecord = {
           id: randomUUID(),
-          opportunity_id: null,
           ...input,
+          opportunity_id: input.opportunity_id ?? null,
           created_at: nowIso(),
           updated_at: nowIso(),
         };
@@ -372,6 +372,22 @@ export function createDevStore(): PortalStore {
           (q) => q.lead_id !== leadId,
         );
         data.fdd_audit_log = data.fdd_audit_log.filter((e) => e.lead_id !== leadId);
+        // Development helper only: reset the primary opportunity's mirrored
+        // state so the demo flow replays cleanly end to end.
+        const opportunity = data.opportunities.find((o) => o.source_lead_id === leadId);
+        if (opportunity) {
+          data.opportunity_fdd_workflows = data.opportunity_fdd_workflows.filter(
+            (w) => w.opportunity_id !== opportunity.id,
+          );
+          Object.assign(opportunity, {
+            stage: "NEW_LEAD",
+            qualification_score: null,
+            qualification_result: null,
+            qualification_reasons: null,
+            last_activity_at: null,
+            updated_at: nowIso(),
+          });
+        }
         const lead = data.leads.find((l) => l.id === leadId);
         if (lead) {
           Object.assign(lead, {
@@ -505,10 +521,10 @@ export function createDevStore(): PortalStore {
           questionnaire_version: input.questionnaire_version,
           submitted_at: input.submitted_at,
           created_at: nowIso(),
-          organization_id: null,
-          client_id: null,
-          opportunity_id: null,
-          brand_id: null,
+          organization_id: input.organization_id ?? null,
+          client_id: input.client_id ?? null,
+          opportunity_id: input.opportunity_id ?? null,
+          brand_id: input.brand_id ?? null,
         };
         data.questionnaire_submissions.push(submission);
         const answers: QuestionnaireAnswerRecord[] = input.answers.map((a) => ({
@@ -534,7 +550,7 @@ export function createDevStore(): PortalStore {
         }));
     },
 
-    async createNote(leadId: string, staffUserId: string, note: string): Promise<AdvisorNoteRecord> {
+    async createNote(leadId, staffUserId, note, links): Promise<AdvisorNoteRecord> {
       return withLock(async () => {
         const data = await readData();
         const record: AdvisorNoteRecord = {
@@ -544,10 +560,10 @@ export function createDevStore(): PortalStore {
           note,
           created_at: nowIso(),
           updated_at: nowIso(),
-          organization_id: null,
-          client_id: null,
-          opportunity_id: null,
-          author_profile_id: null,
+          organization_id: links?.organization_id ?? null,
+          client_id: links?.client_id ?? null,
+          opportunity_id: links?.opportunity_id ?? null,
+          author_profile_id: links?.author_profile_id ?? null,
         };
         data.advisor_notes.push(record);
         await writeData(data);
@@ -576,10 +592,10 @@ export function createDevStore(): PortalStore {
           booking_url: input.booking_url ?? null,
           created_at: nowIso(),
           updated_at: nowIso(),
-          organization_id: null,
-          client_id: null,
-          opportunity_id: null,
-          advisor_profile_id: null,
+          organization_id: input.organization_id ?? null,
+          client_id: input.client_id ?? null,
+          opportunity_id: input.opportunity_id ?? null,
+          advisor_profile_id: input.advisor_profile_id ?? null,
         };
         data.appointments.push(record);
         await writeData(data);
