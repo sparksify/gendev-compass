@@ -18,9 +18,11 @@ import {
 
 interface QuestionnaireFormProps {
   token: string;
+  /** Known answers from the original application, used to pre-fill fields. */
+  defaults?: Partial<Pick<QuestionnairePayload, "liquidCapital" | "netWorth">>;
 }
 
-export function QuestionnaireForm({ token }: QuestionnaireFormProps) {
+export function QuestionnaireForm({ token, defaults }: QuestionnaireFormProps) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
   const startedRef = useRef(false);
@@ -31,6 +33,7 @@ export function QuestionnaireForm({ token }: QuestionnaireFormProps) {
     formState: { errors, isSubmitting },
   } = useForm<QuestionnairePayload>({
     resolver: zodResolver(questionnaireSchema),
+    defaultValues: defaults,
   });
 
   const markStarted = () => {
@@ -117,7 +120,7 @@ export function QuestionnaireForm({ token }: QuestionnaireFormProps) {
           <Label htmlFor={field.name}>{field.label}</Label>
           <NativeSelect
             id={field.name}
-            defaultValue=""
+            defaultValue={defaults?.[field.name as "liquidCapital" | "netWorth"] ?? ""}
             aria-invalid={Boolean(errors[field.name])}
             className="mt-2"
             {...register(field.name)}
@@ -199,7 +202,7 @@ export function QuestionnaireForm({ token }: QuestionnaireFormProps) {
 
       <Button type="submit" size="lg" disabled={isSubmitting} className="w-full sm:w-auto">
         {isSubmitting && <Loader2 className="animate-spin" />}
-        {isSubmitting ? "Submitting…" : "Submit &amp; Prepare My Consultation"}
+        {isSubmitting ? "Submitting…" : "Submit & Prepare My Consultation"}
       </Button>
     </form>
   );
