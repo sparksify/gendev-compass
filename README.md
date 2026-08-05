@@ -284,20 +284,32 @@ changes are recorded as `stage_changed` events with the acting user.
 
 ### Provider webhooks (integration points)
 
-Both endpoints are inert until their shared secret is configured, and match
-investors by `leadId` or email — they never fabricate records.
-
 - `POST /api/webhooks/calendar` (`x-webhook-secret: $CALENDAR_WEBHOOK_SECRET`)
-  — normalized payload `{action: booked|rescheduled|cancelled|completed|no_show,
+  — inert until the secret is configured, matches investors by `leadId` or
+  email, never fabricates records. Normalized payload
+  `{action: booked|rescheduled|cancelled|completed|no_show,
   externalAppointmentId, leadId?, inviteeEmail?, scheduledStart?, …}`.
   Point Calendly/HighLevel/Cal.com notifications here via a thin
   payload-mapping step.
-- `POST /api/webhooks/fdd` (`x-webhook-secret: $FDD_WEBHOOK_SECRET`) —
-  `{action: sent|delivered|opened|acknowledged|delivery_failed|resent,
-  leadId?, recipientEmail?, documentVersion?, providerTransactionId?,
-  auditCertificateUrl?, timeZone?, occurredAt?}`. The FDD provider remains
-  the source of truth for acknowledgment; no legal eligibility dates are
-  computed.
+- `POST /api/webhooks/fdd` and `POST /api/webhooks/fdd/received` — the real
+  GoHighLevel-integrated FDD workflow (see `lib/fdd/*`). HMAC-SHA256 signed
+  (`x-fdd-signature`, secret in `FDD_WEBHOOK_SECRET`); events are
+  `fdd_sent | fdd_delivered | fdd_received`, matched by `prospect_id` or
+  `envelope_id`, deduplicated by `event_id`, and forward-only. The provider
+  is the source of truth for acknowledgment; no legal eligibility dates are
+  computed beyond the configured waiting period (`FDD_WAITING_PERIOD_DAYS`).
+
+### Advisor calendar (GoHighLevel)
+
+The dashboard's "Today's Calls" card shows the advisor's real GoHighLevel
+calendar bookings for the day — set `GHL_CALENDAR_ID` (reuses the existing
+`GHL_API_TOKEN` / `GHL_LOCATION_ID`) to turn it on; see `.env.example`.
+
+**Unverified** — built against GoHighLevel's documented v2 Calendar Events
+response shape (`lib/calendar/ghl.ts`) but not yet exercised against a real
+account. After setting `GHL_CALENDAR_ID`, confirm real bookings appear; if
+the shape differs, `normalizeEvent()` in that file is the only place that
+needs adjusting.
 
 ### Tests
 

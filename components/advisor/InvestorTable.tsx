@@ -43,7 +43,7 @@ export function InvestorTable({
       <table className="w-full min-w-[900px] text-left text-sm">
         <thead>
           <tr className="border-b border-border text-xs uppercase tracking-wide text-faint-foreground">
-            <th className="px-4 py-2.5 font-medium">Investor</th>
+            <th className="px-4 py-2.5 font-medium">Client</th>
             <th className="px-3 py-2.5 font-medium">Stage</th>
             <th className="px-3 py-2.5 font-medium">Advisor</th>
             <th className="px-3 py-2.5 font-medium">Liquid Capital</th>

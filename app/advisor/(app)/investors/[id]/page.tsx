@@ -22,7 +22,7 @@ import { NoteForm } from "@/components/advisor/NoteForm";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export const metadata: Metadata = { title: "Investor" };
+export const metadata: Metadata = { title: "Client" };
 export const dynamic = "force-dynamic";
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
