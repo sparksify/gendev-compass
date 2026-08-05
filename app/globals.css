@@ -154,11 +154,24 @@ wistia-player {
   animation: ti-meter-fill 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* Map overlays (radius circle, ZIP boundaries, nearby-market markers)
+ * fade in rather than popping — applied via Leaflet's className option. */
+@keyframes ti-layer-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.ti-layer-in {
+  animation: ti-layer-in 0.55s ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ti-fade-up,
   .ti-pin,
   .ti-pin-ring,
-  .ti-meter-bar {
+  .ti-meter-bar,
+  .ti-layer-in {
     animation: none;
   }
 }
