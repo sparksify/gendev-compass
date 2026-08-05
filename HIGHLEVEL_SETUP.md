@@ -110,7 +110,34 @@ The whole flow depends on the webhook firing **immediately** on submission:
   consistently slow in your account, widen the after-window rather than
   relying on a slower webhook.
 
-## 5. Testing
+## 5. Sending people their portal link even if they don't click the button
+
+Every inbound lead gets its portal link generated **immediately on
+receipt** — not only when someone clicks "Create My Private Portal" on
+Facebook. Compass pushes that link into a HighLevel **contact custom
+field** so any workflow (email, SMS, a "didn't finish signing up?"
+follow-up) can send it directly.
+
+1. In HighLevel: **Settings → Custom Fields → Contact** → add a new field.
+   Give it the key `portal_link` (matching `GHL_PORTAL_URL_FIELD_KEY` below
+   — if you name it something else, set that env var to match instead).
+2. In Compass's environment variables, make sure `GHL_API_TOKEN` is set
+   (the same Private Integration token used for the FDD workflow —
+   Contacts write scope) and `GHL_PORTAL_URL_FIELD_KEY=portal_link`.
+3. That's it — no workflow step needed for this part. The field populates
+   automatically the moment the lead webhook (step 2 above) fires.
+4. Use it anywhere in HighLevel with the merge tag `{{ contact.portal_link }}`
+   — e.g. in a follow-up email/SMS action: *"Pick up where you left off:
+   {{ contact.portal_link }}"*.
+5. If a lead re-submits or the webhook retries, the same field is simply
+   overwritten with the same link — the person's portal never changes, and
+   clicking Facebook's button later still lands them in that same portal.
+
+If the sync fails (wrong field key, expired token, etc.), lead intake still
+succeeds — check the webhook's JSON response (`portalLinkSynced`,
+`portalLinkSyncError`) or the server logs for the reason.
+
+## 6. Testing
 
 1. Set `HIGHLEVEL_INBOUND_WEBHOOK_SECRET` in Compass and in the workflow's
    webhook header.

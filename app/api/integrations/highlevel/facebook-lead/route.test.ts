@@ -77,4 +77,28 @@ describe("POST /api/integrations/highlevel/facebook-lead", () => {
     const response = await POST(makeRequest({ brandSlug: "cmdt" }));
     expect(response.status).toBe(400);
   });
+
+  it("provisions the portal user immediately, before any activation click", async () => {
+    const response = await POST(makeRequest(VALID_PAYLOAD));
+    const data = (await response.json()) as { success: boolean; portalLinkSynced: boolean };
+    expect(data.success).toBe(true);
+    // No GHL_API_TOKEN in the test env — sync is skipped, never an error.
+    expect(data.portalLinkSynced).toBe(false);
+
+    const lead = await store.getLeadByBrandAndHighLevelContact("cmdt", "contact-123");
+    expect(lead).not.toBeNull();
+    expect(lead?.portal_token).toBeTruthy();
+    expect(lead?.email).toBe("test@example.com");
+  });
+
+  it("does not create a second portal user on a duplicate webhook delivery", async () => {
+    await POST(makeRequest(VALID_PAYLOAD));
+    await POST(makeRequest(VALID_PAYLOAD));
+
+    const lead = await store.getLeadByBrandAndHighLevelContact("cmdt", "contact-123");
+    expect(lead).not.toBeNull();
+    // Only one row overall — provisioning is idempotent per (brand, contact).
+    const allLeads = await store.listRecentExternalLeads(10);
+    expect(allLeads).toHaveLength(1);
+  });
 });

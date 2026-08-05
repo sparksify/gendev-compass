@@ -53,3 +53,15 @@ export function isTimeMatchingEnabled(): boolean {
 export function getHighLevelWebhookSecret(): string | null {
   return process.env.HIGHLEVEL_INBOUND_WEBHOOK_SECRET ?? null;
 }
+
+/**
+ * The HighLevel contact custom field ("key", e.g. the value shown in the
+ * field's editor in HighLevel — not the field's display name) that receives
+ * each prospect's portal link the moment their lead is received, so
+ * HighLevel workflows can message it to anyone who doesn't click through
+ * Facebook's completion screen. Unset disables the sync (webhook intake
+ * still works — the portal link just isn't pushed back to HighLevel).
+ */
+export function getPortalUrlFieldKey(): string | null {
+  return process.env.GHL_PORTAL_URL_FIELD_KEY ?? "portal_link";
+}

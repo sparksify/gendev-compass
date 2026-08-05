@@ -4,6 +4,8 @@ import { isValidBrandSlug } from "@/lib/config/brands";
 import { getHighLevelWebhookSecret } from "@/lib/config/portalActivation";
 import { normalizeEmail, normalizePhone, phoneLastFour } from "@/lib/portalActivation/normalize";
 import { logActivation } from "@/lib/portalActivation/log";
+import { absolutePortalUrlFor, provisionPortalLead } from "@/lib/portalActivation/service";
+import { isPortalUrlSyncConfigured, syncPortalUrlToHighLevel } from "@/lib/portalActivation/ghlSync";
 import { highLevelFacebookLeadSchema } from "@/lib/validation/portalActivation";
 import { clientIpFrom, rateLimit } from "@/lib/rateLimit";
 
@@ -75,7 +77,43 @@ export async function POST(request: Request): Promise<NextResponse> {
       duplicate,
     });
 
-    return NextResponse.json({ success: true, duplicate });
+    // Provision the portal link immediately — independent of whether the
+    // prospect ever clicks Facebook's completion button — and push it into
+    // HighLevel as a contact custom field so HighLevel workflows can send it
+    // directly (e.g. to anyone who doesn't click through). The activation
+    // flow's claim path (lib/portalActivation/service.ts) looks up the same
+    // lead by brand + HighLevel contact id, so it's never duplicated.
+    let portalLinkSynced = false;
+    let portalLinkSyncError: string | null = null;
+    try {
+      const lead = await provisionPortalLead(record, record.brand_slug);
+      if (isPortalUrlSyncConfigured()) {
+        const result = await syncPortalUrlToHighLevel(
+          input.contactId,
+          absolutePortalUrlFor(record.brand_slug, lead),
+        );
+        portalLinkSynced = result.ok;
+        portalLinkSyncError = result.error;
+        logActivation("portal_link_sync", {
+          externalLeadId: record.id,
+          leadId: lead.id,
+          ok: result.ok,
+          skipped: result.skipped,
+        });
+      }
+    } catch (error) {
+      // Never let provisioning/sync failure break lead intake — HighLevel
+      // must still get a 200 so it doesn't treat this as a failed delivery.
+      portalLinkSyncError = error instanceof Error ? error.message : "Portal link provisioning failed";
+      console.error("[highlevel-facebook-lead] portal link provisioning failed:", error);
+    }
+
+    return NextResponse.json({
+      success: true,
+      duplicate,
+      portalLinkSynced,
+      ...(portalLinkSyncError ? { portalLinkSyncError } : {}),
+    });
   } catch (error) {
     console.error("[highlevel-facebook-lead] intake failed:", error);
     return NextResponse.json({ success: false, error: "Lead intake failed" }, { status: 500 });

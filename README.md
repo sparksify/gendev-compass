@@ -370,7 +370,20 @@ PORTAL_ACTIVATION_POLL_INTERVAL_MS=1500
 PORTAL_ACTIVATION_TTL_MINUTES=15
 PORTAL_LAST_FOUR_MAX_ATTEMPTS=5
 PORTAL_TIME_MATCHING_ENABLED=true      # set "false" to force last-four fallback for every activation
+GHL_PORTAL_URL_FIELD_KEY=portal_link   # HighLevel custom field key that receives each lead's portal link
 ```
+
+### Portal link sync to HighLevel
+
+Every inbound lead's portal link is generated the moment the webhook is
+received — independent of whether the prospect ever clicks Facebook's
+completion button — and pushed into a HighLevel contact custom field
+(`lib/portalActivation/ghlSync.ts`, reusing the existing `GHL_API_TOKEN`).
+This lets HighLevel workflows message the link directly (e.g. to someone
+who didn't click through) via the merge tag `{{ contact.portal_link }}`.
+The same `leads` row is reused if the prospect later does click through —
+never duplicated. Sync failures never block lead intake; see
+`HIGHLEVEL_SETUP.md` §5 for setup and troubleshooting.
 
 ### Diagnostics
 

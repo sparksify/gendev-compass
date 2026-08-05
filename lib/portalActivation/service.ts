@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto";
 import { getStore } from "@/lib/store";
 import { generatePortalToken } from "@/lib/portal/tokens";
+import { getAppUrl } from "@/lib/config/env";
 import { getBrandEntry, isValidBrandSlug } from "@/lib/config/brands";
 import {
   getActivationMaxWaitSeconds,
@@ -93,9 +94,13 @@ export async function startActivation(
 /**
  * Finds/reuses the existing portal user for this brand and provisions a new
  * one only when none exists — never a duplicate (spec: portal provisioning).
- * Existing progress on a reused lead is left untouched.
+ * Existing progress on a reused lead is left untouched. Exported so lead
+ * intake (app/api/integrations/highlevel/facebook-lead) can provision the
+ * portal link immediately, ahead of any activation/claim — the claim path
+ * below finds the same lead via the same lookup, so it's still never
+ * duplicated.
  */
-async function provisionPortalLead(
+export async function provisionPortalLead(
   externalLead: ExternalLeadRecord,
   brandSlug: string,
 ): Promise<LeadRecord> {
@@ -148,6 +153,11 @@ async function provisionPortalLead(
 export function redirectUrlFor(brandSlug: string, lead: LeadRecord): string {
   const brandEntry = getBrandEntry(brandSlug);
   return brandEntry ? brandEntry.portalPath(lead.portal_token) : `/p/${lead.portal_token}`;
+}
+
+/** Absolute portal URL — for handing to an external system (e.g. HighLevel), never for the browser redirect. */
+export function absolutePortalUrlFor(brandSlug: string, lead: LeadRecord): string {
+  return `${getAppUrl()}${redirectUrlFor(brandSlug, lead)}`;
 }
 
 /** Attempts to claim `candidate`, retrying the whole match once if the claim loses a race. */
