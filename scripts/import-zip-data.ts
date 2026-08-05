@@ -27,59 +27,16 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 config({ path: ".env" });
 
-const SOURCE_URL =
-  process.env.ZIP_DATA_SOURCE_URL ??
-  "https://raw.githubusercontent.com/symerio/postal-codes-data/master/data/geonames/US.txt";
-
 const BATCH_SIZE = 500;
-
-interface ParsedZip {
-  zip_code: string;
-  city: string;
-  state_code: string;
-  county_name: string | null;
-  latitude: number;
-  longitude: number;
-}
-
-function parseGeoNames(text: string): ParsedZip[] {
-  const byZip = new Map<string, ParsedZip>();
-  for (const line of text.split("\n")) {
-    if (!line.trim()) continue;
-    const parts = line.split("\t");
-    // country, zip, place, state name, state code, county name, ...
-    const [country, zip, place, , stateCode, countyName] = parts;
-    const latitude = Number(parts[9]);
-    const longitude = Number(parts[10]);
-    if (country !== "US") continue;
-    if (!/^\d{5}$/.test(zip ?? "")) continue;
-    if (!place || !stateCode || !/^[A-Z]{2}$/.test(stateCode)) continue;
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
-    // First entry wins per ZIP (the dataset lists the primary place first).
-    if (!byZip.has(zip)) {
-      byZip.set(zip, {
-        zip_code: zip,
-        city: place,
-        state_code: stateCode,
-        county_name: countyName?.trim() ? countyName.trim() : null,
-        latitude,
-        longitude,
-      });
-    }
-  }
-  return [...byZip.values()];
-}
 
 async function main() {
   const dryRun = process.argv.includes("--dry");
 
-  console.log(`Downloading ${SOURCE_URL} …`);
-  const response = await fetch(SOURCE_URL, { signal: AbortSignal.timeout(120_000) });
-  if (!response.ok) {
-    throw new Error(`Download failed: HTTP ${response.status}`);
-  }
-  const text = await response.text();
-  const rows = parseGeoNames(text);
+  const { downloadAndParseZipData, ZIP_DATA_SOURCE_URL } = await import(
+    "../lib/geocoding/zipImport"
+  );
+  console.log(`Downloading ${ZIP_DATA_SOURCE_URL} …`);
+  const rows = await downloadAndParseZipData();
   const states = new Set(rows.map((r) => r.state_code));
   console.log(`Parsed ${rows.length} unique ZIP codes across ${states.size} states/territories.`);
 
@@ -93,18 +50,9 @@ async function main() {
   const { getStore } = await import("../lib/store");
   const store = getStore();
 
-  const now = new Date().toISOString();
   let written = 0;
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-    const batch = rows.slice(i, i + BATCH_SIZE).map((r) => ({
-      ...r,
-      population: null,
-      households: null,
-      median_household_income: null,
-      timezone: null,
-      created_at: now,
-      updated_at: now,
-    }));
+    const batch = rows.slice(i, i + BATCH_SIZE);
     await store.upsertZipCodeReferences(batch);
     written += batch.length;
     if (written % 5000 < BATCH_SIZE) {
