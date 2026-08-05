@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getAdminTestPassword, isProduction, isSupabaseConfigured } from "@/lib/config/env";
+import { authorizedAdminRequest } from "@/lib/advisor/adminAccess";
+import { isProduction, isSupabaseConfigured } from "@/lib/config/env";
 import { ASSET_SLOTS, getAssetSlot, getSiteAssets, saveSiteAsset } from "@/lib/assets";
 
 export const dynamic = "force-dynamic";
@@ -9,15 +10,9 @@ export const dynamic = "force-dynamic";
  * ADMIN_TEST_PASSWORD is required whenever configured, and in production
  * a missing password rejects every request.
  */
-function authorized(request: Request): boolean {
-  const adminPassword = getAdminTestPassword();
-  const provided = request.headers.get("x-admin-password");
-  if (adminPassword) return provided === adminPassword;
-  return !isProduction();
-}
 
 export async function GET(request: Request): Promise<NextResponse> {
-  if (!authorized(request)) {
+  if (!(await authorizedAdminRequest(request))) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
   const assets = await getSiteAssets();
@@ -25,7 +20,7 @@ export async function GET(request: Request): Promise<NextResponse> {
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
-  if (!authorized(request)) {
+  if (!(await authorizedAdminRequest(request))) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
   if (isProduction() && !isSupabaseConfigured()) {

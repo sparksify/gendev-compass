@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
+import { authorizedAdminRequest } from "@/lib/advisor/adminAccess";
 import { z } from "zod";
-import { getAdminTestPassword, isProduction } from "@/lib/config/env";
 import { clientIpFrom, rateLimit } from "@/lib/rateLimit";
 import {
   refreshStatePolygons,
@@ -24,14 +24,6 @@ const bodySchema = z.object({
     .optional(),
 });
 
-/** Same auth model as the other admin routes: header password, required in production. */
-function authorized(request: Request): boolean {
-  const adminPassword = getAdminTestPassword();
-  const provided = request.headers.get("x-admin-password");
-  if (adminPassword) return provided === adminPassword;
-  return !isProduction();
-}
-
 /**
  * Loads ZIP boundary shapes from the shipped nationwide bundle (all 50
  * states + DC pre-processed into data/zcta/ — no runtime downloads; see
@@ -47,7 +39,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (!rateLimit(`import-polygons:${clientIpFrom(request)}`, 20, 60_000)) {
     return NextResponse.json({ success: false, error: "Too many requests" }, { status: 429 });
   }
-  if (!authorized(request)) {
+  if (!(await authorizedAdminRequest(request))) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 

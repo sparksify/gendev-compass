@@ -1,19 +1,11 @@
 import { NextResponse } from "next/server";
-import { getAdminTestPassword, isProduction } from "@/lib/config/env";
+import { authorizedAdminRequest } from "@/lib/advisor/adminAccess";
 import { clientIpFrom, rateLimit } from "@/lib/rateLimit";
 import { refreshDemographics } from "@/lib/geocoding/censusImport";
 
 export const dynamic = "force-dynamic";
 /** 51 states x 2 vintages, concurrency 8, well under budget + batched upserts. */
 export const maxDuration = 60;
-
-/** Same auth model as the other admin routes: header password, required in production. */
-function authorized(request: Request): boolean {
-  const adminPassword = getAdminTestPassword();
-  const provided = request.headers.get("x-admin-password");
-  if (adminPassword) return provided === adminPassword;
-  return !isProduction();
-}
 
 /**
  * Loads real Census ACS demographics (population, households, median income,
@@ -29,7 +21,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (!rateLimit(`import-demographics:${clientIpFrom(request)}`, 3, 60_000)) {
     return NextResponse.json({ success: false, error: "Too many requests" }, { status: 429 });
   }
-  if (!authorized(request)) {
+  if (!(await authorizedAdminRequest(request))) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
