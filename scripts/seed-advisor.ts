@@ -65,6 +65,52 @@ async function main() {
     console.log("Created advisor:", advisorEmail);
   }
 
+  // Second advisor (development-only credentials, fictional person).
+  const advisor2Email = "jordan@gendev.test";
+  const advisor2Password = process.env.SEED_ADVISOR2_PASSWORD ?? "gendev-jordan-dev-2026";
+  let jordan = await store.getStaffUserByEmail(advisor2Email);
+  if (!jordan) {
+    jordan = await store.createStaffUser({
+      first_name: "Jordan",
+      last_name: "Ellis",
+      email: advisor2Email,
+      password_hash: hashPassword(advisor2Password),
+      role: "ADVISOR",
+    });
+    console.log("Created advisor:", advisor2Email);
+  }
+
+  // -------------------------------------------------------------------------
+  // Platform domain: organization, brands, staff profiles + memberships.
+  // -------------------------------------------------------------------------
+  const { resolveDefaultOrganization } = await import("../lib/domain/organizations");
+  const { resolveDefaultBrand } = await import("../lib/domain/brands");
+  const { resolveAdvisorContext } = await import("../lib/domain/memberships");
+  const { ensureLeadDomainChain } = await import("../lib/domain/chain");
+
+  const organization = await resolveDefaultOrganization();
+  const defaultBrand = await resolveDefaultBrand(organization);
+
+  let secondBrand = await store.getBrandBySlug(organization.id, "gendev-demo-brand");
+  if (!secondBrand) {
+    secondBrand = await store.createBrand({
+      organization_id: organization.id,
+      name: "GenDev Demo Second Brand",
+      slug: "gendev-demo-brand",
+      status: "active",
+      description: "Development-only second brand demonstrating multi-opportunity clients.",
+      brand_settings: { development_only: true },
+    });
+    console.log("Created second brand:", secondBrand.slug);
+  }
+
+  await resolveAdvisorContext(admin);
+  const darkoContext = await resolveAdvisorContext(darko);
+  const jordanContext = await resolveAdvisorContext(jordan);
+  console.log(
+    `Organization '${organization.slug}' ready with brands: ${defaultBrand.slug}, ${secondBrand.slug}`,
+  );
+
   // -------------------------------------------------------------------------
   // Example investors (all data fictional)
   // -------------------------------------------------------------------------
@@ -414,10 +460,92 @@ async function main() {
     console.log(`Seeded investor: ${seed.firstName} ${seed.lastName} (${seed.stage})`);
   }
 
+  // -------------------------------------------------------------------------
+  // Platform domain chains: connect every seeded lead to its organization /
+  // client / brand / primary opportunity (idempotent get-or-create).
+  // -------------------------------------------------------------------------
+  const leads = await store.listLeads();
+  for (const lead of leads) {
+    await ensureLeadDomainChain(lead);
+  }
+  console.log(`Domain chains ensured for ${leads.length} lead(s).`);
+
+  // Multi-opportunity example: Maria Chen also explores the second brand,
+  // with her own independent stage, advisor, FDD workflow, and a pending
+  // territory request. Closing/advancing one journey never touches the other.
+  const mariaLead = await store.getLeadByEmail("maria.chen@example.test");
+  if (mariaLead?.client_id) {
+    const mariaClient = await store.getClientById(mariaLead.client_id);
+    if (mariaClient) {
+      const existingOpportunities = await store.listOpportunitiesForClient(mariaClient.id);
+      let secondOpportunity =
+        existingOpportunities.find((o) => o.brand_id === secondBrand.id) ?? null;
+      if (!secondOpportunity) {
+        secondOpportunity = await store.createOpportunity({
+          organization_id: organization.id,
+          client_id: mariaClient.id,
+          brand_id: secondBrand.id,
+          stage: "ENGAGED",
+          assigned_advisor_profile_id: jordanContext.profile.id,
+          assigned_advisor_membership_id: jordanContext.membership.id,
+          priority: "high",
+          metadata: { seeded: true },
+        });
+        await store.createOpportunityAssignment({
+          opportunity_id: secondOpportunity.id,
+          membership_id: jordanContext.membership.id,
+          assignment_role: "PRIMARY_ADVISOR",
+          is_primary: true,
+        });
+        console.log("Created second opportunity for Maria Chen (second brand).");
+      }
+
+      if (!(await store.getFddWorkflowByOpportunityId(secondOpportunity.id))) {
+        await store.createFddWorkflow({
+          organization_id: organization.id,
+          client_id: mariaClient.id,
+          opportunity_id: secondOpportunity.id,
+          brand_id: secondBrand.id,
+          status: "not_requested",
+        });
+      }
+
+      const territoryRequests = await store.listTerritoryRequestsForOpportunity(
+        secondOpportunity.id,
+      );
+      if (territoryRequests.length === 0) {
+        await store.createTerritoryRequest({
+          organization_id: organization.id,
+          client_id: mariaClient.id,
+          opportunity_id: secondOpportunity.id,
+          brand_id: secondBrand.id,
+          requested_by_profile_id: darkoContext.profile.id,
+          query_text: "Dallas North metro, TX",
+          city: "Dallas",
+          state: "TX",
+          radius_miles: 25,
+        });
+        console.log("Created placeholder territory request for Maria Chen.");
+      }
+
+      await store.insertActivityEvent({
+        organization_id: organization.id,
+        client_id: mariaClient.id,
+        opportunity_id: secondOpportunity.id,
+        event_type: "opportunity_created",
+        event_source: "seed",
+        event_data: { brand: secondBrand.slug },
+        external_event_id: `seed:second-opportunity:${mariaClient.id}`,
+      });
+    }
+  }
+
   console.log("");
   console.log("Advisor backend seeded. Sign in at /advisor/login:");
+  console.log("(Development-only credentials — never use in production.)");
   console.log(`  Admin:   ${adminEmail} / ${adminPassword}`);
   console.log(`  Advisor: ${advisorEmail} / ${advisorPassword}`);
+  console.log(`  Advisor: ${advisor2Email} / ${advisor2Password}`);
 }
 
 main().catch((error) => {
