@@ -2,15 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Search, MapPin, Hash, RotateCcw } from "lucide-react";
+import { Search, MapPin, ArrowRight, Map as MapIcon, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/form-fields";
 import { LiveTerritoryMap } from "./LiveTerritoryMap";
-import { MarketAnalysisCard } from "./MarketAnalysisCard";
+import { FloatingMarketPanel } from "./FloatingMarketPanel";
 import { TerritoryAssessment } from "./TerritoryAssessment";
 import { WhyThisMarket } from "./WhyThisMarket";
-import { NearbyMarkets } from "./NearbyMarkets";
 import { ChatMessage } from "./ChatMessage";
 import { ReviewRequestModal } from "./ReviewRequestModal";
 import { Disclaimer } from "./Disclaimer";
@@ -18,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { RADIUS_OPTIONS_MILES } from "@/lib/config/territory";
 import type { CtaAction } from "./cta";
 import type { ChatMessageData } from "./types";
-import type { TerritoryAlternative, TerritoryEvaluationResult } from "@/types/territory";
+import type { TerritoryAlternative, TerritoryEvaluationResult, TerritoryResultStatus } from "@/types/territory";
 
 const LOADING_PHRASES = [
   "Finding your market…",
@@ -28,6 +27,15 @@ const LOADING_PHRASES = [
 ];
 
 const POPULAR_MARKETS = ["Dallas, TX", "Austin, TX", "Nashville, TN", "Phoenix, AZ", "Tampa, FL"];
+
+/** Statuses that represent a completed market evaluation. */
+const EVALUATED_STATUSES: TerritoryResultStatus[] = [
+  "AVAILABLE",
+  "PARTIALLY_AVAILABLE",
+  "UNAVAILABLE",
+  "STATE_RESTRICTED",
+  "MANUAL_REVIEW",
+];
 
 let messageIdCounter = 0;
 function nextId(): string {
@@ -39,16 +47,30 @@ interface TerritoryAdvisorClientProps {
   token: string;
   firstName: string;
   brandName: string;
+  advisorName: string;
   advisorEmail: string;
+  /** Compact brand context for the workspace header (replaces the rail card). */
+  brandContext: { industry: string | null; investmentRange: string | null };
   defaultRadiusMiles: number;
   initialResults: TerritoryEvaluationResult[];
 }
 
+/**
+ * The Territory Intelligence workstation: a split workspace where the
+ * conversation drives the map. Chat (left) and live map (right) stay
+ * visible together — only the conversation history scrolls, the input is
+ * pinned, and the Market Analysis panel floats on the map. The advisor is
+ * introduced in the conversation after a result (not before), and brand
+ * context shrinks to one header line. Tablet stacks map above chat; mobile
+ * leads with the conversation and makes the map expandable.
+ */
 export function TerritoryAdvisorClient({
   token,
   firstName,
   brandName,
+  advisorName,
   advisorEmail,
+  brandContext,
   defaultRadiusMiles,
   initialResults,
 }: TerritoryAdvisorClientProps) {
@@ -73,14 +95,25 @@ export function TerritoryAdvisorClient({
     { open: false, searchId: null, location: null },
   );
   const [geoBusy, setGeoBusy] = useState(false);
+  // Mobile: conversation first, map expandable. Tablet/desktop: map always on.
+  const [isMdUp, setIsMdUp] = useState(true);
+  const [mobileMapOpen, setMobileMapOpen] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const loadingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
+    const query = window.matchMedia("(min-width: 768px)");
+    const update = () => setIsMdUp(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages]);
+  }, [messages, lastResult]);
 
   useEffect(() => () => {
     if (loadingTimerRef.current) clearInterval(loadingTimerRef.current);
@@ -225,160 +258,271 @@ export function TerritoryAdvisorClient({
     );
   }
 
-  return (
-    <div className="space-y-5">
-      {/* The map is the hero: the whole page centers on the market. */}
-      <LiveTerritoryMap
-        token={token}
-        result={lastResult}
-        onSelectAlternative={handleSelectAlternative}
-        disabled={submitting}
-      />
+  const evaluated = lastResult != null && EVALUATED_STATUSES.includes(lastResult.status);
+  const lastResultMessageId = [...messages].reverse().find((m) => m.result != null)?.id ?? null;
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
-      {/* Left: conversational interface */}
-      <Card className="flex min-w-0 flex-col self-start">
-        <div className="border-b border-border px-5 py-4">
-          <h1 className="text-[17px] font-bold text-foreground">Territory Advisor</h1>
-          <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
-            Explore preliminary territory availability for this opportunity. Enter a city, ZIP code, or
-            area you would like us to evaluate.
+  // Smart follow-up chips: one click updates chat, map, and analysis together.
+  const smartChips: Array<{ key: string; label: string; onClick: () => void }> = [];
+  if (evaluated && lastResult) {
+    for (const alt of lastResult.alternatives.filter((a) => a.status === "AVAILABLE").slice(0, 3)) {
+      smartChips.push({
+        key: `compare-${alt.label}`,
+        label: `Compare ${alt.city ?? alt.label}`,
+        onClick: () => handleSelectAlternative(alt),
+      });
+    }
+    const nextRadius = RADIUS_OPTIONS_MILES.filter((option) => option > radiusMiles).sort((a, b) => a - b)[0];
+    if (nextRadius && lastResult.status !== "STATE_RESTRICTED") {
+      smartChips.push({
+        key: "expand-radius",
+        label: `Expand to ${nextRadius} mi`,
+        onClick: () => handleRadiusChange(nextRadius),
+      });
+    }
+    if (lastResult.status === "UNAVAILABLE" || lastResult.status === "PARTIALLY_AVAILABLE") {
+      smartChips.push({
+        key: "nearby",
+        label: "Search nearby markets",
+        onClick: () => handleAction("exploreNearby", lastResult),
+      });
+    }
+    smartChips.push({
+      key: "new-search",
+      label: "Search another area",
+      onClick: () => {
+        setInputValue("");
+        inputRef.current?.focus();
+      },
+    });
+  }
+
+  const showMapPane = isMdUp || mobileMapOpen;
+
+  return (
+    <div className="ti-workspace flex flex-col gap-4">
+      {/* Workspace header: identity left, compact brand context right. */}
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+        <div>
+          <h1 className="text-[19px] font-bold text-foreground">Territory Intelligence</h1>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">
+            Explore markets, compare opportunities, and check preliminary availability for {brandName}.
           </p>
         </div>
+        <p className="text-[12px] text-muted-foreground">
+          <span className="font-semibold text-secondary-foreground">{brandName}</span>
+          {brandContext.industry && <> · {brandContext.industry}</>}
+          {brandContext.investmentRange && <> · {brandContext.investmentRange}</>}
+          {" · "}
+          <Link href={`${base}/opportunity`} className="text-primary hover:text-primary-hover">
+            Learn more →
+          </Link>
+        </p>
+      </div>
 
-        <div ref={scrollRef} className="flex max-h-[560px] min-h-[360px] flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
-          {messages.map((message) => (
-            <ChatMessage
-              key={message.id}
-              message={message}
-              disabled={submitting}
-              onAction={(action) => message.result && handleAction(action, message.result)}
-              onSelectCandidate={handleSelectCandidate}
-              onSelectAlternative={handleSelectAlternative}
-            />
-          ))}
+      {/* Split workspace: conversation | live map. Fixed height on desktop so
+          the core loop needs no page scrolling; only chat history scrolls. */}
+      <div className="flex flex-col gap-4 lg:grid lg:h-[calc(100dvh-232px)] lg:min-h-[540px] lg:grid-cols-[minmax(340px,2fr)_3fr]">
+        {/* Conversation pane */}
+        <Card className="order-1 flex min-h-0 min-w-0 flex-col md:order-2 lg:order-none lg:h-full">
+          <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-faint-foreground">
+              Conversation
+            </p>
+            <button
+              type="button"
+              onClick={() => setMobileMapOpen((prev) => !prev)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[11.5px] font-medium text-secondary-foreground md:hidden"
+            >
+              {mobileMapOpen ? <X className="size-3.5" strokeWidth={1.8} /> : <MapIcon className="size-3.5" strokeWidth={1.8} />}
+              {mobileMapOpen ? "Hide map" : "View map"}
+            </button>
+          </div>
 
-          {messages.length <= 1 && (
-            <div className="flex flex-col gap-2">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-faint-foreground">
-                Popular Markets
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {POPULAR_MARKETS.map((market) => (
+          <div
+            ref={scrollRef}
+            className="flex max-h-[52dvh] min-h-[280px] flex-1 flex-col gap-4 overflow-y-auto px-4 py-4 lg:max-h-none"
+          >
+            {messages.map((message) => (
+              <ChatMessage
+                key={message.id}
+                message={message}
+                disabled={submitting}
+                hideCtas={message.id === lastResultMessageId}
+                onAction={(action) => message.result && handleAction(action, message.result)}
+                onSelectCandidate={handleSelectCandidate}
+                onSelectAlternative={handleSelectAlternative}
+              />
+            ))}
+
+            {messages.length <= 1 && (
+              <div className="flex flex-col gap-2">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-faint-foreground">
+                  Popular Markets
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {POPULAR_MARKETS.map((market) => (
+                    <button
+                      key={market}
+                      type="button"
+                      disabled={submitting}
+                      onClick={() => handleSubmitText(market, "chip")}
+                      className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-secondary-foreground transition-colors hover:bg-surface disabled:opacity-50"
+                    >
+                      {market}
+                    </button>
+                  ))}
                   <button
-                    key={market}
+                    type="button"
+                    disabled={submitting || geoBusy}
+                    onClick={handleUseCurrentCity}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-secondary-foreground transition-colors hover:bg-surface disabled:opacity-50"
+                  >
+                    <MapPin className="size-3.5" strokeWidth={1.8} />
+                    {geoBusy ? "Locating…" : "Use my current city"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Smart follow-ups for the latest result — no retyping needed. */}
+            {!submitting && smartChips.length > 0 && (
+              <div className="ti-fade-up flex flex-wrap gap-2 pl-1">
+                {smartChips.map((chip) => (
+                  <button
+                    key={chip.key}
                     type="button"
                     disabled={submitting}
-                    onClick={() => handleSubmitText(market, "chip")}
-                    className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-secondary-foreground transition-colors hover:bg-surface disabled:opacity-50"
+                    onClick={chip.onClick}
+                    className="rounded-full border border-primary-soft-border bg-primary-soft px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/15 disabled:opacity-50"
                   >
-                    {market}
+                    {chip.label}
                   </button>
                 ))}
               </div>
-            </div>
-          )}
-        </div>
+            )}
 
-        <div className="border-t border-border px-5 py-4">
-          {lastResult && (
-            <div className="mb-3 flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 text-[11px] text-muted-foreground">Preliminary evaluation area:</span>
-              {RADIUS_OPTIONS_MILES.map((option) => (
-                <button
-                  key={option}
+            {/* The advisor enters the conversation as the next logical step —
+                only after the prospect has a result to talk about. */}
+            {!submitting && evaluated && lastResult && (
+              <div className="ti-fade-up rounded-control border border-primary-soft-border bg-primary-soft/40 px-3.5 py-3">
+                <p className="text-[13px] leading-relaxed text-foreground">
+                  Would you like <span className="font-semibold">{advisorName}</span> to review{" "}
+                  {lastResult.location.displayName ?? "this market"} with you? Reviews typically come back
+                  within one business day.
+                </p>
+                <Button
                   type="button"
+                  size="sm"
+                  className="mt-2.5"
                   disabled={submitting}
-                  onClick={() => handleRadiusChange(option)}
-                  className={cn(
-                    "rounded-full border px-2.5 py-1 text-[11.5px] font-medium transition-colors disabled:opacity-50",
-                    option === radiusMiles
-                      ? "border-primary-soft-border bg-primary-soft text-primary"
-                      : "border-border text-muted-foreground hover:bg-surface",
-                  )}
+                  onClick={() =>
+                    setReviewModal({
+                      open: true,
+                      searchId: lastResult.searchId,
+                      location: lastResult.location.displayName,
+                    })
+                  }
                 >
-                  {option} mi
-                </button>
-              ))}
-            </div>
-          )}
-
-          <form onSubmit={handleFormSubmit} className="flex items-center gap-2">
-            <Input
-              ref={inputRef}
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Enter a city, ZIP code, or market…"
-              disabled={submitting}
-              aria-label="Enter a city, ZIP code, or market"
-            />
-            <Button type="submit" disabled={submitting || !inputValue.trim()}>
-              <Search className="size-4" strokeWidth={1.8} />
-              Check Territory
-            </Button>
-          </form>
-
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={submitting || geoBusy}
-              onClick={handleUseCurrentCity}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-secondary-foreground transition-colors hover:bg-surface disabled:opacity-50"
-            >
-              <MapPin className="size-3.5" strokeWidth={1.8} />
-              {geoBusy ? "Locating…" : "Use my current city"}
-            </button>
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={() => inputRef.current?.focus()}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-secondary-foreground transition-colors hover:bg-surface disabled:opacity-50"
-            >
-              <Hash className="size-3.5" strokeWidth={1.8} />
-              Search by ZIP code
-            </button>
-            {lastResult && (
-              <button
-                type="button"
-                disabled={submitting}
-                onClick={() => {
-                  setInputValue("");
-                  inputRef.current?.focus();
-                }}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-secondary-foreground transition-colors hover:bg-surface disabled:opacity-50"
-              >
-                <RotateCcw className="size-3.5" strokeWidth={1.8} />
-                Check another market
-              </button>
+                  Schedule Territory Review <ArrowRight className="size-3.5" />
+                </Button>
+              </div>
             )}
           </div>
-        </div>
-      </Card>
 
-      {/* Right: territory intelligence stack */}
-      <div className="flex min-w-0 flex-col gap-4">
-        {lastResult && lastResult.status !== "LOCATION_NOT_FOUND" && lastResult.status !== "BRAND_NOT_CONFIGURED" && (
-          // Key by evaluation time so each new search re-runs the entrance
-          // animations and count-ups.
-          <div key={lastResult.checkedAt} className="flex min-w-0 flex-col gap-4">
-            <MarketAnalysisCard result={lastResult} />
-            <TerritoryAssessment result={lastResult} />
-            <WhyThisMarket result={lastResult} />
-            <NearbyMarkets
-              alternatives={lastResult.alternatives.filter((a) => a.status === "AVAILABLE")}
+          {/* Pinned composer: never disappears. */}
+          <div className="border-t border-border px-4 py-3">
+            {lastResult && (
+              <div className="mb-2.5 flex flex-wrap items-center gap-1.5">
+                <span className="mr-1 text-[11px] text-muted-foreground">Evaluation radius:</span>
+                {RADIUS_OPTIONS_MILES.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    disabled={submitting}
+                    onClick={() => handleRadiusChange(option)}
+                    className={cn(
+                      "rounded-full border px-2.5 py-1 text-[11.5px] font-medium transition-colors disabled:opacity-50",
+                      option === radiusMiles
+                        ? "border-primary-soft-border bg-primary-soft text-primary"
+                        : "border-border text-muted-foreground hover:bg-surface",
+                    )}
+                  >
+                    {option} mi
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <form onSubmit={handleFormSubmit} className="flex items-center gap-2">
+              <Input
+                ref={inputRef}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder="Search city or ZIP…"
+                disabled={submitting}
+                list="ti-market-suggestions"
+                aria-label="Search city or ZIP"
+              />
+              <datalist id="ti-market-suggestions">
+                {POPULAR_MARKETS.map((market) => (
+                  <option key={market} value={market} />
+                ))}
+              </datalist>
+              <button
+                type="button"
+                disabled={submitting || geoBusy}
+                onClick={handleUseCurrentCity}
+                title="Use my current location"
+                aria-label="Use my current location"
+                className="inline-flex size-9 shrink-0 items-center justify-center rounded-control border border-border text-secondary-foreground transition-colors hover:bg-surface disabled:opacity-50"
+              >
+                <MapPin className="size-4" strokeWidth={1.8} />
+              </button>
+              <Button type="submit" disabled={submitting || !inputValue.trim()}>
+                <Search className="size-4" strokeWidth={1.8} />
+                <span className="hidden sm:inline">Check Territory</span>
+              </Button>
+            </form>
+          </div>
+        </Card>
+
+        {/* Live map pane with the floating Market Analysis panel. */}
+        {showMapPane && (
+          <div className="relative order-2 h-[320px] min-h-0 md:order-1 md:h-[400px] lg:order-none lg:h-full">
+            <LiveTerritoryMap
+              token={token}
+              result={lastResult}
+              onSelectAlternative={handleSelectAlternative}
               disabled={submitting}
-              onSelect={handleSelectAlternative}
+              fill
             />
+            {evaluated && lastResult && (
+              <div key={lastResult.checkedAt} className="absolute right-3 top-3 z-[650] hidden md:block">
+                <FloatingMarketPanel result={lastResult} />
+              </div>
+            )}
           </div>
         )}
-        <Card className="p-4">
-          <Disclaimer />
-        </Card>
-        <p className="px-1 text-[12px] text-muted-foreground">
-          Have questions about this feature? <Link href={`${base}#faq`} className="text-primary hover:text-primary-hover">Visit the Investor FAQ</Link>.
-        </p>
       </div>
-      </div>
+
+      {/* Deep dive: optional exploration below the workspace. The core loop
+          never requires scrolling here. */}
+      {evaluated && lastResult && (
+        <div key={`briefing-${lastResult.checkedAt}`} className="grid gap-4 lg:grid-cols-2">
+          <TerritoryAssessment result={lastResult} />
+          <WhyThisMarket result={lastResult} />
+        </div>
+      )}
+      <Card className="p-4">
+        <Disclaimer />
+      </Card>
+      <p className="px-1 text-[12px] text-muted-foreground">
+        Have questions about this feature?{" "}
+        <Link href={`${base}#faq`} className="text-primary hover:text-primary-hover">
+          Visit the Investor FAQ
+        </Link>
+        .
+      </p>
 
       <ReviewRequestModal
         open={reviewModal.open}

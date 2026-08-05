@@ -15,7 +15,14 @@ function toneClasses(percent: number): { bar: string; text: string } {
  * signal with an animated fill. The basis line always states what the
  * number reflects, so it reads as communication, not a probability model.
  */
-export function ConfidenceMeter({ result }: { result: TerritoryEvaluationResult }) {
+export function ConfidenceMeter({
+  result,
+  compact = false,
+}: {
+  result: TerritoryEvaluationResult;
+  /** Tighter type scale + no basis line, for the floating map panel. */
+  compact?: boolean;
+}) {
   const signal = availabilitySignal(result);
   const animated = useCountUp(signal.percent);
   const tone = toneClasses(signal.percent);
@@ -23,12 +30,14 @@ export function ConfidenceMeter({ result }: { result: TerritoryEvaluationResult 
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-faint-foreground">
+        <p className={`font-bold uppercase tracking-[0.1em] text-faint-foreground ${compact ? "text-[10px]" : "text-[11px]"}`}>
           Availability Signal
         </p>
-        <p className={`text-[20px] font-bold tabular-nums ${tone.text}`}>{animated}%</p>
+        <p className={`font-bold tabular-nums ${tone.text} ${compact ? "text-[16px]" : "text-[20px]"}`}>
+          {animated}%
+        </p>
       </div>
-      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-surface">
+      <div className={`overflow-hidden rounded-full bg-surface ${compact ? "mt-1 h-1.5" : "mt-1.5 h-2"}`}>
         <div
           className={`ti-meter-bar h-full rounded-full ${tone.bar}`}
           style={{ width: `${signal.percent}%` }}
@@ -39,9 +48,11 @@ export function ConfidenceMeter({ result }: { result: TerritoryEvaluationResult 
           aria-label={signal.label}
         />
       </div>
-      <p className="mt-1.5 text-[12px] leading-snug text-muted-foreground">
-        <span className="font-medium text-secondary-foreground">{signal.label}.</span> {signal.basis}
-      </p>
+      {!compact && (
+        <p className="mt-1.5 text-[12px] leading-snug text-muted-foreground">
+          <span className="font-medium text-secondary-foreground">{signal.label}.</span> {signal.basis}
+        </p>
+      )}
     </div>
   );
 }

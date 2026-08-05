@@ -162,3 +162,14 @@ wistia-player {
     animation: none;
   }
 }
+
+/*
+ * Territory Intelligence workspace: the split chat/map workstation opts out
+ * of the portal's right sidebar (advisor + brand cards) — advisor intro
+ * moves into the conversation after a result, and brand context shrinks to
+ * the workspace header. The rail is the <aside> sibling of <main> in
+ * PortalShell.
+ */
+main:has(.ti-workspace) + aside {
+  display: none;
+}

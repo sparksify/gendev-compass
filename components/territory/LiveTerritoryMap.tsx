@@ -31,6 +31,8 @@ export interface LiveTerritoryMapProps {
   /** Fired when a prospect clicks a nearby-market marker on the map. */
   onSelectAlternative?: (alternative: TerritoryAlternative) => void;
   disabled?: boolean;
+  /** Fill the parent's height (workspace split view) instead of fixed heights. */
+  fill?: boolean;
 }
 
 /**
@@ -42,7 +44,7 @@ export interface LiveTerritoryMapProps {
  * statuses, ownership, or sold boundaries ever reach the browser (see
  * docs/territory-advisor.md).
  */
-export function LiveTerritoryMap({ token, result, onSelectAlternative, disabled }: LiveTerritoryMapProps) {
+export function LiveTerritoryMap({ token, result, onSelectAlternative, disabled, fill }: LiveTerritoryMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const overlaysRef = useRef<LayerGroup | null>(null);
@@ -204,11 +206,15 @@ export function LiveTerritoryMap({ token, result, onSelectAlternative, disabled 
   const meta = status ? STATUS_META[status] : null;
 
   return (
-    <div className="overflow-hidden rounded-card border border-border bg-surface">
-      <div className="relative">
+    <div
+      className={`overflow-hidden rounded-card border border-border bg-surface ${
+        fill ? "flex h-full min-h-0 flex-col" : ""
+      }`}
+    >
+      <div className={fill ? "relative min-h-0 flex-1" : "relative"}>
         <div
           ref={containerRef}
-          className="h-[380px] w-full md:h-[480px]"
+          className={fill ? "h-full w-full" : "h-[380px] w-full md:h-[480px]"}
           role="img"
           aria-label={
             locationLabel
