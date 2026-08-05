@@ -14,7 +14,7 @@ import type { TerritoryEvaluationResult } from "@/types/territory";
  * positioning, and honest caveats.
  */
 export function WhyThisMarket({ result }: { result: TerritoryEvaluationResult }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const sections = buildWhyThisMarket(result);
   if (sections.length === 0) return null;
 

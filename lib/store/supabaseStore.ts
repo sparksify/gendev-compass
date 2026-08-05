@@ -1065,9 +1065,29 @@ export function createSupabaseStore(): PortalStore {
     },
 
     async listZipCodeReferences(): Promise<ZipCodeReferenceRecord[]> {
-      const { data, error } = await db.from("zip_code_reference").select();
-      if (error) throw new Error(`Failed to list zip code references: ${error.message}`);
-      return (data as ZipCodeReferenceRecord[]) ?? [];
+      // zip_code_reference holds ~41k rows nationwide — well past
+      // PostgREST's default per-request row cap (1,000) — so a single
+      // .select() silently truncates to the first page (whatever the
+      // table's default ordering puts first) instead of erroring. That
+      // silent truncation is exactly the kind of bug this app has already
+      // been bitten by twice at the network layer (see the truncation
+      // notes in lib/geocoding/censusImport.ts and
+      // lib/territory/polygonImport.ts) — same failure shape, this time
+      // at the database layer. Page through with .range() until a page
+      // comes back short of a full page.
+      const PAGE_SIZE = 1000;
+      const rows: ZipCodeReferenceRecord[] = [];
+      for (let from = 0; ; from += PAGE_SIZE) {
+        const { data, error } = await db
+          .from("zip_code_reference")
+          .select()
+          .range(from, from + PAGE_SIZE - 1);
+        if (error) throw new Error(`Failed to list zip code references: ${error.message}`);
+        if (!data || data.length === 0) break;
+        rows.push(...(data as ZipCodeReferenceRecord[]));
+        if (data.length < PAGE_SIZE) break;
+      }
+      return rows;
     },
 
     async upsertZipCodeReferences(rows: UpsertZipCodeReferenceInput[]): Promise<void> {
