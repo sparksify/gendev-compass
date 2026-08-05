@@ -15,10 +15,15 @@ export type PortalEventName =
   | "lead_sent_to_review"
   | "calendar_opened"
   | "calendar_booking_completed"
+  | "portal_completed"
   | "fdd_requested"
-  | "fdd_email_sent"
-  | "fdd_acknowledged"
-  | "portal_completed";
+  | "fdd_request_failed"
+  | "fdd_sent"
+  | "fdd_delivered"
+  | "fdd_received"
+  | "fdd_waiting_period_started"
+  | "fdd_eligible"
+  | "fdd_advisor_notified";
 
 export interface PortalEventRecord {
   id: string;

@@ -1,6 +1,7 @@
 import type { LeadRecord, LeadStatus } from "@/types/lead";
 import type { QuestionnaireRecord } from "@/types/questionnaire";
 import type { VideoProgressRecord } from "@/types/portal";
+import type { FddAuditInsert, FddAuditRecord, FddStatus } from "@/types/fdd";
 
 export interface CreateLeadRecordInput {
   portal_token: string;
@@ -48,8 +49,17 @@ export type LeadPatch = Partial<
     | "booked_at"
     | "appointment_id"
     | "appointment_start_at"
+    | "fdd_status"
     | "fdd_requested_at"
-    | "fdd_acknowledged_at"
+    | "fdd_sent_at"
+    | "fdd_delivered_at"
+    | "fdd_received_at"
+    | "fdd_eligible_at"
+    | "fdd_provider_envelope_id"
+    | "fdd_workflow_id"
+    | "fdd_request_source"
+    | "fdd_last_error"
+    | "fdd_retry_count"
   >
 >;
 
@@ -85,6 +95,16 @@ export interface PortalStore {
     pageUrl: string | null,
   ): Promise<void>;
 
+  /** Resolves the lead a document-provider envelope belongs to. */
+  getLeadByFddEnvelopeId(envelopeId: string): Promise<LeadRecord | null>;
+  /** Leads that have started the FDD workflow, newest request first (admin view). */
+  listFddLeads(): Promise<LeadRecord[]>;
+
+  insertFddAudit(entry: FddAuditInsert): Promise<void>;
+  listFddAudit(leadId: string): Promise<FddAuditRecord[]>;
+  /** Replay guard: whether an external webhook event was already processed. */
+  hasFddAuditEvent(externalEventId: string): Promise<boolean>;
+
   /** Development helper: wipe progress so the demo flow can be replayed. */
   resetLeadProgress(leadId: string): Promise<void>;
 }
@@ -106,5 +126,25 @@ export const STATUS_ORDER: LeadStatus[] = [
 
 export function statusRank(status: LeadStatus): number {
   const index = STATUS_ORDER.indexOf(status);
+  return index === -1 ? 0 : index;
+}
+
+/**
+ * Forward-only ordering for the FDD workflow so late or replayed webhooks
+ * never regress the status. `error_manual_review` sits outside this ordering —
+ * it is entered and cleared explicitly, never by rank comparison.
+ */
+export const FDD_STATUS_ORDER: FddStatus[] = [
+  "not_requested",
+  "request_processing",
+  "fdd_sent",
+  "fdd_delivered",
+  "fdd_received",
+  "waiting_period_active",
+  "eligible_for_agreement",
+];
+
+export function fddStatusRank(status: FddStatus): number {
+  const index = FDD_STATUS_ORDER.indexOf(status);
   return index === -1 ? 0 : index;
 }

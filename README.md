@@ -6,8 +6,8 @@ navigation, command-center status card, six-milestone journey timeline,
 advisor sidebar, resource library) in the style of premium financial
 software. Leads (initially from
 Facebook Lead Ads) receive a personalized magic link, watch an investor
-overview video, complete a qualification questionnaire, and — only if they
-qualify — unlock the advisor's calendar to book a consultation.
+overview video, complete a qualification questionnaire, and go straight to
+the advisor's calendar to book a consultation.
 
 Scheduling opens the moment the questionnaire is submitted — the advisor
 reviews the investor profile before the call, so there is no manual
@@ -67,8 +67,9 @@ Reset the demo lead's progress at any time:
 npm run seed:reset
 ```
 
-Development tools (simulate/reset buttons and the dev API route) render only
-outside production and the API independently refuses in production.
+Development tools (simulate/reset buttons and the dev API route) render
+outside production and on Vercel preview deployments; the API independently
+refuses on the production deployment.
 
 ## Supabase setup
 
@@ -115,6 +116,41 @@ Booking detection: the embed listens for Calendly's
 events. A manual **"I Scheduled My Consultation"** button remains as the
 temporary fallback for providers without embed events; replace it with a
 provider webhook when one is connected.
+
+## FDD request workflow
+
+After the questionnaire is complete, the scheduling page and sidebar offer the prospect
+the **Franchise Disclosure Document**. The flow (spec: FDD Request workflow):
+
+1. The prospect confirms their contact information and consents to electronic
+   delivery, then clicks **Request the FDD** (`POST /api/portal/[token]/fdd`).
+   The request is idempotent — duplicate clicks or replays never trigger a
+   second document send (idempotency key `fdd_request:{lead_id}`).
+2. The server dispatches to GoHighLevel (`lib/fdd/ghl.ts`) — via an inbound
+   workflow webhook (`GHL_FDD_WEBHOOK_URL`, preferred) or the contacts API
+   with the `FDD_REQUESTED` tag (`GHL_API_TOKEN` + `GHL_LOCATION_ID`).
+   Credentials stay server-side; the browser never talks to GoHighLevel.
+   With neither configured outside production, dispatch is simulated so the
+   whole flow runs locally.
+3. Provider callbacks land on `POST /api/webhooks/fdd` (`fdd_sent`,
+   `fdd_delivered`, `fdd_received`) and `POST /api/webhooks/fdd/received`
+   (acknowledgment only). Webhooks are HMAC-signed (`x-fdd-signature`,
+   SHA-256 hex over the raw body with `FDD_WEBHOOK_SECRET`), replay-safe
+   (external event IDs are recorded), and out-of-order-safe (the controlled
+   `fdd_status` field only moves forward).
+4. Acknowledgment starts the configurable waiting period
+   (`FDD_WAITING_PERIOD_DAYS`, default 14) and computes the
+   franchise-agreement eligibility date shown to the prospect. Timestamps are
+   stored in UTC and displayed in `NEXT_PUBLIC_BRAND_TIMEZONE`. The stored
+   timestamps and audit log are the record — the countdown is presentation
+   only, and the legal start event should be confirmed with franchise counsel.
+
+Every transition is written to the immutable `fdd_audit_log` table (actor,
+source, external event ID, IP, before/after values, errors). The **FDD
+Requests** section of `/admin` shows each prospect's status and full
+timeline, allows a manual resend of failed/stuck requests, and exports the
+audit history as JSON. Dev tools include a **Simulate FDD acknowledgment**
+button to exercise the waiting-period flow locally.
 
 ## Environment variables
 

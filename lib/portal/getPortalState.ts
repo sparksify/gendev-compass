@@ -1,6 +1,7 @@
 import type { LeadRecord } from "@/types/lead";
 import type { QuestionnaireRecord } from "@/types/questionnaire";
 import type { PortalRoute, PortalState, VideoProgressRecord } from "@/types/portal";
+import { effectiveFddStatus, FDD_STATUS_LABELS } from "@/lib/fdd/status";
 
 /**
  * Derives everything route gating and UI need from the stored records.
@@ -24,8 +25,12 @@ export function getPortalState(
   const videoCompleted = Boolean(videoProgress?.completed) || Boolean(lead.video_completed_at);
   const videoStarted = Boolean(videoProgress?.started) || Boolean(lead.video_started_at);
   const videoPercent = Math.round(videoProgress?.highest_percent_watched ?? 0);
-  const fddRequested = Boolean(lead.fdd_requested_at);
-  const fddAcknowledged = Boolean(lead.fdd_acknowledged_at);
+  const fddStatus = effectiveFddStatus(lead);
+  const fddRequested = fddStatus !== "not_requested";
+  const fddAcknowledged =
+    fddStatus === "fdd_received" ||
+    fddStatus === "waiting_period_active" ||
+    fddStatus === "eligible_for_agreement";
 
   let resumeRoute: PortalRoute;
   if (questionnaireCompleted || booked) {
@@ -39,7 +44,11 @@ export function getPortalState(
   }
 
   let statusLabel: string;
-  if (booked) {
+  if (fddAcknowledged) {
+    // Post-acknowledgment FDD stages (waiting period, eligibility) are the
+    // furthest progression; before that the consultation stays primary.
+    statusLabel = FDD_STATUS_LABELS[fddStatus];
+  } else if (booked) {
     statusLabel = "Consultation Scheduled";
   } else if (questionnaireCompleted) {
     statusLabel = "Ready to Schedule Your Consultation";

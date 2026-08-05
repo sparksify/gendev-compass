@@ -12,6 +12,7 @@ import type {
   VideoProgressPatch,
 } from "./types";
 import type { PortalEventRecord } from "@/types/analytics";
+import type { FddAuditInsert, FddAuditRecord } from "@/types/fdd";
 
 /**
  * File-backed development store used when Supabase is not configured.
@@ -24,6 +25,7 @@ interface DevData {
   video_progress: VideoProgressRecord[];
   questionnaire_responses: QuestionnaireRecord[];
   portal_events: PortalEventRecord[];
+  fdd_audit_log: FddAuditRecord[];
 }
 
 const DATA_DIR = path.join(process.cwd(), ".dev-data");
@@ -34,12 +36,31 @@ const EMPTY: DevData = {
   video_progress: [],
   questionnaire_responses: [],
   portal_events: [],
+  fdd_audit_log: [],
+};
+
+/** Default FDD workflow fields for new and reset leads. */
+const FDD_DEFAULTS = {
+  fdd_status: "not_requested" as const,
+  fdd_requested_at: null,
+  fdd_sent_at: null,
+  fdd_delivered_at: null,
+  fdd_received_at: null,
+  fdd_eligible_at: null,
+  fdd_provider_envelope_id: null,
+  fdd_workflow_id: null,
+  fdd_request_source: null,
+  fdd_last_error: null,
+  fdd_retry_count: 0,
 };
 
 async function readData(): Promise<DevData> {
   try {
     const raw = await fs.readFile(DATA_FILE, "utf8");
-    return { ...EMPTY, ...(JSON.parse(raw) as Partial<DevData>) };
+    const data = { ...EMPTY, ...(JSON.parse(raw) as Partial<DevData>) };
+    // Backfill FDD defaults for leads created before the FDD workflow existed.
+    data.leads = data.leads.map((lead) => ({ ...FDD_DEFAULTS, ...lead }));
+    return data;
   } catch {
     return structuredClone(EMPTY);
   }
@@ -86,8 +107,7 @@ export function createDevStore(): PortalStore {
           booked_at: null,
           appointment_id: null,
           appointment_start_at: null,
-          fdd_requested_at: null,
-          fdd_acknowledged_at: null,
+          ...FDD_DEFAULTS,
         };
         data.leads.push(lead);
         await writeData(data);
@@ -185,6 +205,48 @@ export function createDevStore(): PortalStore {
       });
     },
 
+    async getLeadByFddEnvelopeId(envelopeId: string): Promise<LeadRecord | null> {
+      const data = await readData();
+      return data.leads.find((l) => l.fdd_provider_envelope_id === envelopeId) ?? null;
+    },
+
+    async listFddLeads(): Promise<LeadRecord[]> {
+      const data = await readData();
+      return data.leads
+        .filter((l) => l.fdd_status !== "not_requested")
+        .sort((a, b) => (b.fdd_requested_at ?? "").localeCompare(a.fdd_requested_at ?? ""));
+    },
+
+    async insertFddAudit(entry: FddAuditInsert): Promise<void> {
+      await withLock(async () => {
+        const data = await readData();
+        data.fdd_audit_log.push({
+          id: randomUUID(),
+          lead_id: entry.lead_id,
+          event: entry.event,
+          source: entry.source,
+          actor: entry.actor,
+          external_event_id: entry.external_event_id ?? null,
+          ip_address: entry.ip_address ?? null,
+          before_values: entry.before_values ?? null,
+          after_values: entry.after_values ?? null,
+          error: entry.error ?? null,
+          created_at: nowIso(),
+        });
+        await writeData(data);
+      });
+    },
+
+    async listFddAudit(leadId: string): Promise<FddAuditRecord[]> {
+      const data = await readData();
+      return data.fdd_audit_log.filter((e) => e.lead_id === leadId);
+    },
+
+    async hasFddAuditEvent(externalEventId: string): Promise<boolean> {
+      const data = await readData();
+      return data.fdd_audit_log.some((e) => e.external_event_id === externalEventId);
+    },
+
     async resetLeadProgress(leadId: string): Promise<void> {
       await withLock(async () => {
         const data = await readData();
@@ -192,6 +254,7 @@ export function createDevStore(): PortalStore {
         data.questionnaire_responses = data.questionnaire_responses.filter(
           (q) => q.lead_id !== leadId,
         );
+        data.fdd_audit_log = data.fdd_audit_log.filter((e) => e.lead_id !== leadId);
         const lead = data.leads.find((l) => l.id === leadId);
         if (lead) {
           Object.assign(lead, {
@@ -209,8 +272,7 @@ export function createDevStore(): PortalStore {
             booked_at: null,
             appointment_id: null,
             appointment_start_at: null,
-            fdd_requested_at: null,
-            fdd_acknowledged_at: null,
+            ...FDD_DEFAULTS,
             updated_at: nowIso(),
           });
         }
