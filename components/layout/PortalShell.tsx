@@ -14,7 +14,7 @@ export function BrandBlock({ logoUrl }: { logoUrl?: string }) {
       <img
         src={logoUrl}
         alt={brand.productName}
-        className="h-10 w-auto max-w-[176px] object-contain"
+        className="h-12 w-auto max-w-[190px] object-contain"
       />
     );
   }
