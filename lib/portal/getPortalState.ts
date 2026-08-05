@@ -1,6 +1,7 @@
 import type { LeadRecord } from "@/types/lead";
 import type { QuestionnaireRecord } from "@/types/questionnaire";
 import type { PortalRoute, PortalState, VideoProgressRecord } from "@/types/portal";
+import { effectiveFddStatus, FDD_STATUS_LABELS } from "@/lib/fdd/status";
 
 /**
  * Derives everything route gating and UI need from the stored records.
@@ -31,8 +32,14 @@ export function getPortalState(
     resumeRoute = "overview";
   }
 
+  const fddStatus = effectiveFddStatus(lead);
+
   let statusLabel: string;
-  if (booked) {
+  if (fddStatus !== "not_requested") {
+    // The FDD stage follows questionnaire completion, so once a prospect has
+    // requested the document that becomes their furthest progression.
+    statusLabel = FDD_STATUS_LABELS[fddStatus];
+  } else if (booked) {
     statusLabel = "Consultation Scheduled";
   } else if (reviewRequired) {
     statusLabel = "Application Under Review";

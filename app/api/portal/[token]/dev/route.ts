@@ -6,11 +6,12 @@ import { statusRank } from "@/lib/store/types";
 import { devToolsEnabled } from "@/lib/config/env";
 import { trackEvent } from "@/lib/portal/events";
 import { getVideoCompletionThreshold } from "@/lib/config/qualification";
+import { applyFddProviderEvent } from "@/lib/fdd/workflow";
 
 export const dynamic = "force-dynamic";
 
 const devActionSchema = z.object({
-  action: z.enum(["simulate-video-completion", "reset-progress"]),
+  action: z.enum(["simulate-video-completion", "reset-progress", "simulate-fdd-received"]),
 });
 
 /**
@@ -42,6 +43,30 @@ export async function POST(
   if (parsed.data.action === "reset-progress") {
     await store.resetLeadProgress(lead.id);
     return NextResponse.json({ success: true, message: "Progress reset" });
+  }
+
+  if (parsed.data.action === "simulate-fdd-received") {
+    if (lead.fdd_status === "not_requested") {
+      return NextResponse.json(
+        { success: false, error: "Request the FDD first" },
+        { status: 400 },
+      );
+    }
+    const result = await applyFddProviderEvent(
+      {
+        event: "fdd_received",
+        prospect_id: lead.id,
+        envelope_id: lead.fdd_provider_envelope_id ?? `dev_envelope_${lead.id.slice(0, 8)}`,
+        event_id: `dev_${Date.now()}`,
+        timestamp: now,
+        status: "completed",
+      },
+      null,
+    );
+    return NextResponse.json({
+      success: result.ok,
+      message: result.ok ? "FDD acknowledgment simulated" : (result.error ?? "Failed"),
+    });
   }
 
   const threshold = getVideoCompletionThreshold();

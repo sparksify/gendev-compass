@@ -3,8 +3,20 @@ import { CalendarCheck2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { AppointmentDetails } from "@/components/portal/AppointmentDetails";
 import { InvalidPortal } from "@/components/portal/InvalidPortal";
+import { FddRequestCard, type FddSnapshot } from "@/components/dashboard/FddRequestCard";
 import { loadPortalContext } from "@/lib/portal/context";
+import { effectiveFddStatus } from "@/lib/fdd/status";
 import { brand } from "@/lib/config/brand";
+import type { LeadRecord } from "@/types/lead";
+
+function fddSnapshot(lead: LeadRecord): FddSnapshot {
+  return {
+    status: effectiveFddStatus(lead),
+    requestedAt: lead.fdd_requested_at,
+    receivedAt: lead.fdd_received_at,
+    eligibleAt: lead.fdd_eligible_at,
+  };
+}
 
 export const dynamic = "force-dynamic";
 
@@ -27,15 +39,25 @@ export default async function CompletePage({ params }: { params: Promise<{ token
     return (
       <div className="max-w-xl space-y-6">
         <h1 className="font-serif text-4xl font-normal leading-[1.1] tracking-[-0.01em] text-foreground sm:text-[42px]">
-          Thank You for Completing the Process
+          Your Investor Profile Has Been Submitted
         </h1>
         <p className="text-sm leading-relaxed text-muted-foreground">
           Thank you for reviewing the investor overview and submitting your information.
         </p>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Our team will review your responses and determine the most appropriate next step. If
-          additional information is needed, someone from our team will contact you directly.
+          Our team will review your responses and determine the appropriate next step. You may
+          also request the Franchise Disclosure Document now to continue your evaluation.
         </p>
+
+        {state.questionnaireCompleted && (
+          <FddRequestCard
+            token={token}
+            initial={fddSnapshot(lead)}
+            timeZone={brand.timeZone}
+            advisorName={brand.advisorName}
+          />
+        )}
+
         <p className="text-sm text-muted-foreground">
           Questions in the meantime?{" "}
           <a className="text-primary hover:underline" href={`mailto:${brand.supportEmail}`}>
@@ -74,6 +96,15 @@ export default async function CompletePage({ params }: { params: Promise<{ token
           )}
         </CardContent>
       </Card>
+
+      {state.questionnaireCompleted && (
+        <FddRequestCard
+          token={token}
+          initial={fddSnapshot(lead)}
+          timeZone={brand.timeZone}
+          advisorName={brand.advisorName}
+        />
+      )}
 
       <p className="text-sm text-muted-foreground">
         Need to reschedule? Use the link in your confirmation email or contact{" "}
