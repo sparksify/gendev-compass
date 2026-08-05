@@ -86,6 +86,7 @@ export function LiveTerritoryMap({ token, result, onSelectAlternative, disabled,
       if (latitude == null || longitude == null || !status) return;
 
       const color = STATUS_COLORS[status] ?? "#2563eb";
+      const statusLabel = STATUS_META[status]?.label ?? null;
       const radiusMeters = Math.max(radiusMiles, 1) * 1609.34;
       const bounds = L.latLng(latitude, longitude).toBounds(radiusMeters * 2);
       const reducedMotion =
@@ -108,6 +109,7 @@ export function LiveTerritoryMap({ token, result, onSelectAlternative, disabled,
           dashArray: "6 6",
           fillColor: color,
           fillOpacity: 0.06,
+          className: "ti-layer-in",
         }).addTo(overlays);
       }
 
@@ -140,6 +142,7 @@ export function LiveTerritoryMap({ token, result, onSelectAlternative, disabled,
           weight: 2,
           fillColor: "#16a34a",
           fillOpacity: 0.95,
+          className: "ti-layer-in",
         })
           .bindTooltip(`${alternative.label} — appears available. Click to analyze.`, {
             direction: "top",
@@ -164,17 +167,34 @@ export function LiveTerritoryMap({ token, result, onSelectAlternative, disabled,
           style: (feature) => {
             const isSearched = feature?.properties?.zip === searchedZip;
             return {
-              color: isSearched ? color : color,
+              color,
               opacity: isSearched ? 0.9 : 0.45,
               weight: isSearched ? 2 : 1,
               fillColor: color,
               fillOpacity: isSearched ? 0.22 : 0.07,
+              className: "ti-layer-in",
             };
           },
           onEachFeature: (feature, layer) => {
-            if (feature?.properties?.zip) {
-              layer.bindTooltip(`ZIP ${feature.properties.zip}`, { sticky: true });
-            }
+            const zip = feature?.properties?.zip;
+            if (!zip) return;
+            layer.bindTooltip(`ZIP ${zip}`, { sticky: true });
+            // Click popup: public information only — the ZIP, its place in
+            // this prospect's own search, and the overall (already shown)
+            // result. Never any other territory's status or ownership.
+            const isSearched = zip === searchedZip;
+            const statusLine =
+              isSearched && statusLabel
+                ? `${statusLabel} — your searched ZIP`
+                : "Evaluated in your current search";
+            layer.bindPopup(
+              `<div style="font: 12.5px/1.5 inherit; min-width: 140px;">` +
+                `<strong>${locationLabel && isSearched ? locationLabel : `ZIP ${zip}`}</strong>` +
+                `${locationLabel && isSearched ? `<br/>ZIP ${zip}` : ""}` +
+                `<br/><span style="opacity:.75">${statusLine}</span>` +
+                `</div>`,
+              { closeButton: false },
+            );
           },
         }).addTo(overlays);
         // Keep the pin above the boundary fills.
@@ -225,7 +245,7 @@ export function LiveTerritoryMap({ token, result, onSelectAlternative, disabled,
         {!result && (
           <div className="pointer-events-none absolute inset-x-0 bottom-4 z-[500] flex justify-center">
             <p className="rounded-full border border-border bg-card/95 px-4 py-2 text-[12.5px] font-medium text-secondary-foreground shadow-sm">
-              Search a market below to begin your territory analysis
+              Search any city or ZIP code to begin exploring territory availability
             </p>
           </div>
         )}

@@ -14,7 +14,7 @@ export function TerritoryAssessment({ result }: { result: TerritoryEvaluationRes
   if (paragraphs.length === 0) return null;
 
   return (
-    <Card className="ti-fade-up p-5" style={{ animationDelay: "80ms" }}>
+    <Card className="ti-fade-up p-5 transition-shadow duration-200 hover:shadow-md" style={{ animationDelay: "80ms" }}>
       <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-faint-foreground">
         Territory Assessment
       </p>

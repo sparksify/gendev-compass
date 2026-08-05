@@ -186,6 +186,15 @@ export function buildWhyThisMarket(result: TerritoryEvaluationResult): WhyThisMa
   }
   if (demand.length > 0) {
     sections.push({ title: "Market demand signals", points: demand });
+  } else {
+    // Never fabricate: when no real figures are loaded for this area, say
+    // so plainly instead of inventing market claims.
+    sections.push({
+      title: "Market demand signals",
+      points: [
+        "Detailed demographic figures for this area aren't loaded yet — deeper market analysis will appear here as additional data becomes available.",
+      ],
+    });
   }
 
   // Brand-fit positioning copy. CMDT is the platform's only live brand;

@@ -260,6 +260,9 @@ export function TerritoryAdvisorClient({
 
   const evaluated = lastResult != null && EVALUATED_STATUSES.includes(lastResult.status);
   const lastResultMessageId = [...messages].reverse().find((m) => m.result != null)?.id ?? null;
+  // The newest exchange starts at the last user message (or the greeting).
+  const lastUserIndex = messages.reduce((acc, m, i) => (m.role === "user" ? i : acc), -1);
+  const focusStartIndex = lastUserIndex === -1 ? 0 : lastUserIndex;
 
   // Smart follow-up chips: one click updates chat, map, and analysis together.
   const smartChips: Array<{ key: string; label: string; onClick: () => void }> = [];
@@ -284,6 +287,27 @@ export function TerritoryAdvisorClient({
         key: "nearby",
         label: "Search nearby markets",
         onClick: () => handleAction("exploreNearby", lastResult),
+      });
+    }
+    if (lastResult.status === "AVAILABLE") {
+      smartChips.push({
+        key: "opportunity",
+        label: "Review opportunity overview",
+        onClick: () => handleAction("viewOpportunities", lastResult),
+      });
+      smartChips.push({
+        key: "qualification",
+        label: "Begin qualification",
+        onClick: () => {
+          window.location.href = `${base}/questionnaire`;
+        },
+      });
+    }
+    if (lastResult.status === "STATE_RESTRICTED") {
+      smartChips.push({
+        key: "other-opportunities",
+        label: "View other opportunities",
+        onClick: () => handleAction("viewOpportunities", lastResult),
       });
     }
     smartChips.push({
@@ -321,12 +345,12 @@ export function TerritoryAdvisorClient({
 
       {/* Split workspace: conversation | live map. Fixed height on desktop so
           the core loop needs no page scrolling; only chat history scrolls. */}
-      <div className="flex flex-col gap-4 lg:grid lg:h-[calc(100dvh-232px)] lg:min-h-[540px] lg:grid-cols-[minmax(340px,2fr)_3fr]">
+      <div className="flex flex-col gap-4 lg:grid lg:h-[calc(100dvh-228px)] lg:min-h-[480px] lg:grid-cols-[minmax(320px,2fr)_3fr]">
         {/* Conversation pane */}
         <Card className="order-1 flex min-h-0 min-w-0 flex-col md:order-2 lg:order-none lg:h-full">
           <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
             <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-faint-foreground">
-              Conversation
+              AI Territory Analysis
             </p>
             <button
               type="button"
@@ -342,16 +366,27 @@ export function TerritoryAdvisorClient({
             ref={scrollRef}
             className="flex max-h-[52dvh] min-h-[280px] flex-1 flex-col gap-4 overflow-y-auto px-4 py-4 lg:max-h-none"
           >
-            {messages.map((message) => (
-              <ChatMessage
+            {messages.map((message, index) => (
+              // History stays, but the newest exchange is the focus: earlier
+              // messages sit at reduced weight (hover restores them), and
+              // each new search opens with a little extra breathing room.
+              <div
                 key={message.id}
-                message={message}
-                disabled={submitting}
-                hideCtas={message.id === lastResultMessageId}
-                onAction={(action) => message.result && handleAction(action, message.result)}
-                onSelectCandidate={handleSelectCandidate}
-                onSelectAlternative={handleSelectAlternative}
-              />
+                className={cn(
+                  "transition-opacity duration-300",
+                  index < focusStartIndex && "opacity-60 hover:opacity-100",
+                  index > 0 && message.role === "user" && "mt-2",
+                )}
+              >
+                <ChatMessage
+                  message={message}
+                  disabled={submitting}
+                  hideCtas={message.id === lastResultMessageId}
+                  onAction={(action) => message.result && handleAction(action, message.result)}
+                  onSelectCandidate={handleSelectCandidate}
+                  onSelectAlternative={handleSelectAlternative}
+                />
+              </div>
             ))}
 
             {messages.length <= 1 && (
@@ -386,7 +421,11 @@ export function TerritoryAdvisorClient({
 
             {/* Smart follow-ups for the latest result — no retyping needed. */}
             {!submitting && smartChips.length > 0 && (
-              <div className="ti-fade-up flex flex-wrap gap-2 pl-1">
+              <div className="ti-fade-up flex flex-col gap-2 pl-1">
+                <p className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-faint-foreground">
+                  Recommended next steps
+                </p>
+                <div className="flex flex-wrap gap-2">
                 {smartChips.map((chip) => (
                   <button
                     key={chip.key}
@@ -398,6 +437,7 @@ export function TerritoryAdvisorClient({
                     {chip.label}
                   </button>
                 ))}
+                </div>
               </div>
             )}
 

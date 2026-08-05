@@ -115,13 +115,18 @@ describe("buildWhyThisMarket", () => {
     expect(caveats).toContain("Franchise Disclosure Document");
   });
 
-  it("omits the demand section entirely without data", () => {
+  it("without data, states plainly that figures aren't loaded — never fabricates demand claims", () => {
     const sections = buildWhyThisMarket(
       makeResult({
         marketData: { population: null, households: null, medianHouseholdIncome: null, populationGrowthPct: null, zipsWithData: 0, source: null },
       }),
     );
-    expect(sections.map((s) => s.title)).not.toContain("Market demand signals");
+    const demand = sections.find((s) => s.title === "Market demand signals");
+    expect(demand).toBeDefined();
+    expect(demand!.points).toHaveLength(1);
+    expect(demand!.points[0]).toContain("aren't loaded yet");
+    // No numbers invented anywhere in the fallback.
+    expect(demand!.points[0]).not.toMatch(/\d/);
   });
 
   it("surfaces state registration caveats", () => {

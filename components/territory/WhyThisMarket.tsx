@@ -19,7 +19,7 @@ export function WhyThisMarket({ result }: { result: TerritoryEvaluationResult })
   if (sections.length === 0) return null;
 
   return (
-    <Card className="ti-fade-up" style={{ animationDelay: "160ms" }}>
+    <Card className="ti-fade-up transition-shadow duration-200 hover:shadow-md" style={{ animationDelay: "160ms" }}>
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
