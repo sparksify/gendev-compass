@@ -109,19 +109,23 @@ export function TerritoryMapPanel() {
         }`;
 
         if (territory.type === "radius" && territory.center && territory.radiusMiles) {
-          const circle = L.circle(
-            [territory.center.latitude, territory.center.longitude],
-            {
-              radius: territory.radiusMiles * 1609.34,
-              color,
-              weight: 2,
-              fillColor: color,
-              fillOpacity: 0.18,
-            },
-          )
+          const radiusMeters = territory.radiusMiles * 1609.34;
+          L.circle([territory.center.latitude, territory.center.longitude], {
+            radius: radiusMeters,
+            color,
+            weight: 2,
+            fillColor: color,
+            fillOpacity: 0.18,
+          })
             .bindPopup(popup)
             .addTo(overlays);
-          bounds.extend(circle.getBounds());
+          // L.Circle#getBounds needs an initialized view — derive bounds
+          // straight from the coordinates instead.
+          bounds.extend(
+            L.latLng(territory.center.latitude, territory.center.longitude).toBounds(
+              radiusMeters * 2,
+            ),
+          );
           continue;
         }
 

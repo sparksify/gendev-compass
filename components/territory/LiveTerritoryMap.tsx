@@ -77,8 +77,14 @@ export function LiveTerritoryMap({
       const color = STATUS_COLORS[status] ?? "#2563eb";
       const radiusMeters = radiusMiles * 1609.34;
 
+      // Fit the view first: L.Circle#getBounds needs an initialized view, so
+      // derive bounds straight from the coordinates instead.
+      map.fitBounds(L.latLng(latitude, longitude).toBounds(radiusMeters * 2), {
+        padding: [16, 16],
+      });
+
       // Evaluation radius + searched point.
-      const circle = L.circle([latitude, longitude], {
+      L.circle([latitude, longitude], {
         radius: radiusMeters,
         color,
         weight: 2,
@@ -95,8 +101,6 @@ export function LiveTerritoryMap({
       })
         .bindTooltip(locationLabel ?? "Searched location", { direction: "top", offset: [0, -6] })
         .addTo(overlays);
-
-      map.fitBounds(circle.getBounds(), { padding: [16, 16] });
 
       // Public ZIP boundaries for the prospect's own search area
       // (progressive enhancement — the map is complete without them).
