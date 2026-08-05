@@ -41,6 +41,7 @@ import type {
   TerritorySearchRecord,
   TerritoryZipCodeRecord,
   ZipCodeReferenceRecord,
+  ZipGeographyRecord,
 } from "@/types/territory";
 import type {
   ActivityEventRecord,
@@ -1072,6 +1073,41 @@ export function createSupabaseStore(): PortalStore {
       if (rows.length === 0) return;
       const { error } = await db.from("zip_code_reference").upsert(rows, { onConflict: "zip_code" });
       if (error) throw new Error(`Failed to upsert zip code references: ${error.message}`);
+    },
+
+    async upsertZipGeographies(rows): Promise<void> {
+      if (rows.length === 0) return;
+      const payload = rows.map((r) => ({
+        zip_code: r.zip_code,
+        state_code: r.state_code,
+        latitude: r.latitude,
+        longitude: r.longitude,
+        geojson: r.geojson,
+        geometry_source: r.geometry_source,
+        geometry_version: r.geometry_version,
+        // centroid is NOT NULL PostGIS geometry; EWKT is accepted as input.
+        centroid: `SRID=4326;POINT(${r.longitude} ${r.latitude})`,
+        updated_at: nowIso(),
+      }));
+      const { error } = await db
+        .from("zip_code_geographies")
+        .upsert(payload, { onConflict: "zip_code" });
+      if (error) throw new Error(`Failed to upsert zip geographies: ${error.message}`);
+    },
+
+    async listZipGeographies(zipCodes): Promise<ZipGeographyRecord[]> {
+      if (zipCodes.length === 0) return [];
+      const out: ZipGeographyRecord[] = [];
+      for (let i = 0; i < zipCodes.length; i += 200) {
+        const { data, error } = await db
+          .from("zip_code_geographies")
+          .select("zip_code, state_code, latitude, longitude, geojson, geometry_source, geometry_version")
+          .in("zip_code", zipCodes.slice(i, i + 200))
+          .not("geojson", "is", null);
+        if (error) throw new Error(`Failed to load zip geographies: ${error.message}`);
+        out.push(...((data as ZipGeographyRecord[]) ?? []));
+      }
+      return out;
     },
 
     async createTerritorySearch(input: CreateTerritorySearchInput): Promise<TerritorySearchRecord> {
