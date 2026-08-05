@@ -12,11 +12,14 @@ export function isProduction(): boolean {
 }
 
 /**
- * Development helpers (simulate-video button, progress reset) are only
- * available outside production, or when explicitly enabled for a staging
- * environment via ENABLE_DEV_TOOLS=true. Never enable in production.
+ * Development helpers (simulate-video button, progress reset, FDD
+ * acknowledgment simulation) are available outside production, on Vercel
+ * preview deployments (branch/PR builds), or when explicitly enabled for a
+ * staging environment via ENABLE_DEV_TOOLS=true. Never enabled on the
+ * production deployment itself.
  */
 export function devToolsEnabled(): boolean {
+  if (process.env.VERCEL_ENV === "preview") return true;
   if (process.env.ENABLE_DEV_TOOLS === "true" && process.env.VERCEL_ENV !== "production") {
     return true;
   }

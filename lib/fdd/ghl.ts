@@ -1,5 +1,5 @@
 import { getGhlConfig, isGhlConfigured } from "@/lib/config/fdd";
-import { getAppUrl, isProduction } from "@/lib/config/env";
+import { devToolsEnabled, getAppUrl } from "@/lib/config/env";
 import { brand } from "@/lib/config/brand";
 import type { LeadRecord } from "@/types/lead";
 
@@ -14,8 +14,9 @@ import type { LeadRecord } from "@/types/lead";
  *   2. API mode (GHL_API_TOKEN + GHL_LOCATION_ID): we upsert the contact with
  *      the request tag, which a tag-based workflow trigger picks up.
  *
- * When neither is configured outside production, the dispatch is simulated so
- * the full flow remains demoable with zero external services.
+ * When neither is configured and dev tools are enabled (local dev, Vercel
+ * previews, explicit staging), the dispatch is simulated so the full flow
+ * remains demoable with zero external services.
  */
 
 export interface GhlDispatchResult {
@@ -71,9 +72,9 @@ export async function dispatchFddRequest(
     return dispatchViaApi(lead, config.apiToken, config.locationId);
   }
 
-  if (!isProduction()) {
-    // Local/dev: pretend GoHighLevel accepted and sent the document so the
-    // prospect flow can be exercised end to end.
+  if (devToolsEnabled()) {
+    // Local dev, Vercel previews, and explicit staging: pretend GoHighLevel
+    // accepted and sent the document so the flow can be exercised end to end.
     return {
       ok: true,
       mode: "simulated",

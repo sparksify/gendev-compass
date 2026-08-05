@@ -62,8 +62,9 @@ Reset the demo lead's progress at any time:
 npm run seed:reset
 ```
 
-Development tools (simulate/reset buttons and the dev API route) render only
-outside production and the API independently refuses in production.
+Development tools (simulate/reset buttons and the dev API route) render
+outside production and on Vercel preview deployments; the API independently
+refuses on the production deployment.
 
 ## Supabase setup
 
