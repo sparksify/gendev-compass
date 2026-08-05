@@ -8,7 +8,7 @@ import { InvestorTable } from "@/components/advisor/InvestorTable";
 import { Card, CardContent } from "@/components/ui/card";
 import { INVESTOR_STAGES, STAGE_LABELS } from "@/types/advisor";
 
-export const metadata: Metadata = { title: "Investors" };
+export const metadata: Metadata = { title: "Clients" };
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 25;
@@ -61,9 +61,9 @@ export default async function InvestorsPage({
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="font-serif text-2xl font-semibold text-foreground">Investors</h1>
+          <h1 className="font-serif text-2xl font-semibold text-foreground">Clients</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {filtered.length} of {allRows.length} investor{allRows.length === 1 ? "" : "s"}
+            {filtered.length} of {allRows.length} client{allRows.length === 1 ? "" : "s"}
           </p>
         </div>
         {isAdmin(user) && (
@@ -219,7 +219,7 @@ export default async function InvestorsPage({
           <InvestorTable
             rows={pageRows}
             showNextAction
-            emptyMessage="No investors match these filters."
+            emptyMessage="No clients match these filters."
           />
         </CardContent>
       </Card>

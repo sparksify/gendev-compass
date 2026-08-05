@@ -93,6 +93,19 @@ export function eventLabel(eventName: string): string {
   return eventName.replace(/_/g, " ");
 }
 
+/** Label for a GoHighLevel calendar event's raw appointmentStatus. */
+export function ghlAppointmentStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    confirmed: "Confirmed",
+    new: "New",
+    cancelled: "Cancelled",
+    showed: "Showed",
+    noshow: "No-show",
+    invalid: "Invalid",
+  };
+  return labels[status] ?? status.replace(/_/g, " ");
+}
+
 export function eventSourceLabel(source: string | null | undefined): string {
   const labels: Record<string, string> = {
     portal: "Portal",

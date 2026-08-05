@@ -83,6 +83,8 @@ export async function PortalShell({ context, token, children }: PortalShellProps
           firstName={lead.first_name}
           lastName={lead.last_name}
           siteLogoUrl={siteLogoUrl}
+          token={token}
+          consultationAvailable={state.questionnaireCompleted || state.booked}
         />
 
         <div className="flex-1 px-4 pb-8 pt-[26px] sm:px-7">
