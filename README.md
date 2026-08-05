@@ -126,9 +126,11 @@ the **Franchise Disclosure Document**. The flow (spec: FDD Request workflow):
    delivery, then clicks **Request the FDD** (`POST /api/portal/[token]/fdd`).
    The request is idempotent — duplicate clicks or replays never trigger a
    second document send (idempotency key `fdd_request:{lead_id}`).
-2. The server dispatches to GoHighLevel (`lib/fdd/ghl.ts`) — via an inbound
-   workflow webhook (`GHL_FDD_WEBHOOK_URL`, preferred) or the contacts API
-   with the `FDD_REQUESTED` tag (`GHL_API_TOKEN` + `GHL_LOCATION_ID`).
+2. The server dispatches to GoHighLevel (`lib/fdd/ghl.ts`) — preferred: the
+   contacts API upserts the contact with the `FDD_REQUESTED` tag and enrolls
+   it directly in the FDD workflow (`GHL_API_TOKEN` + `GHL_LOCATION_ID` +
+   `GHL_FDD_WORKFLOW_ID`, the latter two with single-brand defaults);
+   alternative: an inbound workflow webhook (`GHL_FDD_WEBHOOK_URL`).
    Credentials stay server-side; the browser never talks to GoHighLevel.
    With neither configured outside production, dispatch is simulated so the
    whole flow runs locally.
