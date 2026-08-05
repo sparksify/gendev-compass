@@ -1,4 +1,5 @@
-import type { AppointmentRecord, FddRecordRow } from "@/types/advisor";
+import { effectiveFddStatus } from "@/lib/fdd/status";
+import type { AppointmentRecord } from "@/types/advisor";
 import type { LeadRecord } from "@/types/lead";
 import type { VideoProgressRecord } from "@/types/portal";
 
@@ -19,7 +20,6 @@ export const FOLLOW_UP_THRESHOLDS = {
 export interface FollowUpContext {
   lead: LeadRecord;
   appointments: AppointmentRecord[];
-  fdd: FddRecordRow | null;
   video: VideoProgressRecord | null;
   now?: Date;
 }
@@ -41,7 +41,7 @@ function daysAgoLabel(iso: string, now: Date): string {
 }
 
 export function evaluateFollowUp(context: FollowUpContext): FollowUpResult {
-  const { lead, appointments, fdd, video } = context;
+  const { lead, appointments, video } = context;
   const now = context.now ?? new Date();
   const t = FOLLOW_UP_THRESHOLDS;
   const reasons: string[] = [];
@@ -63,13 +63,15 @@ export function evaluateFollowUp(context: FollowUpContext): FollowUpResult {
     );
   }
 
-  // FDD sent, not acknowledged.
+  // FDD sent (or delivered), not yet received/acknowledged by the prospect.
+  const fddStatus = effectiveFddStatus(lead, now);
+  const fddAwaitingReceipt = fddStatus === "fdd_sent" || fddStatus === "fdd_delivered";
   if (
-    fdd?.sent_at &&
-    !fdd.acknowledged_at &&
-    hoursSince(fdd.sent_at, now) >= t.fddUnacknowledgedHours
+    lead.fdd_sent_at &&
+    fddAwaitingReceipt &&
+    hoursSince(lead.fdd_sent_at, now) >= t.fddUnacknowledgedHours
   ) {
-    reasons.push(`FDD sent ${daysAgoLabel(fdd.sent_at, now)}; not acknowledged.`);
+    reasons.push(`FDD sent ${daysAgoLabel(lead.fdd_sent_at, now)}; not yet acknowledged.`);
   }
 
   // Consultation completed but the pipeline stage hasn't moved since.

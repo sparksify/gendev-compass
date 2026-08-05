@@ -4,6 +4,7 @@ import { FollowUpBadge } from "./FollowUpBadge";
 import { Badge } from "@/components/ui/badge";
 import { formatRelative } from "@/lib/advisor/format";
 import { labelForValue } from "@/lib/advisor/questionnaireCatalog";
+import { FDD_STATUS_LABELS } from "@/lib/fdd/status";
 import type { InvestorRow } from "@/lib/advisor/investors";
 
 function consultationLabel(row: InvestorRow): string {
@@ -15,18 +16,7 @@ function consultationLabel(row: InvestorRow): string {
 }
 
 function fddLabel(row: InvestorRow): string {
-  const status = row.fdd?.status ?? "NOT_REQUESTED";
-  const labels: Record<string, string> = {
-    NOT_REQUESTED: "—",
-    REQUESTED: "Requested",
-    SENT: "Sent",
-    RESENT: "Resent",
-    DELIVERED: "Delivered",
-    OPENED: "Opened",
-    ACKNOWLEDGED: "Acknowledged",
-    DELIVERY_FAILED: "Delivery failed",
-  };
-  return labels[status] ?? status;
+  return row.fddStatus === "not_requested" ? "—" : FDD_STATUS_LABELS[row.fddStatus];
 }
 
 /**

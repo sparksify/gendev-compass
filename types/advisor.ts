@@ -85,37 +85,6 @@ export interface AppointmentRecord {
   updated_at: string;
 }
 
-export const FDD_STATUSES = [
-  "NOT_REQUESTED",
-  "REQUESTED",
-  "SENT",
-  "DELIVERED",
-  "OPENED",
-  "ACKNOWLEDGED",
-  "DELIVERY_FAILED",
-  "RESENT",
-] as const;
-
-export type FddStatus = (typeof FDD_STATUSES)[number];
-
-export interface FddRecordRow {
-  id: string;
-  lead_id: string;
-  document_version: string | null;
-  status: FddStatus;
-  requested_at: string | null;
-  sent_at: string | null;
-  delivered_at: string | null;
-  opened_at: string | null;
-  acknowledged_at: string | null;
-  acknowledgment_time_zone: string | null;
-  provider_transaction_id: string | null;
-  audit_certificate_url: string | null;
-  destination_email: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface AdvisorNoteRecord {
   id: string;
   lead_id: string;

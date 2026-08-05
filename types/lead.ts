@@ -1,3 +1,5 @@
+import type { FddStatus } from "@/types/fdd";
+
 export type LeadStatus =
   | "created"
   | "portal_opened"
@@ -49,8 +51,17 @@ export interface LeadRecord {
   booked_at: string | null;
   appointment_id: string | null;
   appointment_start_at: string | null;
+  fdd_status: FddStatus;
   fdd_requested_at: string | null;
-  fdd_acknowledged_at: string | null;
+  fdd_sent_at: string | null;
+  fdd_delivered_at: string | null;
+  fdd_received_at: string | null;
+  fdd_eligible_at: string | null;
+  fdd_provider_envelope_id: string | null;
+  fdd_workflow_id: string | null;
+  fdd_request_source: string | null;
+  fdd_last_error: string | null;
+  fdd_retry_count: number;
 }
 
 export interface CreateLeadInput {

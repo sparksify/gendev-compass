@@ -1,6 +1,11 @@
--- Advisor backend MVP: staff users, sessions, notes, appointments, FDD
--- records, versioned questionnaire snapshots, and advisor fields on the
--- existing canonical investor record (leads).
+-- Advisor backend MVP: staff users, sessions, notes, appointments,
+-- versioned questionnaire snapshots, and advisor fields on the existing
+-- canonical investor record (leads).
+--
+-- FDD tracking is NOT duplicated here — the leads.fdd_* columns and
+-- fdd_audit_log table (see 0003_fdd_workflow.sql) are the single source of
+-- truth for the FDD workflow; the advisor dashboard reads from them
+-- directly.
 
 -- ---------------------------------------------------------------------------
 -- staff_users
@@ -159,45 +164,6 @@ create index if not exists appointments_lead_idx on public.appointments (lead_id
 create index if not exists appointments_external_idx on public.appointments (external_appointment_id);
 
 -- ---------------------------------------------------------------------------
--- fdd_records
--- ---------------------------------------------------------------------------
-create table if not exists public.fdd_records (
-  id uuid primary key default gen_random_uuid(),
-  lead_id uuid not null references public.leads (id) on delete cascade,
-  document_version text,
-  status text not null default 'NOT_REQUESTED',
-  requested_at timestamptz,
-  sent_at timestamptz,
-  delivered_at timestamptz,
-  opened_at timestamptz,
-  acknowledged_at timestamptz,
-  acknowledgment_time_zone text,
-  provider_transaction_id text,
-  audit_certificate_url text,
-  destination_email text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint fdd_records_lead_unique unique (lead_id),
-  constraint fdd_records_status_check check (status in (
-    'NOT_REQUESTED', 'REQUESTED', 'SENT', 'DELIVERED', 'OPENED',
-    'ACKNOWLEDGED', 'DELIVERY_FAILED', 'RESENT'
-  ))
-);
-
-create index if not exists fdd_records_lead_idx on public.fdd_records (lead_id);
-
--- Backfill FDD records for leads that already requested/acknowledged.
-insert into public.fdd_records (lead_id, status, requested_at, acknowledged_at, destination_email)
-select id,
-       case when fdd_acknowledged_at is not null then 'ACKNOWLEDGED' else 'REQUESTED' end,
-       fdd_requested_at,
-       fdd_acknowledged_at,
-       email
-from public.leads
-where fdd_requested_at is not null
-on conflict (lead_id) do nothing;
-
--- ---------------------------------------------------------------------------
 -- Row Level Security: deny-all, same model as every other table — only the
 -- server's service-role client can read or write.
 -- ---------------------------------------------------------------------------
@@ -207,4 +173,3 @@ alter table public.questionnaire_submissions enable row level security;
 alter table public.questionnaire_answers enable row level security;
 alter table public.advisor_notes enable row level security;
 alter table public.appointments enable row level security;
-alter table public.fdd_records enable row level security;

@@ -6,11 +6,12 @@ import { statusRank } from "@/lib/store/types";
 import { devToolsEnabled } from "@/lib/config/env";
 import { trackEvent } from "@/lib/portal/events";
 import { getVideoCompletionThreshold } from "@/lib/config/qualification";
+import { applyFddProviderEvent } from "@/lib/fdd/workflow";
 
 export const dynamic = "force-dynamic";
 
 const devActionSchema = z.object({
-  action: z.enum(["simulate-video-completion", "simulate-fdd-acknowledgment", "reset-progress"]),
+  action: z.enum(["simulate-video-completion", "reset-progress", "simulate-fdd-received"]),
 });
 
 /**
@@ -44,15 +45,28 @@ export async function POST(
     return NextResponse.json({ success: true, message: "Progress reset" });
   }
 
-  if (parsed.data.action === "simulate-fdd-acknowledgment") {
-    // Stands in for the e-sign provider webhook so the acknowledged state
-    // can be exercised locally.
-    await store.updateLead(lead.id, {
-      fdd_requested_at: lead.fdd_requested_at ?? now,
-      fdd_acknowledged_at: lead.fdd_acknowledged_at ?? now,
+  if (parsed.data.action === "simulate-fdd-received") {
+    if (lead.fdd_status === "not_requested") {
+      return NextResponse.json(
+        { success: false, error: "Request the FDD first" },
+        { status: 400 },
+      );
+    }
+    const result = await applyFddProviderEvent(
+      {
+        event: "fdd_received",
+        prospect_id: lead.id,
+        envelope_id: lead.fdd_provider_envelope_id ?? `dev_envelope_${lead.id.slice(0, 8)}`,
+        event_id: `dev_${Date.now()}`,
+        timestamp: now,
+        status: "completed",
+      },
+      null,
+    );
+    return NextResponse.json({
+      success: result.ok,
+      message: result.ok ? "FDD acknowledgment simulated" : (result.error ?? "Failed"),
     });
-    await trackEvent(lead, "fdd_acknowledged", { simulated: true });
-    return NextResponse.json({ success: true, message: "FDD acknowledgment simulated" });
   }
 
   const threshold = getVideoCompletionThreshold();

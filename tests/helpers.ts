@@ -1,5 +1,5 @@
 import type { LeadRecord } from "@/types/lead";
-import type { AppointmentRecord, FddRecordRow } from "@/types/advisor";
+import type { AppointmentRecord } from "@/types/advisor";
 import type { VideoProgressRecord } from "@/types/portal";
 
 let counter = 0;
@@ -42,8 +42,17 @@ export function makeLead(overrides: Partial<LeadRecord> = {}): LeadRecord {
     booked_at: null,
     appointment_id: null,
     appointment_start_at: null,
+    fdd_status: "not_requested",
     fdd_requested_at: null,
-    fdd_acknowledged_at: null,
+    fdd_sent_at: null,
+    fdd_delivered_at: null,
+    fdd_received_at: null,
+    fdd_eligible_at: null,
+    fdd_provider_envelope_id: null,
+    fdd_workflow_id: null,
+    fdd_request_source: null,
+    fdd_last_error: null,
+    fdd_retry_count: 0,
     ...overrides,
   };
 }
@@ -61,29 +70,6 @@ export function makeAppointment(overrides: Partial<AppointmentRecord> = {}): App
     time_zone: null,
     status: "SCHEDULED",
     booking_url: null,
-    created_at: now,
-    updated_at: now,
-    ...overrides,
-  };
-}
-
-export function makeFdd(overrides: Partial<FddRecordRow> = {}): FddRecordRow {
-  counter += 1;
-  const now = new Date().toISOString();
-  return {
-    id: `fdd-${counter}`,
-    lead_id: "lead-1",
-    document_version: null,
-    status: "NOT_REQUESTED",
-    requested_at: null,
-    sent_at: null,
-    delivered_at: null,
-    opened_at: null,
-    acknowledged_at: null,
-    acknowledgment_time_zone: null,
-    provider_transaction_id: null,
-    audit_certificate_url: null,
-    destination_email: null,
     created_at: now,
     updated_at: now,
     ...overrides,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { filterInvestorRows, type InvestorRow } from "@/lib/advisor/investors";
-import { hoursAgo, makeAppointment, makeFdd, makeLead } from "./helpers";
+import { hoursAgo, makeAppointment, makeLead } from "./helpers";
 import type { LeadRecord } from "@/types/lead";
 
 function makeRow(lead: LeadRecord, extra: Partial<InvestorRow> = {}): InvestorRow {
@@ -10,7 +10,7 @@ function makeRow(lead: LeadRecord, extra: Partial<InvestorRow> = {}): InvestorRo
     video: null,
     appointments: [],
     activeAppointment: null,
-    fdd: null,
+    fddStatus: "not_requested",
     advisor: null,
     followUp: { needed: false, reasons: [] },
     nextAction: "Monitor engagement",
@@ -69,7 +69,7 @@ describe("investor search and filtering", () => {
   });
 
   it("filters by FDD status", () => {
-    const withFdd = makeRow(makeLead(), { fdd: makeFdd({ status: "SENT" }) });
+    const withFdd = makeRow(makeLead({ fdd_status: "fdd_sent" }), { fddStatus: "fdd_sent" });
     expect(filterInvestorRows([...rows, withFdd], { fdd: "sent" })).toEqual([withFdd]);
     expect(filterInvestorRows([maria, withFdd], { fdd: "none" })).toEqual([maria]);
   });

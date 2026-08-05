@@ -48,7 +48,11 @@ export default async function AdvisorDashboardPage() {
     (r) => r.activeAppointment || (r.lead.booked_at && !r.appointments.some((a) => a.status === "COMPLETED")),
   );
   const fddInFlight = rows.filter(
-    (r) => r.fdd && r.fdd.status !== "NOT_REQUESTED" && r.fdd.status !== "ACKNOWLEDGED",
+    (r) =>
+      r.fddStatus !== "not_requested" &&
+      r.fddStatus !== "fdd_received" &&
+      r.fddStatus !== "waiting_period_active" &&
+      r.fddStatus !== "eligible_for_agreement",
   );
   const needsFollowUp = rows.filter((r) => r.followUp.needed);
 
@@ -58,7 +62,7 @@ export default async function AdvisorDashboardPage() {
   const questionnairesLast24h = rows.filter((r) =>
     withinHours(r.lead.questionnaire_completed_at, 24, now),
   );
-  const fddRequestsLast24h = rows.filter((r) => withinHours(r.fdd?.requested_at, 24, now));
+  const fddRequestsLast24h = rows.filter((r) => withinHours(r.lead.fdd_requested_at, 24, now));
   const activeLast24h = rows.filter((r) => withinHours(r.lastActivityAt, 24, now));
 
   // Priority list: follow-ups first, then everyone else by recency.

@@ -54,7 +54,7 @@ export async function GET(): Promise<NextResponse> {
       labelForValue(row.questionnaire?.investment_timeline),
       row.video ? String(Math.round(row.video.highest_percent_watched)) : "",
       row.activeAppointment?.status ?? (row.lead.booked_at ? "SCHEDULED" : ""),
-      row.fdd?.status ?? "NOT_REQUESTED",
+      row.fddStatus,
       row.lastActivityAt,
       row.lead.created_at,
     ]

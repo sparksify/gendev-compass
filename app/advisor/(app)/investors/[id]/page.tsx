@@ -13,6 +13,7 @@ import {
   formatRelative,
   formatWatchTime,
 } from "@/lib/advisor/format";
+import { effectiveFddStatus, FDD_STATUS_LABELS } from "@/lib/fdd/status";
 import { getAppUrl } from "@/lib/config/env";
 import { StageBadge } from "@/components/advisor/StageBadge";
 import { StageSelect } from "@/components/advisor/StageSelect";
@@ -46,13 +47,13 @@ export default async function InvestorDetailPage({
   // 404 for both missing and unauthorized — never confirm existence.
   if (!lead || !canAccessLead(user, lead)) notFound();
 
-  const [questionnaire, submissions, video, appointments, fdd, notes, events, staff] =
+  const [questionnaire, submissions, video, appointments, fddAudit, notes, events, staff] =
     await Promise.all([
       store.getQuestionnaire(lead.id),
       store.getSubmissionsForLead(lead.id),
       store.getVideoProgress(lead.id),
       store.getAppointmentsForLead(lead.id),
-      store.getFddRecordForLead(lead.id),
+      store.listFddAudit(lead.id),
       store.getNotesForLead(lead.id),
       store.getEventsForLead(lead.id),
       store.listStaffUsers(),
@@ -60,8 +61,9 @@ export default async function InvestorDetailPage({
 
   const staffById = new Map(staff.map((s) => [s.id, s]));
   const advisor = lead.assigned_advisor_id ? staffById.get(lead.assigned_advisor_id) : null;
-  const followUp = evaluateFollowUp({ lead, appointments, fdd, video });
-  const nextAction = suggestNextAction(lead, appointments, fdd, video);
+  const followUp = evaluateFollowUp({ lead, appointments, video });
+  const nextAction = suggestNextAction(lead, appointments, video);
+  const fddStatus = effectiveFddStatus(lead);
   const activeAppointment = appointments.find(
     (a) => a.status === "SCHEDULED" || a.status === "RESCHEDULED",
   );
@@ -375,43 +377,61 @@ export default async function InvestorDetailPage({
               <CardTitle>FDD Status</CardTitle>
             </CardHeader>
             <CardContent>
-              {fdd ? (
+              {fddStatus === "not_requested" ? (
+                <p className="text-sm text-muted-foreground">FDD not requested yet.</p>
+              ) : (
                 <div className="space-y-3">
                   <Field
                     label="Status"
                     value={
-                      <Badge variant={fdd.status === "ACKNOWLEDGED" ? "success" : "neutral"}>
-                        {fdd.status.replace(/_/g, " ")}
+                      <Badge
+                        variant={
+                          fddStatus === "fdd_received" ||
+                          fddStatus === "waiting_period_active" ||
+                          fddStatus === "eligible_for_agreement"
+                            ? "success"
+                            : fddStatus === "error_manual_review"
+                              ? "outline"
+                              : "neutral"
+                        }
+                      >
+                        {FDD_STATUS_LABELS[fddStatus]}
                       </Badge>
                     }
                   />
-                  <Field label="Document version" value={fdd.document_version ?? "—"} />
-                  <Field label="Requested" value={formatDateTime(fdd.requested_at)} />
-                  <Field label="Sent" value={formatDateTime(fdd.sent_at)} />
-                  <Field label="Opened" value={formatDateTime(fdd.opened_at)} />
+                  <Field label="Requested" value={formatDateTime(lead.fdd_requested_at)} />
+                  <Field label="Sent" value={formatDateTime(lead.fdd_sent_at)} />
+                  <Field label="Delivered" value={formatDateTime(lead.fdd_delivered_at)} />
+                  <Field label="Received (acknowledged)" value={formatDateTime(lead.fdd_received_at)} />
                   <Field
-                    label="Acknowledged"
-                    value={
-                      fdd.acknowledged_at
-                        ? `${formatDateTime(fdd.acknowledged_at, fdd.acknowledgment_time_zone)}${fdd.acknowledgment_time_zone ? ` (${fdd.acknowledgment_time_zone})` : ""}`
-                        : "—"
-                    }
+                    label="Eligible for franchise agreement"
+                    value={formatDateTime(lead.fdd_eligible_at)}
                   />
-                  <Field label="Destination email" value={fdd.destination_email ?? "—"} />
-                  <Field label="Provider transaction" value={fdd.provider_transaction_id ?? "—"} />
-                  {fdd.audit_certificate_url && (
-                    <a
-                      href={fdd.audit_certificate_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-block text-sm text-primary hover:underline"
-                    >
-                      View audit certificate →
-                    </a>
+                  {lead.fdd_last_error && (
+                    <Field
+                      label="Last error"
+                      value={<span className="text-destructive">{lead.fdd_last_error}</span>}
+                    />
+                  )}
+                  {fddAudit.length > 0 && (
+                    <details className="pt-1">
+                      <summary className="cursor-pointer text-sm text-primary">
+                        Audit trail ({fddAudit.length})
+                      </summary>
+                      <ol className="mt-2 space-y-2 border-l border-border-soft pl-3">
+                        {fddAudit.map((entry) => (
+                          <li key={entry.id} className="text-xs">
+                            <p className="font-medium text-foreground">{entry.event.replace(/_/g, " ")}</p>
+                            <p className="text-muted-foreground">
+                              {formatDateTime(entry.created_at)} · {entry.source}
+                              {entry.error ? ` · ${entry.error}` : ""}
+                            </p>
+                          </li>
+                        ))}
+                      </ol>
+                    </details>
                   )}
                 </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">FDD not requested yet.</p>
               )}
             </CardContent>
           </Card>

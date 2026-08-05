@@ -1,12 +1,10 @@
 import { getStore } from "@/lib/store";
+import { effectiveFddStatus } from "@/lib/fdd/status";
 import { visibleLeads } from "./access";
 import { evaluateFollowUp, type FollowUpResult } from "./followUp";
 import { suggestNextAction } from "./nextAction";
-import type {
-  AppointmentRecord,
-  FddRecordRow,
-  StaffUserRecord,
-} from "@/types/advisor";
+import type { AppointmentRecord, StaffUserRecord } from "@/types/advisor";
+import type { FddStatus } from "@/types/fdd";
 import type { LeadRecord } from "@/types/lead";
 import type { QuestionnaireRecord } from "@/types/questionnaire";
 import type { VideoProgressRecord } from "@/types/portal";
@@ -16,6 +14,10 @@ import type { VideoProgressRecord } from "@/types/portal";
  * need. Built in application code from full-table reads: pilot scale is a
  * single brand with a small lead volume, and this keeps the Supabase and
  * dev stores behaviorally identical.
+ *
+ * FDD state lives directly on the lead (lib/fdd) — the single source of
+ * truth for the document workflow, so the advisor view never diverges from
+ * the GoHighLevel-integrated system that actually sends it.
  */
 export interface InvestorRow {
   lead: LeadRecord;
@@ -23,7 +25,7 @@ export interface InvestorRow {
   video: VideoProgressRecord | null;
   appointments: AppointmentRecord[];
   activeAppointment: AppointmentRecord | null;
-  fdd: FddRecordRow | null;
+  fddStatus: FddStatus;
   advisor: StaffUserRecord | null;
   followUp: FollowUpResult;
   nextAction: string;
@@ -32,19 +34,17 @@ export interface InvestorRow {
 
 export async function loadInvestorRows(user: StaffUserRecord): Promise<InvestorRow[]> {
   const store = getStore();
-  const [leads, questionnaires, videos, appointments, fddRecords, staff] = await Promise.all([
+  const [leads, questionnaires, videos, appointments, staff] = await Promise.all([
     store.listLeads(),
     store.listQuestionnaires(),
     store.listVideoProgress(),
     store.listAppointments(),
-    store.listFddRecords(),
     store.listStaffUsers(),
   ]);
 
   const questionnaireByLead = new Map(questionnaires.map((q) => [q.lead_id, q]));
   const videoByLead = new Map(videos.map((v) => [v.lead_id, v]));
   const staffById = new Map(staff.map((s) => [s.id, s]));
-  const fddByLead = new Map(fddRecords.map((f) => [f.lead_id, f]));
   const appointmentsByLead = new Map<string, AppointmentRecord[]>();
   for (const appointment of appointments) {
     const list = appointmentsByLead.get(appointment.lead_id) ?? [];
@@ -56,7 +56,6 @@ export async function loadInvestorRows(user: StaffUserRecord): Promise<InvestorR
     const leadAppointments = (appointmentsByLead.get(lead.id) ?? []).sort((a, b) =>
       b.created_at.localeCompare(a.created_at),
     );
-    const fdd = fddByLead.get(lead.id) ?? null;
     const video = videoByLead.get(lead.id) ?? null;
     return {
       lead,
@@ -65,10 +64,10 @@ export async function loadInvestorRows(user: StaffUserRecord): Promise<InvestorR
       appointments: leadAppointments,
       activeAppointment:
         leadAppointments.find((a) => a.status === "SCHEDULED" || a.status === "RESCHEDULED") ?? null,
-      fdd,
+      fddStatus: effectiveFddStatus(lead),
       advisor: lead.assigned_advisor_id ? (staffById.get(lead.assigned_advisor_id) ?? null) : null,
-      followUp: evaluateFollowUp({ lead, appointments: leadAppointments, fdd, video }),
-      nextAction: suggestNextAction(lead, leadAppointments, fdd, video),
+      followUp: evaluateFollowUp({ lead, appointments: leadAppointments, video }),
+      nextAction: suggestNextAction(lead, leadAppointments, video),
       lastActivityAt: lead.last_activity_at ?? lead.created_at,
     };
   });
@@ -126,15 +125,15 @@ export function filterInvestorRows(
     }
 
     if (filters.fdd) {
-      const status = row.fdd?.status ?? "NOT_REQUESTED";
+      const status = row.fddStatus;
       const matches =
         filters.fdd === "acknowledged"
-          ? status === "ACKNOWLEDGED"
+          ? status === "fdd_received" || status === "waiting_period_active" || status === "eligible_for_agreement"
           : filters.fdd === "sent"
-            ? ["SENT", "DELIVERED", "OPENED", "RESENT"].includes(status)
+            ? status === "fdd_sent" || status === "fdd_delivered"
             : filters.fdd === "requested"
-              ? status === "REQUESTED"
-              : status === "NOT_REQUESTED";
+              ? status === "request_processing" || status === "error_manual_review"
+              : status === "not_requested";
       if (!matches) return false;
     }
 

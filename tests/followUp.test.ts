@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { evaluateFollowUp } from "@/lib/advisor/followUp";
-import { hoursAgo, makeAppointment, makeFdd, makeLead, makeVideo } from "./helpers";
+import { hoursAgo, makeAppointment, makeLead, makeVideo } from "./helpers";
 
 describe("follow-up rules", () => {
   it("flags questionnaire completed >24h ago with no consultation", () => {
     const result = evaluateFollowUp({
       lead: makeLead({ questionnaire_completed_at: hoursAgo(30) }),
       appointments: [],
-      fdd: null,
       video: null,
     });
     expect(result.needed).toBe(true);
@@ -18,7 +17,6 @@ describe("follow-up rules", () => {
     const result = evaluateFollowUp({
       lead: makeLead({ questionnaire_completed_at: hoursAgo(2) }),
       appointments: [],
-      fdd: null,
       video: null,
     });
     expect(result.needed).toBe(false);
@@ -28,7 +26,6 @@ describe("follow-up rules", () => {
     const result = evaluateFollowUp({
       lead: makeLead({ questionnaire_completed_at: hoursAgo(48) }),
       appointments: [makeAppointment({ status: "SCHEDULED" })],
-      fdd: null,
       video: null,
     });
     expect(result.needed).toBe(false);
@@ -36,20 +33,22 @@ describe("follow-up rules", () => {
 
   it("flags FDD sent >48h without acknowledgment", () => {
     const result = evaluateFollowUp({
-      lead: makeLead(),
+      lead: makeLead({ fdd_status: "fdd_sent", fdd_sent_at: hoursAgo(72) }),
       appointments: [],
-      fdd: makeFdd({ status: "SENT", sent_at: hoursAgo(72) }),
       video: null,
     });
     expect(result.needed).toBe(true);
-    expect(result.reasons[0]).toMatch(/FDD sent .* not acknowledged/);
+    expect(result.reasons[0]).toMatch(/FDD sent .* not yet acknowledged/);
   });
 
   it("does not flag an acknowledged FDD", () => {
     const result = evaluateFollowUp({
-      lead: makeLead(),
+      lead: makeLead({
+        fdd_status: "waiting_period_active",
+        fdd_sent_at: hoursAgo(100),
+        fdd_received_at: hoursAgo(10),
+      }),
       appointments: [],
-      fdd: makeFdd({ status: "ACKNOWLEDGED", sent_at: hoursAgo(100), acknowledged_at: hoursAgo(10) }),
       video: null,
     });
     expect(result.needed).toBe(false);
@@ -59,7 +58,6 @@ describe("follow-up rules", () => {
     const result = evaluateFollowUp({
       lead: makeLead({ current_stage: "CONSULTATION_COMPLETED" }),
       appointments: [makeAppointment({ status: "COMPLETED", updated_at: hoursAgo(30) })],
-      fdd: null,
       video: null,
     });
     expect(result.needed).toBe(true);
@@ -69,7 +67,6 @@ describe("follow-up rules", () => {
     const result = evaluateFollowUp({
       lead: makeLead(),
       appointments: [],
-      fdd: null,
       video: makeVideo({ highest_percent_watched: 80, last_event_at: hoursAgo(72) }),
     });
     expect(result.needed).toBe(true);
@@ -80,7 +77,6 @@ describe("follow-up rules", () => {
     const result = evaluateFollowUp({
       lead: makeLead(),
       appointments: [makeAppointment({ status: "CANCELLED", updated_at: hoursAgo(5) })],
-      fdd: null,
       video: null,
     });
     expect(result.needed).toBe(true);
@@ -94,7 +90,6 @@ describe("follow-up rules", () => {
         makeAppointment({ status: "CANCELLED", updated_at: hoursAgo(5) }),
         makeAppointment({ status: "SCHEDULED" }),
       ],
-      fdd: null,
       video: null,
     });
     expect(result.needed).toBe(false);

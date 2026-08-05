@@ -1,9 +1,20 @@
 import { redirect } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { QuestionnaireForm } from "@/components/forms/QuestionnaireForm";
+import { InvestorProfileSummary } from "@/components/forms/InvestorProfileSummary";
 import { InvalidPortal } from "@/components/portal/InvalidPortal";
 import { loadPortalContext } from "@/lib/portal/context";
+import { brand } from "@/lib/config/brand";
 import { trackEvent } from "@/lib/portal/events";
+import { LIQUID_CAPITAL_RANGES, NET_WORTH_RANGES } from "@/types/questionnaire";
+import type { QuestionnairePayload } from "@/lib/validation/questionnaire";
+
+function knownValue<T extends string>(
+  options: ReadonlyArray<{ value: T }>,
+  value: string | null,
+): T | undefined {
+  return options.some((option) => option.value === value) ? (value as T) : undefined;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +35,13 @@ export default async function QuestionnairePage({
 
   await trackEvent(lead, "questionnaire_opened", null, "questionnaire");
 
+  // Answers captured with the original application pre-fill the form so the
+  // prospect confirms rather than re-enters them.
+  const defaults: Partial<Pick<QuestionnairePayload, "liquidCapital" | "netWorth">> = {
+    liquidCapital: knownValue(LIQUID_CAPITAL_RANGES, lead.initial_liquid_capital),
+    netWorth: knownValue(NET_WORTH_RANGES, lead.initial_net_worth),
+  };
+
   return (
     <div className="space-y-8">
       <div>
@@ -39,7 +57,18 @@ export default async function QuestionnairePage({
 
       <Card>
         <CardContent className="p-6 sm:p-8">
-          <QuestionnaireForm token={token} />
+          <InvestorProfileSummary lead={lead} />
+
+          <div className="my-6 border-t border-border-soft" aria-hidden />
+
+          <div className="mb-6">
+            <h2 className="text-[15.5px] font-bold text-foreground">Consultation Preparation</h2>
+            <p className="mt-1 text-[13px] text-muted-foreground">
+              A few questions from {brand.advisorName} to tailor the conversation to your goals.
+            </p>
+          </div>
+
+          <QuestionnaireForm token={token} defaults={defaults} />
         </CardContent>
       </Card>
     </div>

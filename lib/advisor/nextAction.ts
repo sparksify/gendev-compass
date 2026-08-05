@@ -1,4 +1,5 @@
-import type { AppointmentRecord, FddRecordRow } from "@/types/advisor";
+import { effectiveFddStatus } from "@/lib/fdd/status";
+import type { AppointmentRecord } from "@/types/advisor";
 import type { LeadRecord } from "@/types/lead";
 import type { VideoProgressRecord } from "@/types/portal";
 import { FOLLOW_UP_THRESHOLDS } from "./followUp";
@@ -11,7 +12,6 @@ import { FOLLOW_UP_THRESHOLDS } from "./followUp";
 export function suggestNextAction(
   lead: LeadRecord,
   appointments: AppointmentRecord[],
-  fdd: FddRecordRow | null,
   video: VideoProgressRecord | null,
 ): string {
   const stage = lead.current_stage;
@@ -24,7 +24,8 @@ export function suggestNextAction(
   const cancelled = appointments.find((a) => a.status === "CANCELLED");
   const completed = appointments.find((a) => a.status === "COMPLETED");
 
-  if (fdd?.sent_at && !fdd.acknowledged_at) return "Follow up on FDD";
+  const fddStatus = effectiveFddStatus(lead);
+  if (fddStatus === "fdd_sent" || fddStatus === "fdd_delivered") return "Follow up on FDD";
   if (cancelled && !activeAppointment && !completed) return "Rebook cancelled consultation";
   if (activeAppointment || (lead.booked_at && !completed && stage === "CONSULTATION_SCHEDULED")) {
     return "Prepare for consultation";
@@ -40,7 +41,11 @@ export function suggestNextAction(
   ) {
     return "Encourage questionnaire completion";
   }
-  if (stage === "FDD_ACKNOWLEDGED") return "Begin due diligence discussion";
+  if (fddStatus === "fdd_received" || fddStatus === "waiting_period_active") {
+    return "Begin due diligence discussion";
+  }
+  if (fddStatus === "eligible_for_agreement") return "Discuss the franchise agreement";
+  if (fddStatus === "error_manual_review") return "Resolve FDD delivery error";
   if (stage === "NEW_LEAD") return "Await portal activity";
   return "Monitor engagement";
 }

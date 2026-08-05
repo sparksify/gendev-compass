@@ -2,6 +2,8 @@ import { AdvisorCard } from "@/components/cards/AdvisorCard";
 import { FddCard } from "@/components/portal/FddCard";
 import { InvestmentSnapshot } from "@/components/opportunity/InvestmentSnapshot";
 import { getAdvisorPhotoUrl, resolveOpportunityProfile } from "@/lib/assets";
+import { fddSnapshot } from "@/lib/fdd/status";
+import { brand } from "@/lib/config/brand";
 import type { LeadRecord } from "@/types/lead";
 import type { PortalState } from "@/types/portal";
 
@@ -29,8 +31,9 @@ export async function RightSidebar({ token, state, lead }: RightSidebarProps) {
         <FddCard
           token={token}
           email={lead.email}
-          requestedAt={lead.fdd_requested_at}
-          acknowledgedAt={lead.fdd_acknowledged_at}
+          initial={fddSnapshot(lead)}
+          timeZone={brand.timeZone}
+          advisorName={brand.advisorName}
         />
       )}
       <InvestmentSnapshot profile={profile} />

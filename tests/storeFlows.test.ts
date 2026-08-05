@@ -20,6 +20,7 @@ let applyVideoProgress: typeof import("@/lib/portal/progress").applyVideoProgres
 let buildAnswerSnapshot: typeof import("@/lib/advisor/questionnaireCatalog").buildAnswerSnapshot;
 let createSession: typeof import("@/lib/advisor/auth").createSession;
 let hashSessionToken: typeof import("@/lib/advisor/auth").hashSessionToken;
+let applyFddProviderEvent: typeof import("@/lib/fdd/workflow").applyFddProviderEvent;
 
 beforeAll(async () => {
   process.chdir(tmpDir);
@@ -30,6 +31,7 @@ beforeAll(async () => {
   ({ applyVideoProgress } = await import("@/lib/portal/progress"));
   ({ buildAnswerSnapshot } = await import("@/lib/advisor/questionnaireCatalog"));
   ({ createSession, hashSessionToken } = await import("@/lib/advisor/auth"));
+  ({ applyFddProviderEvent } = await import("@/lib/fdd/workflow"));
 });
 
 afterAll(() => {
@@ -205,17 +207,68 @@ describe("staff sessions", () => {
   });
 });
 
-describe("FDD record flow", () => {
-  it("upserts a single record per investor", async () => {
+describe("FDD provider webhook handling", () => {
+  it("advances fdd_status forward and mirrors the advisor pipeline stage on send", async () => {
     const lead = await createLead();
-    await store.upsertFddRecord(lead.id, { status: "REQUESTED", requested_at: new Date().toISOString() });
-    await store.upsertFddRecord(lead.id, { status: "SENT", sent_at: new Date().toISOString() });
+    const result = await applyFddProviderEvent(
+      { event: "fdd_sent", prospect_id: lead.id, event_id: `evt-${lead.id}-sent` },
+      "127.0.0.1",
+    );
+    expect(result.ok).toBe(true);
+    expect(result.duplicate).toBe(false);
 
-    const record = await store.getFddRecordForLead(lead.id);
-    expect(record?.status).toBe("SENT");
-    expect(record?.requested_at).toBeTruthy();
+    const updated = await store.getLeadById(lead.id);
+    expect(updated?.fdd_status).toBe("fdd_sent");
+    expect(updated?.fdd_sent_at).toBeTruthy();
+    expect(updated?.current_stage).toBe("FDD_SENT");
 
-    const all = (await store.listFddRecords()).filter((f) => f.lead_id === lead.id);
-    expect(all).toHaveLength(1);
+    const audit = await store.listFddAudit(lead.id);
+    expect(audit.some((a) => a.event === "fdd_sent")).toBe(true);
+  });
+
+  it("starts the waiting period and advances the stage on receipt", async () => {
+    const lead = await createLead();
+    await applyFddProviderEvent(
+      { event: "fdd_sent", prospect_id: lead.id, event_id: `evt-${lead.id}-sent` },
+      null,
+    );
+    const result = await applyFddProviderEvent(
+      { event: "fdd_received", prospect_id: lead.id, event_id: `evt-${lead.id}-received` },
+      null,
+    );
+    expect(result.ok).toBe(true);
+
+    const updated = await store.getLeadById(lead.id);
+    expect(updated?.fdd_status).toBe("waiting_period_active");
+    expect(updated?.fdd_received_at).toBeTruthy();
+    expect(updated?.fdd_eligible_at).toBeTruthy();
+    expect(updated?.current_stage).toBe("FDD_ACKNOWLEDGED");
+  });
+
+  it("deduplicates a replayed webhook event", async () => {
+    const lead = await createLead();
+    const eventId = `evt-${lead.id}-dup`;
+    await applyFddProviderEvent({ event: "fdd_sent", prospect_id: lead.id, event_id: eventId }, null);
+    const replay = await applyFddProviderEvent(
+      { event: "fdd_sent", prospect_id: lead.id, event_id: eventId },
+      null,
+    );
+    expect(replay.duplicate).toBe(true);
+
+    const audit = await store.listFddAudit(lead.id);
+    expect(audit.filter((a) => a.external_event_id === eventId)).toHaveLength(1);
+  });
+
+  it("never regresses a manually parked stage on a late FDD event", async () => {
+    const lead = await createLead();
+    await setStageManually(lead, "NOT_A_FIT", "staff-user-1");
+    const parked = await store.getLeadById(lead.id);
+    await applyFddProviderEvent(
+      { event: "fdd_sent", prospect_id: parked!.id, event_id: `evt-${lead.id}-late` },
+      null,
+    );
+
+    const updated = await store.getLeadById(lead.id);
+    expect(updated?.current_stage).toBe("NOT_A_FIT");
   });
 });

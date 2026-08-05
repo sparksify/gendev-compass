@@ -94,8 +94,8 @@ async function main() {
       status: string;
       requestedHoursAgo?: number;
       sentHoursAgo?: number;
-      openedHoursAgo?: number;
-      acknowledgedHoursAgo?: number;
+      deliveredHoursAgo?: number;
+      receivedHoursAgo?: number;
     };
     note?: string;
   }
@@ -170,7 +170,7 @@ async function main() {
       },
       video: { percent: 100, seconds: 560, plays: 3, completed: true, hoursAgo: 210 },
       appointment: { status: "COMPLETED", startInHours: -96, timeZone: "America/Phoenix" },
-      fdd: { status: "SENT", requestedHoursAgo: 80, sentHoursAgo: 70 },
+      fdd: { status: "fdd_sent", requestedHoursAgo: 80, sentHoursAgo: 70 },
       note: "Consultation went well. FDD sent — follow up if not acknowledged by Friday.",
     },
     {
@@ -207,11 +207,11 @@ async function main() {
       video: { percent: 100, seconds: 555, plays: 1, completed: true, hoursAgo: 490 },
       appointment: { status: "COMPLETED", startInHours: -300, timeZone: "America/New_York" },
       fdd: {
-        status: "ACKNOWLEDGED",
+        status: "waiting_period_active",
         requestedHoursAgo: 290,
         sentHoursAgo: 280,
-        openedHoursAgo: 100,
-        acknowledgedHoursAgo: 20,
+        deliveredHoursAgo: 275,
+        receivedHoursAgo: 20,
       },
       note: "Experienced multi-unit operator. Acknowledged FDD — start due-diligence call list.",
     },
@@ -358,25 +358,31 @@ async function main() {
     }
 
     if (seed.fdd) {
-      await store.upsertFddRecord(lead.id, {
-        status: seed.fdd.status as never,
-        document_version: "2026-v1",
-        requested_at: seed.fdd.requestedHoursAgo ? iso(seed.fdd.requestedHoursAgo * HOUR) : null,
-        sent_at: seed.fdd.sentHoursAgo ? iso(seed.fdd.sentHoursAgo * HOUR) : null,
-        opened_at: seed.fdd.openedHoursAgo ? iso(seed.fdd.openedHoursAgo * HOUR) : null,
-        acknowledged_at: seed.fdd.acknowledgedHoursAgo
-          ? iso(seed.fdd.acknowledgedHoursAgo * HOUR)
+      const receivedAt = seed.fdd.receivedHoursAgo ? iso(seed.fdd.receivedHoursAgo * HOUR) : null;
+      await store.updateLead(lead.id, {
+        fdd_status: seed.fdd.status as never,
+        fdd_requested_at: seed.fdd.requestedHoursAgo ? iso(seed.fdd.requestedHoursAgo * HOUR) : null,
+        fdd_sent_at: seed.fdd.sentHoursAgo ? iso(seed.fdd.sentHoursAgo * HOUR) : null,
+        fdd_delivered_at: seed.fdd.deliveredHoursAgo ? iso(seed.fdd.deliveredHoursAgo * HOUR) : null,
+        fdd_received_at: receivedAt,
+        // A 14-day waiting period from receipt, matching the default in lib/config/fdd.ts.
+        fdd_eligible_at: receivedAt
+          ? new Date(new Date(receivedAt).getTime() + 14 * 24 * HOUR).toISOString()
           : null,
-        acknowledgment_time_zone: seed.fdd.acknowledgedHoursAgo ? "America/New_York" : null,
-        provider_transaction_id: `seed-fdd-${lead.id.slice(0, 8)}`,
-        destination_email: seed.email,
+        fdd_provider_envelope_id: `seed-envelope-${lead.id.slice(0, 8)}`,
+        fdd_request_source: "seed",
       });
-      await store.insertEvent(lead.id, "fdd_requested", null, null, { source: "seed" });
+      await store.insertFddAudit({
+        lead_id: lead.id,
+        event: "fdd_requested",
+        source: "seed",
+        actor: "seed",
+      });
       if (seed.fdd.sentHoursAgo) {
         await store.insertEvent(lead.id, "fdd_sent", null, null, { source: "seed" });
       }
-      if (seed.fdd.acknowledgedHoursAgo) {
-        await store.insertEvent(lead.id, "fdd_acknowledged", null, null, { source: "seed" });
+      if (receivedAt) {
+        await store.insertEvent(lead.id, "fdd_received", null, null, { source: "seed" });
       }
     }
 
@@ -402,12 +408,6 @@ async function main() {
               Date.now() + seed.appointment.startInHours * HOUR,
             ).toISOString(),
           }
-        : {}),
-      ...(seed.fdd?.requestedHoursAgo
-        ? { fdd_requested_at: iso(seed.fdd.requestedHoursAgo * HOUR) }
-        : {}),
-      ...(seed.fdd?.acknowledgedHoursAgo
-        ? { fdd_acknowledged_at: iso(seed.fdd.acknowledgedHoursAgo * HOUR) }
         : {}),
     });
 

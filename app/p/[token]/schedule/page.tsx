@@ -8,6 +8,7 @@ import { NextStepsTimeline } from "@/components/portal/NextStepsTimeline";
 import { AdvisorCard } from "@/components/cards/AdvisorCard";
 import { InvalidPortal } from "@/components/portal/InvalidPortal";
 import { loadPortalContext } from "@/lib/portal/context";
+import { fddSnapshot } from "@/lib/fdd/status";
 import { brand } from "@/lib/config/brand";
 import { getCalendarEmbedUrl } from "@/lib/config/env";
 import { getAdvisorPhotoUrl } from "@/lib/assets";
@@ -100,7 +101,8 @@ export default async function SchedulePage({ params }: { params: Promise<{ token
                     embedUrl={getCalendarEmbedUrl()}
                     token={token}
                     prefill={{
-                      name: `${lead.first_name} ${lead.last_name}`.trim(),
+                      firstName: lead.first_name,
+                      lastName: lead.last_name,
                       email: lead.email,
                       phone: lead.phone,
                       leadId: lead.id,
@@ -123,8 +125,9 @@ export default async function SchedulePage({ params }: { params: Promise<{ token
         <FddCard
           token={token}
           email={lead.email}
-          requestedAt={lead.fdd_requested_at}
-          acknowledgedAt={lead.fdd_acknowledged_at}
+          initial={fddSnapshot(lead)}
+          timeZone={brand.timeZone}
+          advisorName={brand.advisorName}
         />
       </div>
 

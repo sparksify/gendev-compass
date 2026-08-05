@@ -7,7 +7,8 @@ interface CalendarEmbedProps {
   embedUrl: string | null;
   token: string;
   prefill: {
-    name: string;
+    firstName: string;
+    lastName: string;
     email: string;
     phone: string | null;
     leadId: string;
@@ -213,8 +214,12 @@ export function CalendarEmbed({
 function buildEmbedUrl(base: string, prefill: CalendarEmbedProps["prefill"]): string {
   try {
     const url = new URL(base);
-    // Calendly prefill params; harmless extras for other providers.
-    url.searchParams.set("name", prefill.name);
+    const fullName = `${prefill.firstName} ${prefill.lastName}`.trim();
+    // Calendly-style prefill params; harmless extras for other providers.
+    url.searchParams.set("name", fullName);
+    // GoHighLevel-style prefill params.
+    url.searchParams.set("first_name", prefill.firstName);
+    url.searchParams.set("last_name", prefill.lastName);
     url.searchParams.set("email", prefill.email);
     if (prefill.phone) url.searchParams.set("phone", prefill.phone);
     // Tracking identifiers supported by Calendly (utm_content) and readable elsewhere.
