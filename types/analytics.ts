@@ -23,7 +23,16 @@ export type PortalEventName =
   | "fdd_received"
   | "fdd_waiting_period_started"
   | "fdd_eligible"
-  | "fdd_advisor_notified";
+  | "fdd_advisor_notified"
+  // Advisor-backend events (calendar webhook + staff actions).
+  | "consultation_booked"
+  | "consultation_rescheduled"
+  | "consultation_cancelled"
+  | "consultation_completed"
+  | "consultation_no_show"
+  | "note_added"
+  | "stage_changed"
+  | "advisor_assigned";
 
 export interface PortalEventRecord {
   id: string;
@@ -31,5 +40,10 @@ export interface PortalEventRecord {
   event_name: string;
   event_data: Record<string, unknown> | null;
   page_url: string | null;
+  /** Where the event originated: portal | webhook_calendar | webhook_fdd | staff | system. */
+  event_source: string;
+  created_by_staff_user_id: string | null;
+  /** Provider-supplied timestamp when available; created_at is ingestion time. */
+  occurred_at: string | null;
   created_at: string;
 }

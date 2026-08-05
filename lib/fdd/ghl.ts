@@ -8,11 +8,14 @@ import type { LeadRecord } from "@/types/lead";
  * leave the server — the browser only ever talks to our own API routes.
  *
  * Two integration modes, in order of preference:
- *   1. Inbound-webhook trigger (GHL_FDD_WEBHOOK_URL): we POST the request
+ *   1. API mode (GHL_API_TOKEN + GHL_LOCATION_ID): we upsert the contact with
+ *      the request tag, then enroll it directly in the FDD workflow
+ *      (GHL_FDD_WORKFLOW_ID) via the add-to-workflow endpoint — no trigger
+ *      configuration required inside GoHighLevel. Without a workflow ID the
+ *      tag alone remains available for a tag-based trigger.
+ *   2. Inbound-webhook trigger (GHL_FDD_WEBHOOK_URL): we POST the request
  *      payload and the GoHighLevel workflow takes over (tags the contact,
  *      sends the FDD, notifies the advisor).
- *   2. API mode (GHL_API_TOKEN + GHL_LOCATION_ID): we upsert the contact with
- *      the request tag, which a tag-based workflow trigger picks up.
  *
  * When neither is configured and dev tools are enabled (local dev, Vercel
  * previews, explicit staging), the dispatch is simulated so the full flow
@@ -65,11 +68,13 @@ export async function dispatchFddRequest(
 ): Promise<GhlDispatchResult> {
   const config = getGhlConfig();
 
-  if (config.webhookUrl) {
-    return dispatchViaWebhook(lead, idempotencyKey, config.webhookUrl);
-  }
+  // Direct API enrollment is deterministic (no trigger configuration to
+  // drift inside GoHighLevel), so it takes precedence when configured.
   if (config.apiToken && config.locationId) {
     return dispatchViaApi(lead, config.apiToken, config.locationId);
+  }
+  if (config.webhookUrl) {
+    return dispatchViaWebhook(lead, idempotencyKey, config.webhookUrl);
   }
 
   if (devToolsEnabled()) {
@@ -165,10 +170,55 @@ async function dispatchViaApi(
     const data = (await response.json().catch(() => null)) as {
       contact?: { id?: string };
     } | null;
+    const contactId = data?.contact?.id ?? null;
+
+    // Direct workflow enrollment: the FDD workflow runs for this exact
+    // contact without relying on a tag-based trigger inside GoHighLevel.
+    if (config.workflowId) {
+      if (!contactId) {
+        return {
+          ok: false,
+          mode: "api",
+          workflowRef: null,
+          confirmedSent: false,
+          error: "GoHighLevel upsert did not return a contact id for workflow enrollment",
+        };
+      }
+      const enrollment = await fetch(
+        `${GHL_API_BASE}/contacts/${contactId}/workflow/${config.workflowId}`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+            "Content-Type": "application/json",
+            Version: "2021-07-28",
+          },
+          body: JSON.stringify({}),
+          signal: AbortSignal.timeout(DISPATCH_TIMEOUT_MS),
+        },
+      );
+      if (!enrollment.ok) {
+        return {
+          ok: false,
+          mode: "api",
+          workflowRef: contactId,
+          confirmedSent: false,
+          error: `GoHighLevel workflow enrollment responded ${enrollment.status}`,
+        };
+      }
+      return {
+        ok: true,
+        mode: "api",
+        workflowRef: `${contactId}:${config.workflowId}`,
+        confirmedSent: false,
+        error: null,
+      };
+    }
+
     return {
       ok: true,
       mode: "api",
-      workflowRef: data?.contact?.id ?? null,
+      workflowRef: contactId,
       confirmedSent: false,
       error: null,
     };

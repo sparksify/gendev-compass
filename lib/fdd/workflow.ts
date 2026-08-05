@@ -3,6 +3,7 @@ import { fddStatusRank } from "@/lib/store/types";
 import { trackEvent } from "@/lib/portal/events";
 import { getFddWaitingPeriodDays } from "@/lib/config/fdd";
 import { dispatchFddRequest } from "@/lib/fdd/ghl";
+import { autoAdvanceStage } from "@/lib/advisor/stages";
 import type { LeadRecord } from "@/types/lead";
 import type { FddStatus } from "@/types/fdd";
 import type { LeadPatch } from "@/lib/store/types";
@@ -153,6 +154,8 @@ export async function requestFdd(
       after_values: { fdd_sent_at: now },
     });
     await trackEvent(updated, "fdd_sent", { mode: dispatch.mode });
+    // Advisor pipeline: the dashboard's stage tracks the document being sent.
+    await autoAdvanceStage(updated, "FDD_SENT", "portal");
   }
 
   await store.insertFddAudit({
@@ -286,6 +289,13 @@ export async function applyFddProviderEvent(
   });
   await trackEvent(updated, payload.event, { envelopeId: payload.envelope_id ?? null });
 
+  // Advisor pipeline: mirror the FDD workflow's forward-only progress onto
+  // the advisor stage. Never fires ahead of the webhook actually confirming
+  // it, and autoAdvanceStage itself never regresses a manual stage.
+  if (payload.event === "fdd_sent" && patch.fdd_status === "fdd_sent") {
+    await autoAdvanceStage(updated, "FDD_SENT", "webhook_fdd");
+  }
+
   if (payload.event === "fdd_received" && patch.fdd_received_at) {
     await store.insertFddAudit({
       lead_id: lead.id,
@@ -309,6 +319,8 @@ export async function applyFddProviderEvent(
       after_values: { stage: "fdd_received" },
     });
     await trackEvent(updated, "fdd_advisor_notified", { stage: "fdd_received" });
+
+    await autoAdvanceStage(updated, "FDD_ACKNOWLEDGED", "webhook_fdd");
   }
 
   return { ok: true, duplicate: false, httpStatus: 200, error: null };

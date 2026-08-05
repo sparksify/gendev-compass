@@ -4,6 +4,7 @@ import { requireLead } from "@/lib/portal/api";
 import { getStore } from "@/lib/store";
 import { statusRank } from "@/lib/store/types";
 import { trackEvent } from "@/lib/portal/events";
+import { autoAdvanceStage } from "@/lib/advisor/stages";
 
 export const dynamic = "force-dynamic";
 
@@ -47,12 +48,27 @@ export async function POST(
 
   try {
     if (!lead.booked_at) {
-      await getStore().updateLead(lead.id, {
+      const store = getStore();
+      await store.updateLead(lead.id, {
         booked_at: now,
         appointment_id: parsed.data.appointmentId ?? null,
         appointment_start_at: parsed.data.appointmentStartAt ?? null,
+        last_activity_at: now,
         ...(statusRank(lead.status) < statusRank("booked") ? { status: "booked" as const } : {}),
       });
+
+      // Advisor-backend appointment record. The assigned advisor (when set)
+      // is carried onto the appointment; the provider webhook can enrich or
+      // supersede this record via the external appointment ID.
+      await store.createAppointment({
+        lead_id: lead.id,
+        advisor_id: lead.assigned_advisor_id,
+        external_appointment_id: parsed.data.appointmentId ?? null,
+        scheduled_start: parsed.data.appointmentStartAt ?? null,
+        status: "SCHEDULED",
+      });
+      await autoAdvanceStage(lead, "CONSULTATION_SCHEDULED", "portal");
+
       await trackEvent(lead, "calendar_booking_completed", {
         detectedVia: parsed.data.detectedVia,
       });

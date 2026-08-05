@@ -41,6 +41,14 @@ export async function POST(request: Request): Promise<NextResponse> {
   const resolved = await requireLead(parsed.data.token);
   if ("response" in resolved) return resolved.response;
 
+  // The questionnaire-start signal is client-originated (first field
+  // interaction); advancing the low-stakes, forward-only pipeline stage on
+  // it is acceptable — submission remains server-verified.
+  if (parsed.data.eventName === "questionnaire_started") {
+    const { autoAdvanceStage } = await import("@/lib/advisor/stages");
+    await autoAdvanceStage(resolved.lead, "QUESTIONNAIRE_STARTED", "portal");
+  }
+
   await getStore().insertEvent(
     resolved.lead.id,
     `client_${parsed.data.eventName}`,

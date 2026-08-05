@@ -5,6 +5,8 @@ import { statusRank } from "@/lib/store/types";
 import { trackEvent } from "@/lib/portal/events";
 import { evaluateQualification } from "@/lib/portal/qualification";
 import { questionnaireSchema } from "@/lib/validation/questionnaire";
+import { autoAdvanceStage } from "@/lib/advisor/stages";
+import { buildAnswerSnapshot, QUESTIONNAIRE_VERSION } from "@/lib/advisor/questionnaireCatalog";
 import type { QuestionnaireInput } from "@/types/questionnaire";
 
 export const dynamic = "force-dynamic";
@@ -83,11 +85,23 @@ export async function POST(
       qualification_score: qualification.score,
       qualification_result: qualification.result,
       qualification_reasons: qualification.reasons,
+      last_activity_at: now,
       ...(qualification.qualified ? { qualified_at: now } : {}),
       ...(statusRank(lead.status) < statusRank(qualification.result)
         ? { status: qualification.result }
         : {}),
     });
+
+    // Immutable, versioned snapshot for the advisor backend: exactly what
+    // was asked and answered, preserved even if wording changes later.
+    await store.createSubmission({
+      lead_id: lead.id,
+      questionnaire_version: QUESTIONNAIRE_VERSION,
+      submitted_at: now,
+      answers: buildAnswerSnapshot(answers),
+    });
+
+    await autoAdvanceStage(lead, "QUESTIONNAIRE_COMPLETED", "portal");
 
     await trackEvent(lead, "questionnaire_submitted", null);
     await trackEvent(
