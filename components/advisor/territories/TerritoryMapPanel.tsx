@@ -203,7 +203,7 @@ export function TerritoryMapPanel() {
         )}
       </div>
       <div className="overflow-hidden rounded-card border border-border">
-        <div ref={containerRef} className="h-[560px] w-full" role="application" aria-label="Territory map" />
+        <div ref={containerRef} className="isolate h-[560px] w-full" role="application" aria-label="Territory map" />
       </div>
       {missingBoundaries > 0 && (
         <p className="text-xs text-muted-foreground">
