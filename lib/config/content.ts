@@ -1,7 +1,6 @@
 /**
  * Portal content configuration: FAQ, resource library, and coming-soon
- * modules. Copy is process-focused and makes no investment claims
- * (spec: legal placeholders until approved copy is provided).
+ * modules.
  */
 
 export interface FaqItem {
@@ -11,29 +10,44 @@ export interface FaqItem {
 
 export const FAQ_ITEMS: FaqItem[] = [
   {
-    question: "What happens after qualification?",
+    question: "Why is drug testing considered a recession-resistant business?",
     answer:
-      "Once you complete the qualification process, you can schedule your consultation immediately — pick a time that suits you. Your advisor reviews your answers before the call so the conversation focuses on your specific goals.",
+      "Drug and alcohol testing is a recurring compliance requirement for many employers, especially DOT-regulated companies and safety-sensitive industries. Testing is needed for hiring, random programs, post-accident situations, reasonable suspicion, and return-to-duty requirements, creating ongoing demand throughout the year.",
   },
   {
-    question: "How are opportunities evaluated?",
+    question: "How does the business generate recurring revenue?",
     answer:
-      "Each opportunity goes through a structured internal review covering the operating model, the team behind it, and the support provided to investors. The details relevant to your situation are covered during your consultation and in the due diligence materials that follow it.",
+      "CMDT serves employers with ongoing testing and screening needs rather than one-time services only. Recurring revenue can come from pre-employment testing, random testing, DOT compliance programs, post-accident testing, return-to-duty programs, background checks, and other repeat employer requirements.",
   },
   {
-    question: "Who is this investment appropriate for?",
+    question: "Who are CMDT's typical customers?",
     answer:
-      "The process is designed for individuals evaluating an active ownership opportunity with committed capital and a defined timeline. The questionnaire helps establish fit early — before any of your time is spent in meetings.",
+      "CMDT works with employers and regulated industries such as trucking and logistics companies, construction firms, manufacturers, warehouses, staffing agencies, healthcare organizations, security companies, fleet operators, and other businesses with workplace safety and compliance needs.",
   },
   {
-    question: "What information is confidential?",
+    question: "What services can I offer as a CMDT franchise owner?",
     answer:
-      "Everything you share in this portal is used solely to prepare your qualification review and consultation. Your responses are not shared outside the review team, and detailed financial answers are never passed to third-party analytics tools.",
+      "CMDT franchisees can offer mobile drug and alcohol testing, in-office testing, DNA testing, and background checks. These multiple service lines allow franchise owners to serve both employers and individuals within one business model.",
   },
   {
-    question: "What should I prepare before my consultation?",
+    question: "Do I need medical experience to own a CMDT franchise?",
     answer:
-      "Nothing formal is required. It helps to have a clear picture of your available capital, your timeline, and the questions you most want answered — the questionnaire captures these so your advisor arrives prepared.",
+      "The CMDT materials do not state that prior medical experience is required. Franchisees receive structured onboarding, compliance training, operational playbooks, chain-of-custody procedures, and ongoing support to help them operate according to CMDT standards.",
+  },
+  {
+    question: "Is my territory protected?",
+    answer:
+      "Yes. Each franchise is awarded an exclusive territory of approximately 250,000 population, with no competing CMDT locations placed inside that territory.",
+  },
+  {
+    question: "What training and support will I receive?",
+    answer:
+      "Franchisees receive initial training and certification, operational playbooks, compliance protocols, vendor relationships, marketing guidance, operational coaching, and ongoing support from the corporate team.",
+  },
+  {
+    question: "What makes CMDT different from other franchise opportunities?",
+    answer:
+      "CMDT combines essential compliance-driven services, recurring B2B demand, a mobile and in-office service model, multiple revenue streams, protected territories, structured operating systems, and ongoing corporate support. This gives franchise owners several ways to grow within one local market.",
   },
 ];
 
