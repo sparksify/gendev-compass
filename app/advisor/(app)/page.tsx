@@ -96,22 +96,14 @@ export default async function AdvisorDashboardPage() {
         />
       </div>
 
-      <Card className="overflow-hidden">
-        <div
-          className="flex flex-wrap items-center justify-between gap-2 px-5 py-3.5 text-white"
-          style={{
-            background: "linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 55%, black))",
-          }}
-        >
-          <div className="flex items-center gap-2">
-            <span className="size-2 rounded-full bg-emerald-400" aria-hidden />
-            <h2 className="text-sm font-semibold">Today&rsquo;s Calls</h2>
-          </div>
-          <p className="text-xs text-white/80">
+      <Card>
+        <CardHeader className="flex-row items-center justify-between">
+          <CardTitle>Today&rsquo;s Calls</CardTitle>
+          <p className="text-sm text-muted-foreground">
             {now.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
           </p>
-        </div>
-        <CardContent className="pt-4">
+        </CardHeader>
+        <CardContent>
           {!calendarConfigured ? (
             <p className="text-sm text-muted-foreground">
               Not connected yet. Set <code className="rounded bg-surface px-1 py-0.5 text-xs">GHL_CALENDAR_ID</code>{" "}
