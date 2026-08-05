@@ -134,12 +134,20 @@ demographic columns entirely, so upserts leave them untouched.
 ### Real Census demographics (Market Analysis)
 
 `POST /api/admin/import-demographics` ("Load Census Demographics" on
-`/admin` under Territory ZIP Data) merges the GeoNames reference with the
-U.S. Census Bureau's public ACS 5-Year API (`lib/geocoding/censusImport.ts`):
-population (B01003), households (B11001), median household income (B19013),
-plus a 5-year growth percentage computed across two vintages (2014–2018 vs
-2019–2023 windows; migration 0010 adds `population_growth_pct`,
-`demographics_source`, `demographics_vintage`). The evaluator aggregates
+`/admin` under Territory ZIP Data — **run "Load Nationwide ZIP Data" first**;
+this route reads the already-loaded ZIP reference rather than re-downloading
+GeoNames) merges those rows with the U.S. Census Bureau's public ACS 5-Year
+API (`lib/geocoding/censusImport.ts`): population (B01003), households
+(B11001), median household income (B19013), plus a 5-year growth percentage
+computed across two vintages (2014–2018 vs 2019–2023 windows; migration
+0010 adds `population_growth_pct`, `demographics_source`,
+`demographics_vintage`). Each Census fetch times out at 35s (well under the
+route's 60s `maxDuration`) so a slow response surfaces as a proper JSON
+error instead of Vercel's platform-level HTML timeout page; an optional
+`CENSUS_API_KEY` env var (free, instant signup at
+api.census.gov/data/key_signup.html) avoids the anonymous per-IP rate limit.
+Only ZIPs that actually matched Census data are written, concurrently in
+batches. The evaluator aggregates
 these across every evaluated ZIP (`aggregateMarketData`) — population and
 households sum, income is household-weighted, growth population-weighted —
 and the prospect UI (Market Analysis, Territory Assessment, Why this

@@ -405,7 +405,7 @@ function ZipDataSection({ password }: { password: string }) {
       const data = await response.json();
       setDemoResult(
         data.success
-          ? `Loaded Census demographics for ${data.withDemographics} of ${data.written} ZIPs (ACS ${data.vintage}).`
+          ? `Loaded Census demographics for ${data.withDemographics} of ${data.existingZips} ZIPs (ACS ${data.vintage}).`
           : `Failed: ${data.error ?? response.status}`,
       );
     } catch (error) {
