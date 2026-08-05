@@ -6,8 +6,18 @@ import { syncDemographics } from "@/lib/geocoding/censusImport";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-/** Stays safely inside maxDuration; the client re-invokes while remainingStates is non-empty. */
-const SYNC_BUDGET_MS = 45_000;
+/**
+ * Leaves real margin under maxDuration: a worker can pick up a new state
+ * right as the budget check passes and then run for up to
+ * FETCH_TIMEOUT_MS (20s) plus write time before yielding, so the gap to
+ * maxDuration has to absorb that tail — not just be "close to" it. 45s
+ * was observed in production to let the platform kill the function
+ * mid-write for whichever states landed last in a pass, so those states
+ * never finished and the same "N states remaining" count never budged
+ * across repeated clicks. The client re-invokes while remainingStates is
+ * non-empty.
+ */
+const SYNC_BUDGET_MS = 30_000;
 
 /**
  * Loads real Census ACS demographics (population, households, median income,
