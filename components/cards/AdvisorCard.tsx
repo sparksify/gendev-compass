@@ -48,6 +48,12 @@ export function AdvisorCard({
             <p className="mt-[3px] break-words text-[12.5px] text-secondary-foreground">
               {brand.advisorTitle}
             </p>
+            <AdvisorContact
+              token={token}
+              phone={brand.advisorPhone}
+              email={brand.advisorEmail}
+              className="mt-2 flex flex-col gap-1"
+            />
           </div>
         </div>
 
@@ -66,8 +72,6 @@ export function AdvisorCard({
             </li>
           ))}
         </ul>
-
-        <AdvisorContact token={token} phone={brand.advisorPhone} email={brand.advisorEmail} />
 
         {state.booked ? (
           <div>
