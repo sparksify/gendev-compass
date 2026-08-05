@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildDemographicsUpsertRows,
   CENSUS_SOURCE_LABEL,
+  coveredDemographicsStates,
+  DEMOGRAPHICS_VINTAGE_LABEL,
   downloadCensusDemographics,
   fetchAcsNational,
   FETCH_TIMEOUT_MS,
@@ -212,5 +214,22 @@ describe("buildDemographicsUpsertRows", () => {
       "2026-01-01T00:00:00.000Z",
     );
     expect(rows).toEqual([]);
+  });
+});
+
+describe("coveredDemographicsStates", () => {
+  it("marks a state covered only when one of its rows carries the current vintage label", () => {
+    const covered = coveredDemographicsStates([
+      { state_code: "TX", demographics_vintage: DEMOGRAPHICS_VINTAGE_LABEL },
+      { state_code: "TX", demographics_vintage: null }, // another TX ZIP with no match yet — still covered
+      { state_code: "CA", demographics_vintage: "2018-2022" }, // stale vintage from a prior ACS release
+      { state_code: "NY", demographics_vintage: null },
+    ]);
+    expect(covered).toEqual(new Set(["TX"]));
+  });
+
+  it("returns an empty set when nothing has the current vintage yet", () => {
+    expect(coveredDemographicsStates([{ state_code: "TX", demographics_vintage: null }])).toEqual(new Set());
+    expect(coveredDemographicsStates([])).toEqual(new Set());
   });
 });

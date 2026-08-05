@@ -171,6 +171,94 @@ describe("refreshZipReference / refreshDemographics / hasZipGeographiesForState 
     expect(row).toMatchObject({ population: 84600, median_household_income: 112000 });
   });
 
+  it("syncDemographics writes a state's rows as soon as it's fetched and skips it once covered", async () => {
+    // A fresh state untouched by the earlier refreshDemographics test (which
+    // already covered TX in this same shared dev store).
+    const now = new Date().toISOString();
+    await store.upsertZipCodeReferences([
+      {
+        zip_code: "80202",
+        city: "Denver",
+        state_code: "CO",
+        county_name: null,
+        latitude: 39.75,
+        longitude: -105.0,
+        timezone: null,
+        created_at: now,
+        updated_at: now,
+      },
+    ]);
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [
+        ["B01003_001E", "B11001_001E", "B19013_001E", "zip code tabulation area"],
+        ["84600", "24000", "112000", "80202"],
+      ],
+    }) as unknown as typeof fetch;
+
+    const { syncDemographics, DEMOGRAPHICS_VINTAGE_LABEL } = await import("@/lib/geocoding/censusImport");
+    const first = await syncDemographics(Number.POSITIVE_INFINITY);
+    expect(first.loadedStates).toContain("CO");
+    const row = await store.getZipCodeReference("80202");
+    expect(row).toMatchObject({ population: 84600, demographics_vintage: DEMOGRAPHICS_VINTAGE_LABEL });
+
+    // Second call: CO already carries the current vintage — never re-queued.
+    const second = await syncDemographics(Number.POSITIVE_INFINITY);
+    expect(second.loadedStates).not.toContain("CO");
+    expect(second.remainingStates).not.toContain("CO");
+  });
+
+  it("syncDemographics respects the time budget, deferring untouched states to the next call", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [["B01003_001E", "B11001_001E", "B19013_001E", "zip code tabulation area"]],
+    }) as unknown as typeof fetch;
+
+    const { syncDemographics } = await import("@/lib/geocoding/censusImport");
+    const result = await syncDemographics(0);
+    expect(result.loadedStates).toEqual([]);
+    expect(result.remainingStates.length).toBeGreaterThan(0);
+  });
+
+  it("syncDemographics reports a failed state without losing other states' progress", async () => {
+    const { STATE_FIPS_CODES } = await import("@/lib/geocoding/censusImport");
+    global.fetch = vi.fn((url: string) => {
+      if (url.includes(`in=state:${STATE_FIPS_CODES.AZ}`)) {
+        return Promise.reject(new Error("simulated network failure"));
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => [
+          ["B01003_001E", "B11001_001E", "B19013_001E", "zip code tabulation area"],
+          ["1000", "400", "50000", "85001"],
+        ],
+      });
+    }) as unknown as typeof fetch;
+
+    const now = new Date().toISOString();
+    await store.upsertZipCodeReferences([
+      {
+        zip_code: "85001",
+        city: "Phoenix",
+        state_code: "AZ",
+        county_name: null,
+        latitude: 33.45,
+        longitude: -112.07,
+        timezone: null,
+        created_at: now,
+        updated_at: now,
+      },
+    ]);
+
+    const { syncDemographics } = await import("@/lib/geocoding/censusImport");
+    const result = await syncDemographics(Number.POSITIVE_INFINITY);
+    expect(result.failedStates).toContain("AZ");
+    expect(result.remainingStates).toContain("AZ");
+    // AZ's ZIP was never written — a rejected fetch never partially applies.
+    const row = await store.getZipCodeReference("85001");
+    expect(row?.population).toBeNull();
+  });
+
   it("hasZipGeographiesForState reflects coverage per state after an upsert", async () => {
     expect(await store.hasZipGeographiesForState("TX")).toBe(false);
 
