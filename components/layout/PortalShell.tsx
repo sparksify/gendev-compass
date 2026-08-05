@@ -7,12 +7,27 @@ import type { PortalContext } from "@/lib/portal/context";
 
 /** Brand lockup shown at the top of the sidebar (and in the header on mobile). */
 export function BrandBlock({ logoUrl }: { logoUrl?: string }) {
-  const subMark = brand.productName.replace(`${brand.brandName} `, "");
+  // An admin-uploaded logo is the complete lockup — render it alone.
+  if (logoUrl && logoUrl !== brand.logoPath) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- admin-uploaded asset
+      <img
+        src={logoUrl}
+        alt={brand.productName}
+        className="h-10 w-auto max-w-[176px] object-contain"
+      />
+    );
+  }
+
+  // Bundled fallback: compass mark + drawn wordmark.
+  const subMark = brand.productName.startsWith(brand.brandName)
+    ? brand.productName.slice(brand.brandName.length).trim()
+    : brand.productName;
   return (
     <div className="flex items-center gap-2.5">
-      {/* eslint-disable-next-line @next/next/no-img-element -- admin-uploaded asset */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={logoUrl ?? brand.logoPath}
+        src={brand.logoPath}
         alt={brand.brandName}
         className="h-8 w-auto max-w-[64px] object-contain"
       />
@@ -20,11 +35,13 @@ export function BrandBlock({ logoUrl }: { logoUrl?: string }) {
         <p className="whitespace-nowrap font-serif text-[19px] font-medium leading-none tracking-tight text-foreground">
           {brand.brandName}
         </p>
-        <p className="mt-1 flex items-center gap-1.5 whitespace-nowrap text-[7.5px] font-medium uppercase tracking-[0.3em] text-foreground">
-          <span aria-hidden className="h-px w-3 bg-foreground/60" />
-          {subMark}
-          <span aria-hidden className="h-px w-3 bg-foreground/60" />
-        </p>
+        {subMark && (
+          <p className="mt-1 flex items-center gap-1.5 whitespace-nowrap text-[7.5px] font-medium uppercase tracking-[0.3em] text-foreground">
+            <span aria-hidden className="h-px w-3 bg-foreground/60" />
+            {subMark}
+            <span aria-hidden className="h-px w-3 bg-foreground/60" />
+          </p>
+        )}
       </div>
     </div>
   );
