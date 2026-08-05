@@ -231,7 +231,7 @@ export function LiveTerritoryMap({ token, result, onSelectAlternative, disabled,
         fill ? "flex h-full min-h-0 flex-col" : ""
       }`}
     >
-      <div className={fill ? "relative min-h-0 flex-1" : "relative"}>
+      <div className={fill ? "relative isolate min-h-0 flex-1" : "relative isolate"}>
         <div
           ref={containerRef}
           className={fill ? "h-full w-full" : "h-[380px] w-full md:h-[480px]"}

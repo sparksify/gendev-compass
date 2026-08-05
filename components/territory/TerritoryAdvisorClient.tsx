@@ -528,7 +528,7 @@ export function TerritoryAdvisorClient({
 
         {/* Live map pane with the floating Market Analysis panel. */}
         {showMapPane && (
-          <div className="relative order-2 h-[320px] min-h-0 md:order-1 md:h-[400px] lg:order-none lg:h-full">
+          <div className="relative isolate order-2 h-[320px] min-h-0 md:order-1 md:h-[400px] lg:order-none lg:h-full">
             <LiveTerritoryMap
               token={token}
               result={lastResult}
