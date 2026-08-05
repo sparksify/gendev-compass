@@ -135,9 +135,18 @@ export async function getCensusDataHealth(): Promise<CensusDataHealth> {
  * Never starts a job against an empty ZIP reference — that's a separate
  * pipeline (lib/geocoding/zipImport.ts) with its own cron; this reports
  * the gap via the health payload instead of failing a job immediately.
+ *
+ * Takes an already-computed `health` rather than calling
+ * getCensusDataHealth() itself: that call pages through the entire
+ * zip_code_reference table (tens of thousands of rows), and a caller that
+ * also needs the health payload for its own response (the admin route)
+ * would otherwise pay for that full scan twice in one request — the
+ * difference between comfortably finishing and blowing the route's own
+ * maxDuration in production.
  */
 export async function reconcileCensusImportState(
   trigger: CensusImportJobTrigger,
+  health: CensusDataHealth,
 ): Promise<{ action: "resumed" | "enqueued" | "none"; job: CensusImportJobRecord | null }> {
   const resumed = await resumeStuckJobIfAny();
   if (resumed.resumed) {
@@ -147,7 +156,6 @@ export async function reconcileCensusImportState(
   }
   if (resumed.jobId) return { action: "none", job: null }; // already running, not stuck
 
-  const health = await getCensusDataHealth();
   if (health.totalGeographyRecords === 0) return { action: "none", job: null };
 
   const currentVintageEverSucceeded =
