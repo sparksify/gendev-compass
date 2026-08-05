@@ -262,6 +262,50 @@ describe("refreshZipReference / refreshDemographics / hasZipGeographiesForState 
     expect(row?.population).toBeNull();
   });
 
+  it("syncDemographics still writes population/income when only the prior-vintage (growth) fetch fails", async () => {
+    // Regression guard for a real production incident: every state's
+    // prior-vintage request failed with HTTP 400 (predating when the
+    // Census API's ZCTA-by-state support was introduced), and because both
+    // vintages were fetched via a single Promise.all, that one failure
+    // discarded population/income data that had fetched successfully.
+    global.fetch = vi.fn((url: string) => {
+      if (url.includes("/2018/acs/acs5")) {
+        return Promise.reject(new Error("HTTP 400"));
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => [
+          ["B01003_001E", "B11001_001E", "B19013_001E", "zip code tabulation area"],
+          ["500000", "200000", "60000", "87101"],
+        ],
+      });
+    }) as unknown as typeof fetch;
+
+    const now = new Date().toISOString();
+    await store.upsertZipCodeReferences([
+      {
+        zip_code: "87101",
+        city: "Albuquerque",
+        state_code: "NM",
+        county_name: null,
+        latitude: 35.08,
+        longitude: -106.65,
+        timezone: null,
+        created_at: now,
+        updated_at: now,
+      },
+    ]);
+
+    const { syncDemographics } = await import("@/lib/geocoding/censusImport");
+    const result = await syncDemographics(Number.POSITIVE_INFINITY);
+    expect(result.loadedStates).toContain("NM");
+    expect(result.failedStates).not.toContain("NM");
+    const row = await store.getZipCodeReference("87101");
+    expect(row).toMatchObject({ population: 500000, median_household_income: 60000 });
+    // Growth couldn't be computed without the prior vintage — null, not fabricated.
+    expect(row?.population_growth_pct).toBeNull();
+  });
+
   it("hasZipGeographiesForState reflects coverage per state after an upsert", async () => {
     expect(await store.hasZipGeographiesForState("TX")).toBe(false);
 

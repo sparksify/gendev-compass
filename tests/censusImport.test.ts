@@ -84,6 +84,18 @@ describe("fetchAcsNational (per-state querying)", () => {
     expect(urls.every((u) => u.includes("&key=test-key-123"))).toBe(true);
   });
 
+  it("trims a key with copy-pasted whitespace instead of sending a corrupted query string", async () => {
+    process.env.CENSUS_API_KEY = "  test-key-123\n";
+    const fetchMock = vi.fn().mockResolvedValue(acsResponseFor("75201"));
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await fetchAcsNational(2023, ["B01003_001E"]);
+
+    const urls = fetchMock.mock.calls.map(([url]) => String(url));
+    expect(urls.every((u) => u.includes("&key=test-key-123"))).toBe(true);
+    expect(urls.every((u) => !u.includes("%0A") && !u.includes("%20test"))).toBe(true);
+  });
+
   it("sends a descriptive User-Agent on every request", async () => {
     const fetchMock = vi.fn().mockResolvedValue(acsResponseFor("75201"));
     global.fetch = fetchMock as unknown as typeof fetch;

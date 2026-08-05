@@ -110,11 +110,15 @@ async function fetchAcsForState(
   variables: string[],
   fipsCode: string,
 ): Promise<Map<string, Record<string, number | null>>> {
-  const key = process.env.CENSUS_API_KEY;
+  // Trimmed defensively — a stray trailing newline/space from copy-pasting
+  // the key into Vercel's env var UI would otherwise silently corrupt the
+  // query string, and encodeURIComponent guards against any character
+  // that would otherwise need escaping.
+  const key = process.env.CENSUS_API_KEY?.trim();
   const url =
     `${CENSUS_API_BASE}/${vintage}/acs/acs5?get=${variables.join(",")}` +
     `&for=zip%20code%20tabulation%20area:*&in=state:${fipsCode}` +
-    (key ? `&key=${key}` : "");
+    (key ? `&key=${encodeURIComponent(key)}` : "");
   const response = await fetch(url, {
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     headers: { "User-Agent": "GenDevCompass/1.0 (Territory Intelligence market data import)" },
@@ -380,10 +384,25 @@ export async function syncDemographics(budgetMs: number): Promise<SyncDemographi
       if (!stateCode) return;
       const fips = STATE_FIPS_CODES[stateCode];
       try {
-        const [current, prior] = await Promise.all([
-          fetchAcsForState(CENSUS_CURRENT_VINTAGE, ["B01003_001E", "B11001_001E", "B19013_001E"], fips),
-          fetchAcsForState(CENSUS_PRIOR_VINTAGE, ["B01003_001E"], fips),
-        ]);
+        // The current-vintage fetch (population/households/income) is
+        // required; the prior-vintage fetch (growth comparison only) is
+        // decoupled and allowed to fail on its own — a state-scoped ZCTA
+        // query against an older vintage failing (observed in production:
+        // every state's prior-vintage request rejected with HTTP 400,
+        // predating when the Census API's ZCTA-by-state support was
+        // introduced) must never discard population/income data that
+        // fetched successfully. Growth simply stays null for that state.
+        const current = await fetchAcsForState(
+          CENSUS_CURRENT_VINTAGE,
+          ["B01003_001E", "B11001_001E", "B19013_001E"],
+          fips,
+        );
+        let prior = new Map<string, Record<string, number | null>>();
+        try {
+          prior = await fetchAcsForState(CENSUS_PRIOR_VINTAGE, ["B01003_001E"], fips);
+        } catch (priorError) {
+          console.error(`[census] ${stateCode} prior-vintage (growth) fetch failed — proceeding without growth:`, priorError);
+        }
         const demographics = buildDemographics(current, prior);
         const rows = buildDemographicsUpsertRows(
           byState.get(stateCode) ?? [],
