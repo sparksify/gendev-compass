@@ -6,9 +6,11 @@ import { Search, MapPin, Hash, RotateCcw } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/form-fields";
-import { TerritoryMap } from "./TerritoryMap";
 import { LiveTerritoryMap } from "./LiveTerritoryMap";
-import { ResultSummaryCard } from "./ResultSummaryCard";
+import { MarketAnalysisCard } from "./MarketAnalysisCard";
+import { TerritoryAssessment } from "./TerritoryAssessment";
+import { WhyThisMarket } from "./WhyThisMarket";
+import { NearbyMarkets } from "./NearbyMarkets";
 import { ChatMessage } from "./ChatMessage";
 import { ReviewRequestModal } from "./ReviewRequestModal";
 import { Disclaimer } from "./Disclaimer";
@@ -25,7 +27,7 @@ const LOADING_PHRASES = [
   "Preparing your preliminary result…",
 ];
 
-const EXAMPLE_SEARCHES = ["Dallas, Texas", "75214", "Frisco, TX", "Within 10 miles of Nashville"];
+const POPULAR_MARKETS = ["Dallas, TX", "Austin, TX", "Nashville, TN", "Phoenix, AZ", "Tampa, FL"];
 
 let messageIdCounter = 0;
 function nextId(): string {
@@ -224,9 +226,18 @@ export function TerritoryAdvisorClient({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-5 2xl:grid-cols-[minmax(0,1fr)_400px]">
+    <div className="space-y-5">
+      {/* The map is the hero: the whole page centers on the market. */}
+      <LiveTerritoryMap
+        token={token}
+        result={lastResult}
+        onSelectAlternative={handleSelectAlternative}
+        disabled={submitting}
+      />
+
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
       {/* Left: conversational interface */}
-      <Card className="flex min-w-0 flex-col">
+      <Card className="flex min-w-0 flex-col self-start">
         <div className="border-b border-border px-5 py-4">
           <h1 className="text-[17px] font-bold text-foreground">Territory Advisor</h1>
           <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
@@ -250,18 +261,18 @@ export function TerritoryAdvisorClient({
           {messages.length <= 1 && (
             <div className="flex flex-col gap-2">
               <p className="text-[11px] font-medium uppercase tracking-wide text-faint-foreground">
-                Example searches
+                Popular Markets
               </p>
               <div className="flex flex-wrap gap-2">
-                {EXAMPLE_SEARCHES.map((example) => (
+                {POPULAR_MARKETS.map((market) => (
                   <button
-                    key={example}
+                    key={market}
                     type="button"
                     disabled={submitting}
-                    onClick={() => handleSubmitText(example, "chip")}
+                    onClick={() => handleSubmitText(market, "chip")}
                     className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-secondary-foreground transition-colors hover:bg-surface disabled:opacity-50"
                   >
-                    {example}
+                    {market}
                   </button>
                 ))}
               </div>
@@ -344,29 +355,21 @@ export function TerritoryAdvisorClient({
         </div>
       </Card>
 
-      {/* Right: map + market summary */}
+      {/* Right: territory intelligence stack */}
       <div className="flex min-w-0 flex-col gap-4">
-        {lastResult?.location.latitude != null && lastResult?.location.longitude != null ? (
-          <LiveTerritoryMap
-            token={token}
-            status={lastResult.status}
-            latitude={lastResult.location.latitude}
-            longitude={lastResult.location.longitude}
-            radiusMiles={lastResult.evaluation.radiusMiles || radiusMiles}
-            locationLabel={lastResult.location.displayName}
-            zipCodes={lastResult.evaluation.zipCodes}
-            searchedZip={lastResult.location.zipCode}
-          />
-        ) : (
-          <TerritoryMap
-            status={lastResult?.status ?? null}
-            radiusMiles={radiusMiles}
-            locationLabel={lastResult?.location.displayName ?? null}
-            overlapPercentage={lastResult?.evaluation.overlapPercentage ?? 0}
-          />
-        )}
         {lastResult && lastResult.status !== "LOCATION_NOT_FOUND" && lastResult.status !== "BRAND_NOT_CONFIGURED" && (
-          <ResultSummaryCard result={lastResult} />
+          // Key by evaluation time so each new search re-runs the entrance
+          // animations and count-ups.
+          <div key={lastResult.checkedAt} className="flex min-w-0 flex-col gap-4">
+            <MarketAnalysisCard result={lastResult} />
+            <TerritoryAssessment result={lastResult} />
+            <WhyThisMarket result={lastResult} />
+            <NearbyMarkets
+              alternatives={lastResult.alternatives.filter((a) => a.status === "AVAILABLE")}
+              disabled={submitting}
+              onSelect={handleSelectAlternative}
+            />
+          </div>
         )}
         <Card className="p-4">
           <Disclaimer />
@@ -374,6 +377,7 @@ export function TerritoryAdvisorClient({
         <p className="px-1 text-[12px] text-muted-foreground">
           Have questions about this feature? <Link href={`${base}#faq`} className="text-primary hover:text-primary-hover">Visit the Investor FAQ</Link>.
         </p>
+      </div>
       </div>
 
       <ReviewRequestModal

@@ -5,7 +5,7 @@ import type { Map as LeafletMap, LayerGroup } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { STATUS_META } from "./statusMeta";
 import { MAP_DISCLAIMER } from "@/lib/territory/messages";
-import type { TerritoryResultStatus } from "@/types/territory";
+import type { TerritoryAlternative, TerritoryEvaluationResult, TerritoryResultStatus } from "@/types/territory";
 
 /** Map stroke/fill colors per result status (paired with label + icon elsewhere). */
 const STATUS_COLORS: Partial<Record<TerritoryResultStatus, string>> = {
@@ -20,39 +20,46 @@ const TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png
 const TILE_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
+/** Continental US overview shown before the first search. */
+const US_CENTER: [number, number] = [38.5, -96.5];
+const US_ZOOM = 4;
+
 export interface LiveTerritoryMapProps {
   token: string;
-  status: TerritoryResultStatus;
-  latitude: number;
-  longitude: number;
-  radiusMiles: number;
-  locationLabel: string | null;
-  /** ZIPs inside the evaluation radius (the prospect's own search area). */
-  zipCodes: string[];
-  /** The searched ZIP itself, highlighted when boundary data exists. */
-  searchedZip: string | null;
+  /** Latest evaluation, or null before the first search (US overview). */
+  result: TerritoryEvaluationResult | null;
+  /** Fired when a prospect clicks a nearby-market marker on the map. */
+  onSelectAlternative?: (alternative: TerritoryAlternative) => void;
+  disabled?: boolean;
 }
 
 /**
- * Real tile-based map of the prospect's own evaluation area: CARTO/OSM
- * basemap, the searched point, the preliminary radius, and public Census
- * ZIP boundaries for the searched area (fetched per portal token). Shows
- * nothing about territories — no statuses, ownership, or sold boundaries
- * (those never reach the browser; see docs/territory-advisor.md).
+ * The hero map of the Territory Intelligence view: a real CARTO/OSM
+ * basemap that flies to each searched market, drops an animated pin, draws
+ * the preliminary evaluation radius, shades the prospect's own searched
+ * ZIP boundaries in the result color, and marks nearby open markets as
+ * clickable prospects. Shows nothing about other territories — no
+ * statuses, ownership, or sold boundaries ever reach the browser (see
+ * docs/territory-advisor.md).
  */
-export function LiveTerritoryMap({
-  token,
-  status,
-  latitude,
-  longitude,
-  radiusMiles,
-  locationLabel,
-  zipCodes,
-  searchedZip,
-}: LiveTerritoryMapProps) {
+export function LiveTerritoryMap({ token, result, onSelectAlternative, disabled }: LiveTerritoryMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const overlaysRef = useRef<LayerGroup | null>(null);
+  const hasFlownRef = useRef(false);
+  const selectAlternativeRef = useRef(onSelectAlternative);
+  selectAlternativeRef.current = onSelectAlternative;
+  const disabledRef = useRef(disabled);
+  disabledRef.current = disabled;
+
+  const latitude = result?.location.latitude ?? null;
+  const longitude = result?.location.longitude ?? null;
+  const status = result?.status ?? null;
+  const radiusMiles = result?.evaluation.radiusMiles ?? 0;
+  const searchedZip = result?.location.zipCode ?? null;
+  const zipCodes = result?.evaluation.zipCodes ?? [];
+  const locationLabel = result?.location.displayName ?? null;
+  const alternatives = result?.alternatives ?? [];
 
   useEffect(() => {
     let cancelled = false;
@@ -66,7 +73,7 @@ export function LiveTerritoryMap({
           zoomControl: true,
           attributionControl: true,
           scrollWheelZoom: false,
-        });
+        }).setView(US_CENTER, US_ZOOM);
         L.tileLayer(TILE_URL, { attribution: TILE_ATTRIBUTION, maxZoom: 18 }).addTo(mapRef.current);
         overlaysRef.current = L.layerGroup().addTo(mapRef.current);
       }
@@ -74,33 +81,73 @@ export function LiveTerritoryMap({
       const overlays = overlaysRef.current!;
       overlays.clearLayers();
 
+      if (latitude == null || longitude == null || !status) return;
+
       const color = STATUS_COLORS[status] ?? "#2563eb";
-      const radiusMeters = radiusMiles * 1609.34;
+      const radiusMeters = Math.max(radiusMiles, 1) * 1609.34;
+      const bounds = L.latLng(latitude, longitude).toBounds(radiusMeters * 2);
+      const reducedMotion =
+        typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-      // Fit the view first: L.Circle#getBounds needs an initialized view, so
-      // derive bounds straight from the coordinates instead.
-      map.fitBounds(L.latLng(latitude, longitude).toBounds(radiusMeters * 2), {
-        padding: [16, 16],
-      });
+      // Fly (animated) on subsequent searches; snap on the first render.
+      if (hasFlownRef.current && !reducedMotion) {
+        map.flyToBounds(bounds, { padding: [24, 24], duration: 1.3 });
+      } else {
+        map.fitBounds(bounds, { padding: [24, 24] });
+      }
+      hasFlownRef.current = true;
 
-      // Evaluation radius + searched point.
-      L.circle([latitude, longitude], {
-        radius: radiusMeters,
-        color,
-        weight: 2,
-        dashArray: "6 6",
-        fillColor: color,
-        fillOpacity: 0.08,
+      // Preliminary evaluation radius.
+      if (radiusMiles > 0) {
+        L.circle([latitude, longitude], {
+          radius: radiusMeters,
+          color,
+          weight: 2,
+          dashArray: "6 6",
+          fillColor: color,
+          fillOpacity: 0.06,
+        }).addTo(overlays);
+      }
+
+      // Animated drop pin with a pulsing ring at the searched location.
+      const pin = L.marker([latitude, longitude], {
+        icon: L.divIcon({
+          className: "",
+          html:
+            `<div class="ti-pin" style="position:relative;width:26px;height:26px;">` +
+            `<span class="ti-pin-ring" style="position:absolute;inset:0;border-radius:9999px;background:${color};"></span>` +
+            `<span style="position:absolute;inset:6px;border-radius:9999px;background:${color};border:2.5px solid #fff;box-shadow:0 1px 4px rgb(0 0 0 / 0.35);"></span>` +
+            `</div>`,
+          iconSize: [26, 26],
+          iconAnchor: [13, 13],
+        }),
+        keyboard: false,
       }).addTo(overlays);
-      L.circleMarker([latitude, longitude], {
-        radius: 6,
-        color: "#ffffff",
-        weight: 2,
-        fillColor: color,
-        fillOpacity: 1,
-      })
-        .bindTooltip(locationLabel ?? "Searched location", { direction: "top", offset: [0, -6] })
-        .addTo(overlays);
+      if (locationLabel) {
+        pin.bindTooltip(locationLabel, { direction: "top", offset: [0, -10] });
+      }
+
+      // Nearby open markets as clickable prospects (already screened as
+      // available by the evaluator — never any other territory's status).
+      for (const alternative of alternatives) {
+        if (alternative.status !== "AVAILABLE") continue;
+        if (alternative.latitude == null || alternative.longitude == null) continue;
+        const marker = L.circleMarker([alternative.latitude, alternative.longitude], {
+          radius: 7,
+          color: "#ffffff",
+          weight: 2,
+          fillColor: "#16a34a",
+          fillOpacity: 0.95,
+        })
+          .bindTooltip(`${alternative.label} — appears available. Click to analyze.`, {
+            direction: "top",
+            offset: [0, -8],
+          })
+          .addTo(overlays);
+        marker.on("click", () => {
+          if (!disabledRef.current) selectAlternativeRef.current?.(alternative);
+        });
+      }
 
       // Public ZIP boundaries for the prospect's own search area
       // (progressive enhancement — the map is complete without them).
@@ -115,10 +162,11 @@ export function LiveTerritoryMap({
           style: (feature) => {
             const isSearched = feature?.properties?.zip === searchedZip;
             return {
-              color: isSearched ? color : "#94a3b8",
+              color: isSearched ? color : color,
+              opacity: isSearched ? 0.9 : 0.45,
               weight: isSearched ? 2 : 1,
-              fillColor: isSearched ? color : "#94a3b8",
-              fillOpacity: isSearched ? 0.12 : 0.04,
+              fillColor: color,
+              fillOpacity: isSearched ? 0.22 : 0.07,
             };
           },
           onEachFeature: (feature, layer) => {
@@ -127,6 +175,9 @@ export function LiveTerritoryMap({
             }
           },
         }).addTo(overlays);
+        // Keep the pin above the boundary fills.
+        pin.remove();
+        pin.addTo(overlays);
       } catch {
         // Boundary overlay is optional; the base map already rendered.
       }
@@ -136,7 +187,9 @@ export function LiveTerritoryMap({
     return () => {
       cancelled = true;
     };
-  }, [token, status, latitude, longitude, radiusMiles, locationLabel, zipCodes, searchedZip]);
+    // Re-render per evaluation (checkedAt changes each search).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, result?.checkedAt]);
 
   // Tear the map down only on unmount.
   useEffect(
@@ -148,28 +201,39 @@ export function LiveTerritoryMap({
     [],
   );
 
-  const meta = STATUS_META[status];
+  const meta = status ? STATUS_META[status] : null;
 
   return (
     <div className="overflow-hidden rounded-card border border-border bg-surface">
-      <div
-        ref={containerRef}
-        className="aspect-[4/3] w-full"
-        role="img"
-        aria-label={
-          locationLabel
-            ? `Map showing the preliminary evaluation area around ${locationLabel}: ${meta.label}`
-            : "Territory evaluation map"
-        }
-      />
+      <div className="relative">
+        <div
+          ref={containerRef}
+          className="h-[380px] w-full md:h-[480px]"
+          role="img"
+          aria-label={
+            locationLabel
+              ? `Map showing the preliminary evaluation area around ${locationLabel}${meta ? `: ${meta.label}` : ""}`
+              : "United States territory map"
+          }
+        />
+        {!result && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-4 z-[500] flex justify-center">
+            <p className="rounded-full border border-border bg-card/95 px-4 py-2 text-[12.5px] font-medium text-secondary-foreground shadow-sm">
+              Search a market below to begin your territory analysis
+            </p>
+          </div>
+        )}
+      </div>
       <div className="flex items-center justify-between gap-3 border-t border-border px-3.5 py-2.5">
         <p className="text-[11.5px] leading-snug text-muted-foreground">{MAP_DISCLAIMER}</p>
-        <span
-          className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-medium ${meta.badgeClass}`}
-        >
-          <meta.icon className="size-3.5" strokeWidth={1.8} />
-          {meta.label}
-        </span>
+        {meta && (
+          <span
+            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-medium ${meta.badgeClass}`}
+          >
+            <meta.icon className="size-3.5" strokeWidth={1.8} />
+            {meta.label}
+          </span>
+        )}
       </div>
     </div>
   );

@@ -128,6 +128,23 @@ with no policies (service-role only), matching the app's deny-all model:
 `npm run import:zips` loads the full US ZIP reference (~41k rows: city,
 state, county, lat/lng) from the GeoNames postal dataset (CC BY 4.0) into
 `zip_code_reference`. Add `-- --dry` to parse and report without writing.
+Re-running it never wipes demographics: the GeoNames rows omit the
+demographic columns entirely, so upserts leave them untouched.
+
+### Real Census demographics (Market Analysis)
+
+`POST /api/admin/import-demographics` ("Load Census Demographics" on
+`/admin` under Territory ZIP Data) merges the GeoNames reference with the
+U.S. Census Bureau's public ACS 5-Year API (`lib/geocoding/censusImport.ts`):
+population (B01003), households (B11001), median household income (B19013),
+plus a 5-year growth percentage computed across two vintages (2014–2018 vs
+2019–2023 windows; migration 0010 adds `population_growth_pct`,
+`demographics_source`, `demographics_vintage`). The evaluator aggregates
+these across every evaluated ZIP (`aggregateMarketData`) — population and
+households sum, income is household-weighted, growth population-weighted —
+and the prospect UI (Market Analysis, Territory Assessment, Why this
+market?) only ever renders figures that actually loaded, with the source
+cited. Nothing is fabricated; missing data is simply omitted.
 
 ### Boundary polygons and the interactive maps
 

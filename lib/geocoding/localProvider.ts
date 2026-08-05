@@ -191,6 +191,8 @@ export function createLocalGeocodingProvider(): GeocodingProvider {
           population: row.population,
           households: row.households,
           medianHouseholdIncome: row.median_household_income,
+          populationGrowthPct: row.population_growth_pct ?? null,
+          demographicsSource: row.demographics_source ?? null,
         }))
         .filter((z) => z.distanceMiles <= radiusMiles)
         .sort((a, b) => a.distanceMiles - b.distanceMiles);

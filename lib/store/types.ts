@@ -51,6 +51,7 @@ import type {
   TerritoryZipCodeRecord,
   UpsertZipGeographyInput,
   ZipCodeReferenceRecord,
+  UpsertZipCodeReferenceInput,
   ZipGeographyRecord,
 } from "@/types/territory";
 
@@ -473,7 +474,7 @@ export interface PortalStore {
 
   getZipCodeReference(zipCode: string): Promise<ZipCodeReferenceRecord | null>;
   listZipCodeReferences(): Promise<ZipCodeReferenceRecord[]>;
-  upsertZipCodeReferences(rows: ZipCodeReferenceRecord[]): Promise<void>;
+  upsertZipCodeReferences(rows: UpsertZipCodeReferenceInput[]): Promise<void>;
 
   createTerritorySearch(input: CreateTerritorySearchInput): Promise<TerritorySearchRecord>;
   getTerritorySearch(id: string): Promise<TerritorySearchRecord | null>;

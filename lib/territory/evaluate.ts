@@ -174,6 +174,8 @@ async function findAlternatives(
       zipCode: zip.zipCode,
       distanceMiles: Math.round(zip.distanceMiles * 10) / 10,
       status,
+      latitude: zip.latitude,
+      longitude: zip.longitude,
     });
     if (alternatives.length >= MAX_ALTERNATIVES) break;
   }
@@ -181,11 +183,55 @@ async function findAlternatives(
   return alternatives;
 }
 
-function nearbyToMarketData(zip: NearbyZip | undefined) {
+/**
+ * Aggregates real demographic figures across every evaluated ZIP so the
+ * market analysis describes the whole search area, not one ZIP: population
+ * and households sum; income is a household-weighted average of ZIP medians;
+ * growth is population-weighted. Missing data stays null — never invented.
+ */
+export function aggregateMarketData(nearby: NearbyZip[]): TerritoryEvaluationResult["marketData"] {
+  const withData = nearby.filter((z) => z.population != null || z.medianHouseholdIncome != null);
+  if (withData.length === 0) {
+    return { population: null, households: null, medianHouseholdIncome: null, populationGrowthPct: null, zipsWithData: 0, source: null };
+  }
+
+  let population = 0;
+  let hasPopulation = false;
+  let households = 0;
+  let hasHouseholds = false;
+  let incomeWeighted = 0;
+  let incomeWeight = 0;
+  let growthWeighted = 0;
+  let growthWeight = 0;
+
+  for (const zip of withData) {
+    if (zip.population != null) {
+      population += zip.population;
+      hasPopulation = true;
+    }
+    if (zip.households != null) {
+      households += zip.households;
+      hasHouseholds = true;
+    }
+    if (zip.medianHouseholdIncome != null) {
+      const weight = zip.households ?? zip.population ?? 1;
+      incomeWeighted += zip.medianHouseholdIncome * weight;
+      incomeWeight += weight;
+    }
+    if (zip.populationGrowthPct != null) {
+      const weight = zip.population ?? 1;
+      growthWeighted += zip.populationGrowthPct * weight;
+      growthWeight += weight;
+    }
+  }
+
   return {
-    population: zip?.population ?? null,
-    households: zip?.households ?? null,
-    medianHouseholdIncome: zip?.medianHouseholdIncome ?? null,
+    population: hasPopulation ? population : null,
+    households: hasHouseholds ? households : null,
+    medianHouseholdIncome: incomeWeight > 0 ? Math.round(incomeWeighted / incomeWeight) : null,
+    populationGrowthPct: growthWeight > 0 ? Math.round((growthWeighted / growthWeight) * 10) / 10 : null,
+    zipsWithData: withData.length,
+    source: withData.find((z) => z.demographicsSource)?.demographicsSource ?? null,
   };
 }
 
@@ -228,7 +274,9 @@ async function buildResult(
       matchedTerritoryCount: opts.matchedTerritoryCount ?? 0,
       overlapPercentage: opts.overlapPercentage ?? 0,
     },
-    marketData: opts.marketData ?? { population: null, households: null, medianHouseholdIncome: null },
+    marketData:
+      opts.marketData ??
+      { population: null, households: null, medianHouseholdIncome: null, populationGrowthPct: null, zipsWithData: 0, source: null },
     alternatives,
     checkedAt: new Date().toISOString(),
     requiresManualReview: opts.requiresManualReview ?? false,
@@ -263,7 +311,7 @@ export function unconfiguredBrandResult(query: string, brandNameFallback: string
     location: { query, displayName: null, city: null, stateCode: null, zipCode: null, latitude: null, longitude: null },
     stateEligibility: { status: null },
     evaluation: { radiusMiles: 0, zipCodes: [], matchedTerritoryCount: 0, overlapPercentage: 0 },
-    marketData: { population: null, households: null, medianHouseholdIncome: null },
+    marketData: { population: null, households: null, medianHouseholdIncome: null, populationGrowthPct: null, zipsWithData: 0, source: null },
     alternatives: [],
     checkedAt: new Date().toISOString(),
     requiresManualReview: false,
@@ -368,9 +416,6 @@ export async function evaluateTerritory(input: EvaluateTerritoryInput): Promise<
   const evaluatedZipCodes = candidate.zipCode
     ? [...new Set([candidate.zipCode, ...nearby.map((z) => z.zipCode)])]
     : nearby.map((z) => z.zipCode);
-  const primaryZip =
-    (candidate.zipCode ? nearby.find((z) => z.zipCode === candidate.zipCode) : undefined) ?? nearby[0];
-
   const conflicts = await checkTerritoryConflicts(
     brand.id,
     candidate.latitude,
@@ -412,7 +457,7 @@ export async function evaluateTerritory(input: EvaluateTerritoryInput): Promise<
     evaluatedZipCodes,
     matchedTerritoryCount: conflicts.matchedTerritories.length,
     overlapPercentage: conflicts.overlapPercentage,
-    marketData: nearbyToMarketData(primaryZip),
+    marketData: aggregateMarketData(nearby),
     alternatives,
     requiresManualReview: status === "MANUAL_REVIEW" || conflicts.requiresManualReview,
   });

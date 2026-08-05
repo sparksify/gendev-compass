@@ -55,6 +55,7 @@ import type {
   TerritorySearchRecord,
   TerritoryZipCodeRecord,
   ZipCodeReferenceRecord,
+  UpsertZipCodeReferenceInput,
   ZipGeographyRecord,
 } from "@/types/territory";
 
@@ -1410,13 +1411,25 @@ export function createDevStore(): PortalStore {
       return (await readData()).zip_code_reference;
     },
 
-    async upsertZipCodeReferences(rows: ZipCodeReferenceRecord[]): Promise<void> {
+    async upsertZipCodeReferences(rows: UpsertZipCodeReferenceInput[]): Promise<void> {
       await withLock(async () => {
         const data = await readData();
+        const demographicDefaults = {
+          population: null,
+          households: null,
+          median_household_income: null,
+          population_growth_pct: null,
+          demographics_source: null,
+          demographics_vintage: null,
+        };
         for (const row of rows) {
           const index = data.zip_code_reference.findIndex((z) => z.zip_code === row.zip_code);
-          if (index === -1) data.zip_code_reference.push(row);
-          else data.zip_code_reference[index] = row;
+          if (index === -1) {
+            data.zip_code_reference.push({ ...demographicDefaults, ...row });
+          } else {
+            // Merge: omitted demographic keys keep their existing values.
+            data.zip_code_reference[index] = { ...data.zip_code_reference[index], ...row };
+          }
         }
         await writeData(data);
       });
