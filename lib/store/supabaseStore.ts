@@ -16,19 +16,34 @@ import type {
 import type {
   AppointmentPatch,
   CreateAppointmentInput,
+  CreateFranchiseBrandInput,
   CreateLeadRecordInput,
   CreateQuestionnaireInput,
   CreateStaffUserInput,
   CreateSubmissionInput,
+  CreateTerritoryDefinitionInput,
+  CreateTerritoryReviewRequestInput,
+  CreateTerritorySearchInput,
   InsertEventOptions,
   LeadPatch,
   PortalStore,
   StaffUserPatch,
+  TerritoryDefinitionPatch,
+  TerritoryReviewRequestPatch,
+  UpsertStateEligibilityInput,
   VideoProgressPatch,
 } from "./types";
 import type {
+  BrandStateEligibilityRecord,
+  FranchiseBrandRecord,
+  TerritoryDefinitionRecord,
+  TerritoryReviewRequestRecord,
+  TerritorySearchRecord,
+  TerritoryZipCodeRecord,
+  ZipCodeReferenceRecord,
+} from "@/types/territory";
+import type {
   ActivityEventRecord,
-  BrandRecord,
   ClientRecord,
   ExternalRecordMappingRecord,
   IntegrationConnectionRecord,
@@ -38,7 +53,6 @@ import type {
   OrganizationMembershipRecord,
   OrganizationRecord,
   ProfileRecord,
-  TerritoryRequestRecord,
 } from "@/types/domain";
 
 function nowIso(): string {
@@ -651,50 +665,6 @@ export function createSupabaseStore(): PortalStore {
       return (data as ClientRecord[]) ?? [];
     },
 
-    async createBrand(input) {
-      const { data, error } = await db.from("brands").insert(input).select().single();
-      if (error) throw new Error(`Failed to create brand: ${error.message}`);
-      return data as BrandRecord;
-    },
-
-    async getBrandById(id) {
-      const { data, error } = await db.from("brands").select().eq("id", id).maybeSingle();
-      if (error) throw new Error(`Failed to load brand: ${error.message}`);
-      return (data as BrandRecord | null) ?? null;
-    },
-
-    async getBrandBySlug(organizationId, slug) {
-      const { data, error } = await db
-        .from("brands")
-        .select()
-        .eq("organization_id", organizationId)
-        .eq("slug", slug)
-        .maybeSingle();
-      if (error) throw new Error(`Failed to load brand: ${error.message}`);
-      return (data as BrandRecord | null) ?? null;
-    },
-
-    async updateBrand(id, patch) {
-      const { data, error } = await db
-        .from("brands")
-        .update({ ...patch, updated_at: nowIso() })
-        .eq("id", id)
-        .select()
-        .single();
-      if (error) throw new Error(`Failed to update brand: ${error.message}`);
-      return data as BrandRecord;
-    },
-
-    async listBrands(organizationId) {
-      const { data, error } = await db
-        .from("brands")
-        .select()
-        .eq("organization_id", organizationId)
-        .order("created_at");
-      if (error) throw new Error(`Failed to list brands: ${error.message}`);
-      return (data as BrandRecord[]) ?? [];
-    },
-
     async createOpportunity(input) {
       const { data, error } = await db.from("opportunities").insert(input).select().single();
       if (error) throw new Error(`Failed to create opportunity: ${error.message}`);
@@ -888,47 +858,6 @@ export function createSupabaseStore(): PortalStore {
       return Boolean(data && data.length > 0);
     },
 
-    async createTerritoryRequest(input) {
-      const { data, error } = await db
-        .from("territory_requests")
-        .insert(input)
-        .select()
-        .single();
-      if (error) throw new Error(`Failed to create territory request: ${error.message}`);
-      return data as TerritoryRequestRecord;
-    },
-
-    async getTerritoryRequestById(id) {
-      const { data, error } = await db
-        .from("territory_requests")
-        .select()
-        .eq("id", id)
-        .maybeSingle();
-      if (error) throw new Error(`Failed to load territory request: ${error.message}`);
-      return (data as TerritoryRequestRecord | null) ?? null;
-    },
-
-    async listTerritoryRequestsForOpportunity(opportunityId) {
-      const { data, error } = await db
-        .from("territory_requests")
-        .select()
-        .eq("opportunity_id", opportunityId)
-        .order("created_at", { ascending: false });
-      if (error) throw new Error(`Failed to list territory requests: ${error.message}`);
-      return (data as TerritoryRequestRecord[]) ?? [];
-    },
-
-    async updateTerritoryRequest(id, patch) {
-      const { data, error } = await db
-        .from("territory_requests")
-        .update({ ...patch, updated_at: nowIso() })
-        .eq("id", id)
-        .select()
-        .single();
-      if (error) throw new Error(`Failed to update territory request: ${error.message}`);
-      return data as TerritoryRequestRecord;
-    },
-
     async createFddWorkflow(input) {
       const { data, error } = await db
         .from("opportunity_fdd_workflows")
@@ -967,6 +896,272 @@ export function createSupabaseStore(): PortalStore {
         .eq("organization_id", organizationId);
       if (error) throw new Error(`Failed to list FDD workflows: ${error.message}`);
       return (data as OpportunityFddWorkflowRecord[]) ?? [];
+    },
+    // -----------------------------------------------------------------------
+    // Territory Advisor
+    // -----------------------------------------------------------------------
+
+    async getBrandBySlug(slug: string): Promise<FranchiseBrandRecord | null> {
+      const { data, error } = await db.from("franchise_brands").select().eq("slug", slug).maybeSingle();
+      if (error) throw new Error(`Failed to load brand: ${error.message}`);
+      return (data as FranchiseBrandRecord | null) ?? null;
+    },
+
+    async getBrandById(id: string): Promise<FranchiseBrandRecord | null> {
+      const { data, error } = await db.from("franchise_brands").select().eq("id", id).maybeSingle();
+      if (error) throw new Error(`Failed to load brand: ${error.message}`);
+      return (data as FranchiseBrandRecord | null) ?? null;
+    },
+
+    async listBrands(): Promise<FranchiseBrandRecord[]> {
+      const { data, error } = await db.from("franchise_brands").select().order("name");
+      if (error) throw new Error(`Failed to list brands: ${error.message}`);
+      return (data as FranchiseBrandRecord[]) ?? [];
+    },
+
+    async createBrand(input: CreateFranchiseBrandInput): Promise<FranchiseBrandRecord> {
+      const { data, error } = await db
+        .from("franchise_brands")
+        .insert({ active: true, default_radius_miles: 10, ...input })
+        .select()
+        .single();
+      if (error) throw new Error(`Failed to create brand: ${error.message}`);
+      return data as FranchiseBrandRecord;
+    },
+
+    async getStateEligibility(
+      brandId: string,
+      stateCode: string,
+    ): Promise<BrandStateEligibilityRecord | null> {
+      const { data, error } = await db
+        .from("brand_state_eligibility")
+        .select()
+        .eq("brand_id", brandId)
+        .eq("state_code", stateCode.toUpperCase())
+        .maybeSingle();
+      if (error) throw new Error(`Failed to load state eligibility: ${error.message}`);
+      return (data as BrandStateEligibilityRecord | null) ?? null;
+    },
+
+    async listStateEligibility(brandId: string): Promise<BrandStateEligibilityRecord[]> {
+      const { data, error } = await db
+        .from("brand_state_eligibility")
+        .select()
+        .eq("brand_id", brandId)
+        .order("state_code");
+      if (error) throw new Error(`Failed to list state eligibility: ${error.message}`);
+      return (data as BrandStateEligibilityRecord[]) ?? [];
+    },
+
+    async upsertStateEligibility(
+      input: UpsertStateEligibilityInput,
+    ): Promise<BrandStateEligibilityRecord> {
+      const { data, error } = await db
+        .from("brand_state_eligibility")
+        .upsert(
+          {
+            brand_id: input.brand_id,
+            state_code: input.state_code.toUpperCase(),
+            status: input.status,
+            effective_date: input.effective_date ?? null,
+            expiration_date: input.expiration_date ?? null,
+            notes_internal: input.notes_internal ?? null,
+            updated_at: nowIso(),
+          },
+          { onConflict: "brand_id,state_code" },
+        )
+        .select()
+        .single();
+      if (error) throw new Error(`Failed to save state eligibility: ${error.message}`);
+      return data as BrandStateEligibilityRecord;
+    },
+
+    async listTerritoryDefinitions(brandId: string): Promise<TerritoryDefinitionRecord[]> {
+      const { data, error } = await db
+        .from("territory_definitions")
+        .select()
+        .eq("brand_id", brandId);
+      if (error) throw new Error(`Failed to list territory definitions: ${error.message}`);
+      return (data as TerritoryDefinitionRecord[]) ?? [];
+    },
+
+    async getTerritoryDefinition(id: string): Promise<TerritoryDefinitionRecord | null> {
+      const { data, error } = await db
+        .from("territory_definitions")
+        .select()
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw new Error(`Failed to load territory definition: ${error.message}`);
+      return (data as TerritoryDefinitionRecord | null) ?? null;
+    },
+
+    async createTerritoryDefinition(
+      input: CreateTerritoryDefinitionInput,
+    ): Promise<TerritoryDefinitionRecord> {
+      const { data, error } = await db
+        .from("territory_definitions")
+        .insert({ status: "available", public_display_level: "hidden", ...input })
+        .select()
+        .single();
+      if (error) throw new Error(`Failed to create territory definition: ${error.message}`);
+      return data as TerritoryDefinitionRecord;
+    },
+
+    async updateTerritoryDefinition(
+      id: string,
+      patch: TerritoryDefinitionPatch,
+    ): Promise<TerritoryDefinitionRecord> {
+      const { data, error } = await db
+        .from("territory_definitions")
+        .update({ ...patch, updated_at: nowIso() })
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw new Error(`Failed to update territory definition: ${error.message}`);
+      return data as TerritoryDefinitionRecord;
+    },
+
+    async listZipCodesForTerritory(territoryDefinitionId: string): Promise<TerritoryZipCodeRecord[]> {
+      const { data, error } = await db
+        .from("territory_zip_codes")
+        .select()
+        .eq("territory_definition_id", territoryDefinitionId);
+      if (error) throw new Error(`Failed to list territory zip codes: ${error.message}`);
+      return (data as TerritoryZipCodeRecord[]) ?? [];
+    },
+
+    async addTerritoryZipCodes(
+      territoryDefinitionId: string,
+      zipCodes: string[],
+    ): Promise<TerritoryZipCodeRecord[]> {
+      const rows = [...new Set(zipCodes.map((z) => z.trim()).filter(Boolean))].map((zip_code) => ({
+        territory_definition_id: territoryDefinitionId,
+        zip_code,
+      }));
+      if (rows.length === 0) return [];
+      const { data, error } = await db
+        .from("territory_zip_codes")
+        .upsert(rows, { onConflict: "territory_definition_id,zip_code", ignoreDuplicates: true })
+        .select();
+      if (error) throw new Error(`Failed to add territory zip codes: ${error.message}`);
+      return (data as TerritoryZipCodeRecord[]) ?? [];
+    },
+
+    async removeTerritoryZipCode(id: string): Promise<void> {
+      const { error } = await db.from("territory_zip_codes").delete().eq("id", id);
+      if (error) throw new Error(`Failed to remove territory zip code: ${error.message}`);
+    },
+
+    async getZipCodeReference(zipCode: string): Promise<ZipCodeReferenceRecord | null> {
+      const { data, error } = await db
+        .from("zip_code_reference")
+        .select()
+        .eq("zip_code", zipCode)
+        .maybeSingle();
+      if (error) throw new Error(`Failed to load zip code reference: ${error.message}`);
+      return (data as ZipCodeReferenceRecord | null) ?? null;
+    },
+
+    async listZipCodeReferences(): Promise<ZipCodeReferenceRecord[]> {
+      const { data, error } = await db.from("zip_code_reference").select();
+      if (error) throw new Error(`Failed to list zip code references: ${error.message}`);
+      return (data as ZipCodeReferenceRecord[]) ?? [];
+    },
+
+    async upsertZipCodeReferences(rows: ZipCodeReferenceRecord[]): Promise<void> {
+      if (rows.length === 0) return;
+      const { error } = await db.from("zip_code_reference").upsert(rows, { onConflict: "zip_code" });
+      if (error) throw new Error(`Failed to upsert zip code references: ${error.message}`);
+    },
+
+    async createTerritorySearch(input: CreateTerritorySearchInput): Promise<TerritorySearchRecord> {
+      const { data, error } = await db
+        .from("territory_searches")
+        .insert({ matched_territory_count: 0, request_manual_review: false, ...input })
+        .select()
+        .single();
+      if (error) throw new Error(`Failed to save territory search: ${error.message}`);
+      return data as TerritorySearchRecord;
+    },
+
+    async getTerritorySearch(id: string): Promise<TerritorySearchRecord | null> {
+      const { data, error } = await db.from("territory_searches").select().eq("id", id).maybeSingle();
+      if (error) throw new Error(`Failed to load territory search: ${error.message}`);
+      return (data as TerritorySearchRecord | null) ?? null;
+    },
+
+    async listTerritorySearchesForLead(leadId: string): Promise<TerritorySearchRecord[]> {
+      const { data, error } = await db
+        .from("territory_searches")
+        .select()
+        .eq("lead_id", leadId)
+        .order("created_at", { ascending: false });
+      if (error) throw new Error(`Failed to list territory searches: ${error.message}`);
+      return (data as TerritorySearchRecord[]) ?? [];
+    },
+
+    async listTerritorySearches(): Promise<TerritorySearchRecord[]> {
+      const { data, error } = await db
+        .from("territory_searches")
+        .select()
+        .order("created_at", { ascending: false });
+      if (error) throw new Error(`Failed to list territory searches: ${error.message}`);
+      return (data as TerritorySearchRecord[]) ?? [];
+    },
+
+    async createTerritoryReviewRequest(
+      input: CreateTerritoryReviewRequestInput,
+    ): Promise<TerritoryReviewRequestRecord> {
+      const { data, error } = await db
+        .from("territory_review_requests")
+        .insert({ status: "new", ...input })
+        .select()
+        .single();
+      if (error) throw new Error(`Failed to create territory review request: ${error.message}`);
+      return data as TerritoryReviewRequestRecord;
+    },
+
+    async getTerritoryReviewRequest(id: string): Promise<TerritoryReviewRequestRecord | null> {
+      const { data, error } = await db
+        .from("territory_review_requests")
+        .select()
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw new Error(`Failed to load territory review request: ${error.message}`);
+      return (data as TerritoryReviewRequestRecord | null) ?? null;
+    },
+
+    async listTerritoryReviewRequestsForLead(leadId: string): Promise<TerritoryReviewRequestRecord[]> {
+      const { data, error } = await db
+        .from("territory_review_requests")
+        .select()
+        .eq("lead_id", leadId)
+        .order("created_at", { ascending: false });
+      if (error) throw new Error(`Failed to list territory review requests: ${error.message}`);
+      return (data as TerritoryReviewRequestRecord[]) ?? [];
+    },
+
+    async listTerritoryReviewRequests(): Promise<TerritoryReviewRequestRecord[]> {
+      const { data, error } = await db
+        .from("territory_review_requests")
+        .select()
+        .order("created_at", { ascending: false });
+      if (error) throw new Error(`Failed to list territory review requests: ${error.message}`);
+      return (data as TerritoryReviewRequestRecord[]) ?? [];
+    },
+
+    async updateTerritoryReviewRequest(
+      id: string,
+      patch: TerritoryReviewRequestPatch,
+    ): Promise<TerritoryReviewRequestRecord> {
+      const { data, error } = await db
+        .from("territory_review_requests")
+        .update({ ...patch, updated_at: nowIso() })
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw new Error(`Failed to update territory review request: ${error.message}`);
+      return data as TerritoryReviewRequestRecord;
     },
   };
 }

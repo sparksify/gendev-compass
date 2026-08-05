@@ -18,24 +18,20 @@ select 'GenDev', 'gendev', 'FSO', 'active'
 where not exists (select 1 from public.organizations where slug = 'gendev');
 
 -- ---------------------------------------------------------------------------
--- 2. Default brand for the currently configured portal. Migrations cannot
---    read the deployment's environment configuration, so this is a clearly
---    marked placeholder: the administrator should rename it (or create the
---    real brand and point DEFAULT_BRAND_SLUG at it) after applying
---    migrations. brand_settings.requires_configuration flags it in-app.
+-- 2. Brand reconciliation. franchise_brands (Territory Advisor, 0005) is the
+--    platform brand table; 0005 seeds the CMDT brand. Here we (a) make sure
+--    the default brand exists for environments that skipped 0005's seed, and
+--    (b) claim ownership of any unowned brand for the default organization.
 -- ---------------------------------------------------------------------------
-insert into public.brands (organization_id, name, slug, status, brand_settings)
-select o.id,
-       'GenDev Compass Default Brand',
-       'default',
-       'active',
-       jsonb_build_object('requires_configuration', true)
+insert into public.franchise_brands (slug, name, default_radius_miles)
+select 'cmdt', 'Complete Mobile Drug Testing', 10
+where not exists (select 1 from public.franchise_brands where slug = 'cmdt');
+
+update public.franchise_brands b
+set organization_id = o.id
 from public.organizations o
 where o.slug = 'gendev'
-  and not exists (
-    select 1 from public.brands b
-    where b.organization_id = o.id and b.slug = 'default'
-  );
+  and b.organization_id is null;
 
 -- ---------------------------------------------------------------------------
 -- 3. One profile per existing staff user. Password hashes stay in
@@ -121,7 +117,7 @@ select o.id,
 from public.leads l
 join public.organizations o on o.slug = 'gendev'
 join public.clients c on c.source_lead_id = l.id
-join public.brands b on b.organization_id = o.id and b.slug = 'default'
+join public.franchise_brands b on b.slug = 'cmdt'
 left join public.profiles p on p.legacy_staff_user_id = l.assigned_advisor_id
 left join public.organization_memberships m
   on m.organization_id = o.id and m.profile_id = p.id
@@ -294,3 +290,24 @@ join public.leads l on l.id = e.lead_id
 left join public.profiles p on p.legacy_staff_user_id = e.created_by_staff_user_id
 where l.organization_id is not null
 on conflict (legacy_portal_event_id) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- 11. Territory Advisor linkage: attach existing searches and review
+--     requests to each lead's organization / client / primary opportunity.
+--     Fills NULLs only.
+-- ---------------------------------------------------------------------------
+update public.territory_searches t
+set organization_id = l.organization_id,
+    client_id = l.client_id,
+    opportunity_id = l.primary_opportunity_id
+from public.leads l
+where t.lead_id = l.id
+  and (t.organization_id is null or t.client_id is null or t.opportunity_id is null);
+
+update public.territory_review_requests t
+set organization_id = l.organization_id,
+    client_id = l.client_id,
+    opportunity_id = l.primary_opportunity_id
+from public.leads l
+where t.lead_id = l.id
+  and (t.organization_id is null or t.client_id is null or t.opportunity_id is null);

@@ -52,13 +52,13 @@ export async function ensureLeadDomainChain(
     organization = await resolveDefaultOrganization();
   }
 
-  // Brand -------------------------------------------------------------------
+  // Brand (franchise_brands; slugs are globally unique) ---------------------
   let brand: BrandRecord | null = null;
   if (lead.brand_id) {
     brand = await store.getBrandById(lead.brand_id);
   }
   if (!brand && options.brandSlug) {
-    brand = await store.getBrandBySlug(organization.id, options.brandSlug);
+    brand = await store.getBrandBySlug(options.brandSlug);
   }
   if (!brand) {
     brand = await resolveDefaultBrand(organization);

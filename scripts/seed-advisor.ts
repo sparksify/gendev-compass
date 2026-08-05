@@ -91,21 +91,18 @@ async function main() {
   const organization = await resolveDefaultOrganization();
   const defaultBrand = await resolveDefaultBrand(organization);
 
-  let secondBrand = await store.getBrandBySlug(organization.id, "gendev-demo-brand");
+  let secondBrand = await store.getBrandBySlug("gendev-demo-brand");
   if (!secondBrand) {
     secondBrand = await store.createBrand({
       organization_id: organization.id,
       name: "GenDev Demo Second Brand",
       slug: "gendev-demo-brand",
-      status: "active",
-      description: "Development-only second brand demonstrating multi-opportunity clients.",
-      brand_settings: { development_only: true },
     });
     console.log("Created second brand:", secondBrand.slug);
   }
 
   await resolveAdvisorContext(admin);
-  const darkoContext = await resolveAdvisorContext(darko);
+  await resolveAdvisorContext(darko);
   const jordanContext = await resolveAdvisorContext(jordan);
   console.log(
     `Organization '${organization.slug}' ready with brands: ${defaultBrand.slug}, ${secondBrand.slug}`,
@@ -510,22 +507,33 @@ async function main() {
         });
       }
 
-      const territoryRequests = await store.listTerritoryRequestsForOpportunity(
-        secondOpportunity.id,
-      );
-      if (territoryRequests.length === 0) {
-        await store.createTerritoryRequest({
+      // Territory Advisor data on the second opportunity: a pending search
+      // + review request, scoped to the opportunity (not the client).
+      const mariaSearches = await store.listTerritorySearchesForLead(mariaLead.id);
+      if (!mariaSearches.some((s) => s.opportunity_id === secondOpportunity.id)) {
+        const search = await store.createTerritorySearch({
+          lead_id: mariaLead.id,
+          brand_id: secondBrand.id,
+          raw_query: "Dallas North metro, TX",
+          city: "Dallas",
+          state_code: "TX",
+          radius_miles: 25,
+          result_status: "MANUAL_REVIEW",
+          request_manual_review: true,
           organization_id: organization.id,
           client_id: mariaClient.id,
           opportunity_id: secondOpportunity.id,
-          brand_id: secondBrand.id,
-          requested_by_profile_id: darkoContext.profile.id,
-          query_text: "Dallas North metro, TX",
-          city: "Dallas",
-          state: "TX",
-          radius_miles: 25,
         });
-        console.log("Created placeholder territory request for Maria Chen.");
+        await store.createTerritoryReviewRequest({
+          lead_id: mariaLead.id,
+          brand_id: secondBrand.id,
+          territory_search_id: search.id,
+          prospect_message: "Interested in the Dallas North metro area.",
+          organization_id: organization.id,
+          client_id: mariaClient.id,
+          opportunity_id: secondOpportunity.id,
+        });
+        console.log("Created territory search + review request for Maria Chen.");
       }
 
       await store.insertActivityEvent({

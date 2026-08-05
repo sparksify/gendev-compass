@@ -154,74 +154,14 @@ export type ClientPatch = Partial<
 >;
 
 // ---------------------------------------------------------------------------
-// Brands
+// Brands — the Territory Advisor's franchise_brands table IS the platform
+// brand entity (one brand model, no duplicate). BrandRecord is an alias so
+// platform code reads naturally; the row shape lives in types/territory.ts.
 // ---------------------------------------------------------------------------
 
-export type BrandStatus = "draft" | "active" | "paused" | "inactive" | "archived";
+import type { FranchiseBrandRecord } from "@/types/territory";
 
-export interface BrandRecord {
-  id: string;
-  organization_id: string;
-  developer_organization_id: string | null;
-  name: string;
-  slug: string;
-  status: BrandStatus;
-  description: string | null;
-  website_url: string | null;
-  logo_url: string | null;
-  primary_industry: string | null;
-  category: string | null;
-  business_model: string | null;
-  lower_investment: number | null;
-  upper_investment: number | null;
-  minimum_liquid_capital: number | null;
-  minimum_net_worth: number | null;
-  average_unit_volume: number | null;
-  brand_settings: Record<string, unknown>;
-  portal_settings: Record<string, unknown>;
-  qualification_settings: Record<string, unknown>;
-  territory_settings: Record<string, unknown>;
-  integration_settings: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CreateBrandInput {
-  organization_id: string;
-  name: string;
-  slug: string;
-  status?: BrandStatus;
-  description?: string | null;
-  brand_settings?: Record<string, unknown>;
-  portal_settings?: Record<string, unknown>;
-  qualification_settings?: Record<string, unknown>;
-  territory_settings?: Record<string, unknown>;
-  integration_settings?: Record<string, unknown>;
-}
-
-export type BrandPatch = Partial<
-  Pick<
-    BrandRecord,
-    | "name"
-    | "status"
-    | "description"
-    | "website_url"
-    | "logo_url"
-    | "primary_industry"
-    | "category"
-    | "business_model"
-    | "lower_investment"
-    | "upper_investment"
-    | "minimum_liquid_capital"
-    | "minimum_net_worth"
-    | "average_unit_volume"
-    | "brand_settings"
-    | "portal_settings"
-    | "qualification_settings"
-    | "territory_settings"
-    | "integration_settings"
-  >
->;
+export type BrandRecord = FranchiseBrandRecord;
 
 // ---------------------------------------------------------------------------
 // Opportunities
@@ -444,81 +384,11 @@ export interface CreateActivityEventInput {
 }
 
 // ---------------------------------------------------------------------------
-// Territory requests (foundation only)
+// Territory requests: modeled by the Territory Advisor feature's
+// territory_searches / territory_review_requests tables (types/territory.ts),
+// which carry organization/client/opportunity links. There is deliberately
+// no separate territory_requests table.
 // ---------------------------------------------------------------------------
-
-export const TERRITORY_REQUEST_STATUSES = [
-  "pending",
-  "processing",
-  "available",
-  "unavailable",
-  "manual_review",
-  "error",
-  "cancelled",
-] as const;
-export type TerritoryRequestStatus = (typeof TERRITORY_REQUEST_STATUSES)[number];
-
-export const TERRITORY_REGISTRATION_STATUSES = [
-  "registered",
-  "not_registered",
-  "exempt",
-  "unknown",
-  "manual_review",
-] as const;
-export type TerritoryRegistrationStatus = (typeof TERRITORY_REGISTRATION_STATUSES)[number];
-
-export interface TerritoryRequestRecord {
-  id: string;
-  organization_id: string;
-  client_id: string;
-  opportunity_id: string;
-  brand_id: string;
-  requested_by_profile_id: string | null;
-  query_text: string;
-  city: string | null;
-  state: string | null;
-  postal_code: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  radius_miles: number | null;
-  status: TerritoryRequestStatus;
-  availability_result: string | null;
-  registration_status: TerritoryRegistrationStatus | null;
-  result_summary: string | null;
-  result_data: Record<string, unknown>;
-  reviewed_by_profile_id: string | null;
-  reviewed_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CreateTerritoryRequestInput {
-  organization_id: string;
-  client_id: string;
-  opportunity_id: string;
-  brand_id: string;
-  requested_by_profile_id?: string | null;
-  query_text: string;
-  city?: string | null;
-  state?: string | null;
-  postal_code?: string | null;
-  latitude?: number | null;
-  longitude?: number | null;
-  radius_miles?: number | null;
-}
-
-export type TerritoryRequestPatch = Partial<
-  Pick<
-    TerritoryRequestRecord,
-    | "status"
-    | "availability_result"
-    | "registration_status"
-    | "result_summary"
-    | "result_data"
-    | "reviewed_by_profile_id"
-    | "reviewed_at"
-  >
->;
 
 // ---------------------------------------------------------------------------
 // Opportunity FDD workflows

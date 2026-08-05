@@ -58,8 +58,12 @@ export interface ComingSoonItem {
   shortTitle?: string;
 }
 
+/**
+ * The original "Territory Availability Checker" entry now ships as the
+ * Territory Advisor (components/layout/SidebarNavigation.tsx) — removed from
+ * here so the sidebar doesn't show a live feature as still-locked.
+ */
 export const COMING_SOON: ComingSoonItem[] = [
-  { key: "territory", title: "Territory Availability Checker", shortTitle: "Territory Availability" },
   { key: "market-map", title: "Interactive Territory Map" },
   { key: "market-analysis", title: "Personalized Market Analysis" },
 ];

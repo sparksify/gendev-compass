@@ -71,7 +71,7 @@ export async function loadInvestorRows(user: StaffUserRecord): Promise<InvestorR
     [opportunities, clients, brands, fddWorkflows] = await Promise.all([
       store.listOpportunities(organization.id),
       store.listClients(organization.id),
-      store.listBrands(organization.id),
+      store.listBrands(),
       store.listFddWorkflows(organization.id),
     ]);
   } catch (error) {

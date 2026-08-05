@@ -92,7 +92,7 @@ describe("lead domain chain", () => {
     const chain = await ensureLeadDomainChain(lead);
 
     expect(chain.organization.slug).toBe("gendev");
-    expect(chain.brand.slug).toBe("default");
+    expect(chain.brand.slug).toBe("cmdt");
     expect(chain.client.source_lead_id).toBe(lead.id);
     expect(chain.client.email).toBe(lead.email);
     expect(chain.opportunity.source_lead_id).toBe(lead.id);
@@ -194,19 +194,31 @@ describe("multi-opportunity clients", () => {
       }),
     ).rejects.toThrow(/already exists/);
 
-    // Territory request belongs to the specific opportunity.
-    const territory = await store.createTerritoryRequest({
+    // Territory activity belongs to the specific opportunity (Territory
+    // Advisor tables, extended with platform links).
+    const search = await store.createTerritorySearch({
+      lead_id: lead.id,
+      brand_id: brand2.id,
+      raw_query: "Austin, TX",
+      result_status: "MANUAL_REVIEW",
       organization_id: org.id,
       client_id: chain.client.id,
       opportunity_id: second.id,
-      brand_id: brand2.id,
-      query_text: "Austin, TX",
     });
-    expect(territory.status).toBe("pending");
-    const forSecond = await store.listTerritoryRequestsForOpportunity(second.id);
-    const forFirst = await store.listTerritoryRequestsForOpportunity(chain.opportunity.id);
-    expect(forSecond).toHaveLength(1);
-    expect(forFirst).toHaveLength(0);
+    const review = await store.createTerritoryReviewRequest({
+      lead_id: lead.id,
+      brand_id: brand2.id,
+      territory_search_id: search.id,
+      organization_id: org.id,
+      client_id: chain.client.id,
+      opportunity_id: second.id,
+    });
+    expect(review.status).toBe("new");
+    const { listTerritorySearchesForOpportunity, listTerritoryReviewRequestsForOpportunity } =
+      await import("@/lib/domain/territory");
+    expect(await listTerritorySearchesForOpportunity(second.id)).toHaveLength(1);
+    expect(await listTerritorySearchesForOpportunity(chain.opportunity.id)).toHaveLength(0);
+    expect(await listTerritoryReviewRequestsForOpportunity(second.id)).toHaveLength(1);
 
     // Closing one opportunity does not close the other.
     await closeOpportunity(second, "lost", "Chose another brand");
@@ -462,7 +474,7 @@ describe("portal context compatibility", () => {
     expect(context!.organization?.slug).toBe("gendev");
     expect(context!.client?.source_lead_id).toBe(lead.id);
     expect(context!.opportunity?.source_lead_id).toBe(lead.id);
-    expect(context!.brand?.slug).toBe("default");
+    expect(context!.brand?.slug).toBe("cmdt");
   });
 
   it("repairs a missing chain on load (pre-backfill lead)", async () => {

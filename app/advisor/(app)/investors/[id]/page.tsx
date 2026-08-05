@@ -71,7 +71,7 @@ export default async function InvestorDetailPage({
     client = await resolveClientFromLead(lead);
     if (client) {
       clientOpportunities = await listOpportunitiesForClient(client.id);
-      const brands = await store.listBrands(client.organization_id);
+      const brands = await store.listBrands();
       brandById = new Map(brands.map((b) => [b.id, b]));
     }
   } catch (error) {

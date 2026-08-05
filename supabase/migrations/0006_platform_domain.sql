@@ -1,12 +1,21 @@
 -- Platform domain model: organizations, profiles, memberships, clients,
--- brands, opportunities, assignments, external mappings, integration
--- connections, activity events, territory requests, and opportunity-level
--- FDD workflows — plus additive link columns on the existing tables.
+-- opportunities, assignments, external mappings, integration connections,
+-- activity events, and opportunity-level FDD workflows — plus additive link
+-- columns on the existing tables.
+--
+-- Brand reconciliation: the Territory Advisor migration
+-- (0005_territory_advisor.sql) already introduced `franchise_brands` as the
+-- DB-backed brand entity, live in production with territory data keyed to
+-- it. That table IS the platform brand — this migration deliberately does
+-- NOT create a second brand table; it links franchise_brands to
+-- organizations and points opportunities at it. Territory activity
+-- (territory_searches / territory_review_requests) likewise gains
+-- organization/client/opportunity links instead of a parallel table.
 --
 -- Strictly additive: no existing table, column, constraint, or index is
 -- dropped or renamed. Every statement is idempotent so the migration is safe
 -- to re-run against an existing database. Backfill lives in
--- 0006_platform_backfill.sql.
+-- 0007_platform_backfill.sql.
 
 create extension if not exists "pgcrypto";
 
@@ -119,41 +128,14 @@ create index if not exists clients_name_idx on public.clients (last_name, first_
 create index if not exists clients_status_idx on public.clients (status);
 
 -- ---------------------------------------------------------------------------
--- brands — franchise brand catalog, owned by an organization.
+-- franchise_brands — organization ownership (additive). Slugs remain
+-- globally unique (existing constraint from 0005). Backfilled in 0007.
 -- ---------------------------------------------------------------------------
-create table if not exists public.brands (
-  id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references public.organizations (id),
-  developer_organization_id uuid references public.organizations (id),
-  name text not null,
-  slug text not null,
-  status text not null default 'active',
-  description text,
-  website_url text,
-  logo_url text,
-  primary_industry text,
-  category text,
-  business_model text,
-  lower_investment numeric,
-  upper_investment numeric,
-  minimum_liquid_capital numeric,
-  minimum_net_worth numeric,
-  average_unit_volume numeric,
-  brand_settings jsonb not null default '{}',
-  portal_settings jsonb not null default '{}',
-  qualification_settings jsonb not null default '{}',
-  territory_settings jsonb not null default '{}',
-  integration_settings jsonb not null default '{}',
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint brands_org_slug_unique unique (organization_id, slug),
-  constraint brands_status_check check (status in (
-    'draft', 'active', 'paused', 'inactive', 'archived'
-  ))
-);
+alter table public.franchise_brands
+  add column if not exists organization_id uuid references public.organizations (id);
 
-create index if not exists brands_org_idx on public.brands (organization_id);
-create index if not exists brands_status_idx on public.brands (status);
+create index if not exists franchise_brands_organization_idx
+  on public.franchise_brands (organization_id);
 
 -- ---------------------------------------------------------------------------
 -- opportunities — one client's journey for one franchise brand. The new
@@ -169,7 +151,7 @@ create table if not exists public.opportunities (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations (id),
   client_id uuid not null references public.clients (id),
-  brand_id uuid not null references public.brands (id),
+  brand_id uuid not null references public.franchise_brands (id),
   source_lead_id uuid references public.leads (id),
   assigned_advisor_profile_id uuid references public.profiles (id),
   assigned_advisor_membership_id uuid references public.organization_memberships (id),
@@ -287,7 +269,7 @@ create index if not exists external_record_mappings_internal_idx
 create table if not exists public.integration_connections (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations (id),
-  brand_id uuid references public.brands (id),
+  brand_id uuid references public.franchise_brands (id),
   provider text not null,
   name text not null,
   status text not null default 'active',
@@ -347,49 +329,31 @@ create unique index if not exists activity_events_external_event_unique
   where external_event_id is not null;
 
 -- ---------------------------------------------------------------------------
--- territory_requests — foundation only (no availability intelligence yet).
--- Territory checks are brand/opportunity-specific, never client-global.
+-- Territory Advisor linkage (additive). territory_searches /
+-- territory_review_requests (from 0005) are the territory data model; they
+-- gain organization/client/opportunity links so territory activity attaches
+-- to a specific brand opportunity. Backfilled in 0007; nullable during the
+-- transition.
 -- ---------------------------------------------------------------------------
-create table if not exists public.territory_requests (
-  id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references public.organizations (id),
-  client_id uuid not null references public.clients (id),
-  opportunity_id uuid not null references public.opportunities (id),
-  brand_id uuid not null references public.brands (id),
-  requested_by_profile_id uuid references public.profiles (id),
-  query_text text not null,
-  city text,
-  state text,
-  postal_code text,
-  latitude numeric,
-  longitude numeric,
-  radius_miles numeric,
-  status text not null default 'pending',
-  availability_result text,
-  registration_status text,
-  result_summary text,
-  result_data jsonb not null default '{}',
-  reviewed_by_profile_id uuid references public.profiles (id),
-  reviewed_at timestamptz,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint territory_requests_status_check check (status in (
-    'pending', 'processing', 'available', 'unavailable', 'manual_review',
-    'error', 'cancelled'
-  )),
-  constraint territory_requests_registration_check check (
-    registration_status is null or registration_status in (
-      'registered', 'not_registered', 'exempt', 'unknown', 'manual_review'
-    )
-  )
-);
+alter table public.territory_searches
+  add column if not exists organization_id uuid references public.organizations (id),
+  add column if not exists client_id uuid references public.clients (id),
+  add column if not exists opportunity_id uuid references public.opportunities (id);
 
-create index if not exists territory_requests_opportunity_idx
-  on public.territory_requests (opportunity_id);
-create index if not exists territory_requests_client_idx
-  on public.territory_requests (client_id);
-create index if not exists territory_requests_status_idx
-  on public.territory_requests (status);
+create index if not exists territory_searches_opportunity_idx
+  on public.territory_searches (opportunity_id);
+create index if not exists territory_searches_client_idx
+  on public.territory_searches (client_id);
+
+alter table public.territory_review_requests
+  add column if not exists organization_id uuid references public.organizations (id),
+  add column if not exists client_id uuid references public.clients (id),
+  add column if not exists opportunity_id uuid references public.opportunities (id);
+
+create index if not exists territory_review_requests_opportunity_idx
+  on public.territory_review_requests (opportunity_id);
+create index if not exists territory_review_requests_client_idx
+  on public.territory_review_requests (client_id);
 
 -- ---------------------------------------------------------------------------
 -- opportunity_fdd_workflows — opportunity-scoped FDD state. Status semantics
@@ -403,7 +367,7 @@ create table if not exists public.opportunity_fdd_workflows (
   organization_id uuid not null references public.organizations (id),
   client_id uuid not null references public.clients (id),
   opportunity_id uuid not null unique references public.opportunities (id),
-  brand_id uuid not null references public.brands (id),
+  brand_id uuid not null references public.franchise_brands (id),
   status text not null default 'not_requested',
   requested_at timestamptz,
   sent_at timestamptz,
@@ -441,7 +405,7 @@ alter table public.leads
   add column if not exists organization_id uuid references public.organizations (id),
   add column if not exists client_id uuid references public.clients (id),
   add column if not exists primary_opportunity_id uuid references public.opportunities (id),
-  add column if not exists brand_id uuid references public.brands (id);
+  add column if not exists brand_id uuid references public.franchise_brands (id);
 
 create index if not exists leads_organization_idx on public.leads (organization_id);
 create index if not exists leads_client_idx on public.leads (client_id);
@@ -477,7 +441,7 @@ alter table public.questionnaire_submissions
   add column if not exists organization_id uuid references public.organizations (id),
   add column if not exists client_id uuid references public.clients (id),
   add column if not exists opportunity_id uuid references public.opportunities (id),
-  add column if not exists brand_id uuid references public.brands (id);
+  add column if not exists brand_id uuid references public.franchise_brands (id);
 
 create index if not exists questionnaire_submissions_opportunity_idx
   on public.questionnaire_submissions (opportunity_id);
@@ -498,7 +462,7 @@ alter table public.video_progress
   add column if not exists organization_id uuid references public.organizations (id),
   add column if not exists client_id uuid references public.clients (id),
   add column if not exists opportunity_id uuid references public.opportunities (id),
-  add column if not exists brand_id uuid references public.brands (id);
+  add column if not exists brand_id uuid references public.franchise_brands (id);
 
 create index if not exists video_progress_opportunity_idx
   on public.video_progress (opportunity_id);
@@ -527,13 +491,11 @@ alter table public.organizations enable row level security;
 alter table public.profiles enable row level security;
 alter table public.organization_memberships enable row level security;
 alter table public.clients enable row level security;
-alter table public.brands enable row level security;
 alter table public.opportunities enable row level security;
 alter table public.opportunity_assignments enable row level security;
 alter table public.external_record_mappings enable row level security;
 alter table public.integration_connections enable row level security;
 alter table public.activity_events enable row level security;
-alter table public.territory_requests enable row level security;
 alter table public.opportunity_fdd_workflows enable row level security;
 
 -- Helper: the profile bound to the current Supabase Auth user. STABLE,
@@ -598,10 +560,10 @@ create policy clients_member_read on public.clients
   for select to authenticated
   using (public.app_is_org_member(organization_id));
 
-drop policy if exists brands_member_read on public.brands;
-create policy brands_member_read on public.brands
+drop policy if exists franchise_brands_member_read on public.franchise_brands;
+create policy franchise_brands_member_read on public.franchise_brands
   for select to authenticated
-  using (public.app_is_org_member(organization_id));
+  using (organization_id is not null and public.app_is_org_member(organization_id));
 
 drop policy if exists opportunities_member_read on public.opportunities;
 create policy opportunities_member_read on public.opportunities
@@ -613,10 +575,15 @@ create policy activity_events_member_read on public.activity_events
   for select to authenticated
   using (public.app_is_org_member(organization_id));
 
-drop policy if exists territory_requests_member_read on public.territory_requests;
-create policy territory_requests_member_read on public.territory_requests
+drop policy if exists territory_searches_member_read on public.territory_searches;
+create policy territory_searches_member_read on public.territory_searches
   for select to authenticated
-  using (public.app_is_org_member(organization_id));
+  using (organization_id is not null and public.app_is_org_member(organization_id));
+
+drop policy if exists territory_review_requests_member_read on public.territory_review_requests;
+create policy territory_review_requests_member_read on public.territory_review_requests
+  for select to authenticated
+  using (organization_id is not null and public.app_is_org_member(organization_id));
 
 drop policy if exists opportunity_fdd_workflows_member_read on public.opportunity_fdd_workflows;
 create policy opportunity_fdd_workflows_member_read on public.opportunity_fdd_workflows

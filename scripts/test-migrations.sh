@@ -64,9 +64,10 @@ run_sql "create schema if not exists auth;
            end if;
          end \$\$;"
 
-echo "==> Applying legacy migrations 0001–0004"
+echo "==> Applying legacy migrations 0001–0005 (incl. Territory Advisor)"
 for f in "$MIGRATIONS_DIR"/0001_*.sql "$MIGRATIONS_DIR"/0002_*.sql \
-         "$MIGRATIONS_DIR"/0003_*.sql "$MIGRATIONS_DIR"/0004_*.sql; do
+         "$MIGRATIONS_DIR"/0003_*.sql "$MIGRATIONS_DIR"/0004_*.sql \
+         "$MIGRATIONS_DIR"/0005_*.sql; do
   echo "    $(basename "$f")"; run_file "$f"
 done
 
@@ -124,21 +125,32 @@ values
 
 insert into public.fdd_audit_log (lead_id, event, source, actor, external_event_id)
 values ('aaaaaaaa-0000-0000-0000-000000000001', 'fdd_requested', 'portal', 'prospect', 'evt-1');
+
+-- Pre-platform Territory Advisor activity (0005 seeded the cmdt brand).
+insert into public.territory_searches
+  (lead_id, brand_id, raw_query, result_status)
+select 'aaaaaaaa-0000-0000-0000-000000000001', b.id, 'Dallas, TX', 'MANUAL_REVIEW'
+from public.franchise_brands b where b.slug = 'cmdt';
+insert into public.territory_review_requests (lead_id, brand_id)
+select 'aaaaaaaa-0000-0000-0000-000000000001', b.id
+from public.franchise_brands b where b.slug = 'cmdt';
 "
 
-echo "==> Applying 0005 + 0006 (first pass)"
-run_file "$MIGRATIONS_DIR/0005_platform_domain.sql"
-run_file "$MIGRATIONS_DIR/0006_platform_backfill.sql"
+echo "==> Applying 0006 + 0007 (first pass)"
+run_file "$MIGRATIONS_DIR/0006_platform_domain.sql"
+run_file "$MIGRATIONS_DIR/0007_platform_backfill.sql"
 
-echo "==> Applying 0005 + 0006 AGAIN (rerun safety)"
-run_file "$MIGRATIONS_DIR/0005_platform_domain.sql"
-run_file "$MIGRATIONS_DIR/0006_platform_backfill.sql"
+echo "==> Applying 0006 + 0007 AGAIN (rerun safety)"
+run_file "$MIGRATIONS_DIR/0006_platform_domain.sql"
+run_file "$MIGRATIONS_DIR/0007_platform_backfill.sql"
 
 echo "==> Asserting backfill invariants"
 assert_eq "organizations (gendev, exactly one)" 1 \
   "$(scalar "select count(*) from organizations where slug='gendev'")"
-assert_eq "default brand exactly one" 1 \
-  "$(scalar "select count(*) from brands where slug='default'")"
+assert_eq "cmdt brand exactly one, owned by gendev" 1 \
+  "$(scalar "select count(*) from franchise_brands b
+             join organizations o on o.id = b.organization_id
+             where b.slug='cmdt' and o.slug='gendev'")"
 assert_eq "profiles: one per staff user" 2 \
   "$(scalar "select count(*) from profiles where legacy_staff_user_id is not null")"
 assert_eq "memberships: one per profile" 2 \
@@ -198,33 +210,39 @@ assert_eq "portal_events untouched" 3 \
 assert_eq "portal tokens unchanged" "token-lead-1-0123456789abcdef" \
   "$(scalar "select portal_token from leads
              where id = 'aaaaaaaa-0000-0000-0000-000000000001'")"
-assert_eq "RLS enabled on all new tables" 12 \
+assert_eq "RLS enabled on all new tables" 10 \
   "$(scalar "select count(*) from pg_class c
              join pg_namespace n on n.oid = c.relnamespace
              where n.nspname='public' and c.relrowsecurity
              and c.relname in ('organizations','profiles','organization_memberships',
-               'clients','brands','opportunities','opportunity_assignments',
+               'clients','opportunities','opportunity_assignments',
                'external_record_mappings','integration_connections',
-               'activity_events','territory_requests','opportunity_fdd_workflows')")"
+               'activity_events','opportunity_fdd_workflows')")"
+assert_eq "territory rows linked to opportunity" "1|1" \
+  "$(scalar "select
+      (select count(*) from territory_searches where opportunity_id is not null) || '|' ||
+      (select count(*) from territory_review_requests where opportunity_id is not null)")"
 
 echo "==> Multi-opportunity smoke test (second brand, same client)"
 run_sql "
-insert into public.brands (organization_id, name, slug)
-select id, 'Second Brand', 'second-brand' from organizations where slug='gendev';
+insert into public.franchise_brands (slug, name, organization_id)
+select 'second-brand', 'Second Brand', id from organizations where slug='gendev';
 insert into public.opportunities (organization_id, client_id, brand_id, stage)
 select c.organization_id, c.id, b.id, 'NEW_LEAD'
 from clients c
-join brands b on b.slug = 'second-brand'
+join franchise_brands b on b.slug = 'second-brand'
 where c.source_lead_id = 'aaaaaaaa-0000-0000-0000-000000000001';
 insert into public.opportunity_fdd_workflows
   (organization_id, client_id, opportunity_id, brand_id, status)
 select o.organization_id, o.client_id, o.id, o.brand_id, 'not_requested'
-from opportunities o join brands b on b.id = o.brand_id
+from opportunities o join franchise_brands b on b.id = o.brand_id
 where b.slug = 'second-brand';
-insert into public.territory_requests
-  (organization_id, client_id, opportunity_id, brand_id, query_text, city, state)
-select o.organization_id, o.client_id, o.id, o.brand_id, 'Austin, TX', 'Austin', 'TX'
-from opportunities o join brands b on b.id = o.brand_id
+insert into public.territory_searches
+  (lead_id, brand_id, raw_query, result_status, organization_id, client_id, opportunity_id)
+select c.source_lead_id, o.brand_id, 'Austin, TX', 'MANUAL_REVIEW', o.organization_id, o.client_id, o.id
+from opportunities o
+join clients c on c.id = o.client_id
+join franchise_brands b on b.id = o.brand_id
 where b.slug = 'second-brand';
 "
 assert_eq "client has two opportunities across two brands" 2 \
@@ -233,9 +251,10 @@ assert_eq "client has two opportunities across two brands" 2 \
              where c.source_lead_id = 'aaaaaaaa-0000-0000-0000-000000000001'")"
 assert_eq "two FDD workflows, one per opportunity" 2 \
   "$(scalar "select count(*) from opportunity_fdd_workflows")"
-assert_eq "territory request on correct opportunity" 1 \
-  "$(scalar "select count(*) from territory_requests t
-             join brands b on b.id = t.brand_id where b.slug='second-brand'")"
+assert_eq "territory search on correct opportunity" 1 \
+  "$(scalar "select count(*) from territory_searches t
+             join franchise_brands b on b.id = t.brand_id
+             where b.slug='second-brand' and t.opportunity_id is not null")"
 
 echo ""
 echo "ALL MIGRATION TESTS PASSED"

@@ -37,7 +37,7 @@ records are never merged across organizations.
 ## RLS inventory
 
 Enabled (deny-all unless a policy matches) on every table, old and new. New
-policies added by `0005_platform_domain.sql`:
+policies added by `0006_platform_domain.sql`:
 
 | Table | Policy | Scope |
 | --- | --- | --- |

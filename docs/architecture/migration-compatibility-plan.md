@@ -53,7 +53,7 @@ service-layer code.
 
 ## Backfill behavior
 
-`0006_platform_backfill.sql` (rerunnable — see `scripts/test-migrations.sh`,
+`0007_platform_backfill.sql` (rerunnable — see `scripts/test-migrations.sh`,
 which applies it twice against a live cluster and asserts no duplicates):
 
 - Keys: `organizations.slug`, `brands (organization_id, slug)`,
@@ -74,7 +74,7 @@ Either order is safe:
 - **Deploy first**: new code detects missing chains and — because the new
   *tables* don't exist yet — chain resolution fails, is logged, and every
   legacy path continues from the lead. Run the migrations to activate the
-  domain model. (Recommended anyway: apply 0005+0006 before deploying.)
+  domain model. (Recommended anyway: apply 0006+0007 before deploying.)
 
 ## When legacy fields can be removed
 

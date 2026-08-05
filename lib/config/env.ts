@@ -36,7 +36,7 @@ export function getDefaultOrganizationSlug(): string {
 }
 
 export function getDefaultBrandSlug(): string {
-  return process.env.DEFAULT_BRAND_SLUG ?? "default";
+  return process.env.DEFAULT_BRAND_SLUG ?? "cmdt";
 }
 
 export function getAppUrl(): string {

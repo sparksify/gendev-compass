@@ -58,14 +58,14 @@ Distinct concepts, each with its own table:
 | Organization membership | `organization_memberships` | profile ↔ org with role + status |
 | Client/person | `clients` | canonical prospective franchise buyer |
 | Lead/acquisition record | `leads` (existing) | marketing acquisition + portal-entry record |
-| Franchise brand | `brands` | brand catalog per organization |
+| Franchise brand | `franchise_brands` (Territory Advisor table) | THE brand entity; org-linked |
 | Opportunity | `opportunities` | one client × one brand sales journey — the new center |
 | Advisor assignment | `opportunities.assigned_advisor_profile_id` + `opportunity_assignments` | primary column for reads, M:N table for teams |
 | Activity/event | `activity_events` (new) + `portal_events` (legacy, kept) | centralized event service dual-writes |
 | Appointment | `appointments` (existing, extended) | gains org/client/opportunity links |
 | Questionnaire submission | `questionnaire_submissions` (existing, extended) | immutable history, gains opportunity links |
 | FDD workflow | `opportunity_fdd_workflows` (new) + `leads.fdd_*` (legacy, synced) | opportunity-scoped |
-| Territory request | `territory_requests` (new, foundation only) | opportunity-scoped |
+| Territory request | `territory_searches` / `territory_review_requests` (Territory Advisor tables) | gain opportunity links |
 | External CRM identity | `external_record_mappings` + `integration_connections` | provider IDs never primary keys |
 
 ## 3. Entity relationships
@@ -137,10 +137,10 @@ store (which has no SQL migrations) converges to the same shape.
 
 Two new sequential migrations, both additive and idempotent:
 
-- **`0005_platform_domain.sql`** — creates all new tables, additive columns on
+- **`0006_platform_domain.sql`** — creates all new tables, additive columns on
   existing tables, indexes, constraints, RLS enablement, and policy helper
   functions. Every statement is `if not exists` / guarded.
-- **`0006_platform_backfill.sql`** — deterministic, rerunnable backfill:
+- **`0007_platform_backfill.sql`** — deterministic, rerunnable backfill:
   1. Upsert the **GenDev** organization (`slug = 'gendev'`, type `FSO`).
   2. Upsert the **default brand** (`slug = 'default'`, name
      "GenDev Compass Default Brand", status `active`,
@@ -359,3 +359,21 @@ remain indefinitely.
 18. **What must remain indefinitely?** `leads` (with unchanged
     `portal_token`s), `fdd_audit_log`, `questionnaire_submissions/answers`,
     and historical event rows — legal and audit requirements.
+
+## 14. Territory Advisor reconciliation (adopted during review)
+
+The Territory Advisor feature (migration `0005_territory_advisor.sql`,
+shipped in parallel and live in production) introduced `franchise_brands`
+plus the territory data model. The platform architecture adopts them rather
+than duplicating them:
+
+- **`franchise_brands` IS the platform brand table.** `BrandRecord` is an
+  alias of `FranchiseBrandRecord`; the table gains a nullable
+  `organization_id` (backfilled to GenDev). Opportunities, FDD workflows,
+  and all brand links point at it. The default portal brand is `cmdt`.
+- **No separate `territory_requests` table.** `territory_searches` and
+  `territory_review_requests` gain nullable organization/client/opportunity
+  links (backfilled from each row's lead; stamped at creation by the portal
+  routes), so territory activity attaches to a specific brand opportunity.
+- lib/domain/territory.ts provides the opportunity-scoped read helpers over
+  those tables; evaluation logic stays in lib/territory/ (Territory Advisor).
