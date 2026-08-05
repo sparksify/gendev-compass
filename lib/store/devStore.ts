@@ -55,6 +55,7 @@ import type {
   TerritorySearchRecord,
   TerritoryZipCodeRecord,
   ZipCodeReferenceRecord,
+  ZipGeographyRecord,
 } from "@/types/territory";
 
 /**
@@ -90,6 +91,7 @@ interface DevData {
   territory_definitions: TerritoryDefinitionRecord[];
   territory_zip_codes: TerritoryZipCodeRecord[];
   zip_code_reference: ZipCodeReferenceRecord[];
+  zip_code_geographies: ZipGeographyRecord[];
   territory_searches: TerritorySearchRecord[];
   territory_review_requests: TerritoryReviewRequestRecord[];
 }
@@ -124,6 +126,7 @@ const EMPTY: DevData = {
   territory_definitions: [],
   territory_zip_codes: [],
   zip_code_reference: [],
+  zip_code_geographies: [],
   territory_searches: [],
   territory_review_requests: [],
 };
@@ -1417,6 +1420,34 @@ export function createDevStore(): PortalStore {
         }
         await writeData(data);
       });
+    },
+
+    async upsertZipGeographies(rows): Promise<void> {
+      await withLock(async () => {
+        const data = await readData();
+        for (const row of rows) {
+          const record: ZipGeographyRecord = {
+            zip_code: row.zip_code,
+            state_code: row.state_code,
+            latitude: row.latitude,
+            longitude: row.longitude,
+            geojson: row.geojson,
+            geometry_source: row.geometry_source,
+            geometry_version: row.geometry_version,
+          };
+          const index = data.zip_code_geographies.findIndex((g) => g.zip_code === row.zip_code);
+          if (index === -1) data.zip_code_geographies.push(record);
+          else data.zip_code_geographies[index] = record;
+        }
+        await writeData(data);
+      });
+    },
+
+    async listZipGeographies(zipCodes): Promise<ZipGeographyRecord[]> {
+      const wanted = new Set(zipCodes);
+      return (await readData()).zip_code_geographies.filter(
+        (g) => wanted.has(g.zip_code) && g.geojson !== null,
+      );
     },
 
     async createTerritorySearch(input: CreateTerritorySearchInput): Promise<TerritorySearchRecord> {

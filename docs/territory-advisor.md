@@ -129,6 +129,22 @@ with no policies (service-role only), matching the app's deny-all model:
 state, county, lat/lng) from the GeoNames postal dataset (CC BY 4.0) into
 `zip_code_reference`. Add `-- --dry` to parse and report without writing.
 
+### Boundary polygons and the interactive maps
+
+`POST /api/admin/import-polygons` (one state per call; buttons on `/admin`
+under Territory ZIP Data) loads Census 2010 ZCTA boundary shapes from the
+OpenDataDE GeoJSON mirror into `zip_code_geographies.geojson`, simplified to
+display weight in the serverless function (`lib/geo/simplify.ts`,
+Douglas–Peucker ~200 m tolerance). Two maps consume them (Leaflet over
+CARTO/OSM tiles, no API key):
+
+- **Prospect** (Territory Advisor page): real basemap with the searched
+  point, evaluation radius, and public ZIP boundaries of the prospect's own
+  search area — never any territory status, ownership, or sold boundary.
+- **Advisor** (`/advisor/territories/map`): the full picture — every
+  territory rendered from its ZIP shapes or radius, color-coded by status,
+  with click-through details. Staff session required.
+
 **Hard rule:** all downloading and parsing happens in the script process —
 the database only receives small batched upserts through the normal store
 layer. Never run HTTP fetches or GeoJSON parsing inside Postgres: the first

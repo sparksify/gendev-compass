@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/form-fields";
 import { TerritoryMap } from "./TerritoryMap";
+import { LiveTerritoryMap } from "./LiveTerritoryMap";
 import { ResultSummaryCard } from "./ResultSummaryCard";
 import { ChatMessage } from "./ChatMessage";
 import { ReviewRequestModal } from "./ReviewRequestModal";
@@ -345,12 +346,25 @@ export function TerritoryAdvisorClient({
 
       {/* Right: map + market summary */}
       <div className="flex min-w-0 flex-col gap-4">
-        <TerritoryMap
-          status={lastResult?.status ?? null}
-          radiusMiles={radiusMiles}
-          locationLabel={lastResult?.location.displayName ?? null}
-          overlapPercentage={lastResult?.evaluation.overlapPercentage ?? 0}
-        />
+        {lastResult?.location.latitude != null && lastResult?.location.longitude != null ? (
+          <LiveTerritoryMap
+            token={token}
+            status={lastResult.status}
+            latitude={lastResult.location.latitude}
+            longitude={lastResult.location.longitude}
+            radiusMiles={lastResult.evaluation.radiusMiles || radiusMiles}
+            locationLabel={lastResult.location.displayName}
+            zipCodes={lastResult.evaluation.zipCodes}
+            searchedZip={lastResult.location.zipCode}
+          />
+        ) : (
+          <TerritoryMap
+            status={lastResult?.status ?? null}
+            radiusMiles={radiusMiles}
+            locationLabel={lastResult?.location.displayName ?? null}
+            overlapPercentage={lastResult?.evaluation.overlapPercentage ?? 0}
+          />
+        )}
         {lastResult && lastResult.status !== "LOCATION_NOT_FOUND" && lastResult.status !== "BRAND_NOT_CONFIGURED" && (
           <ResultSummaryCard result={lastResult} />
         )}

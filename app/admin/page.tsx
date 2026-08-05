@@ -389,6 +389,30 @@ function FddLeadRow({ lead, password }: { lead: FddLeadSummary; password: string
 function ZipDataSection({ password }: { password: string }) {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const [polygonBusy, setPolygonBusy] = useState<string | null>(null);
+  const [polygonResult, setPolygonResult] = useState<string | null>(null);
+
+  async function runPolygonImport(state: string) {
+    setPolygonBusy(state);
+    setPolygonResult(null);
+    try {
+      const response = await fetch("/api/admin/import-polygons", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-password": password },
+        body: JSON.stringify({ state }),
+      });
+      const data = await response.json();
+      setPolygonResult(
+        data.success
+          ? `Loaded ${data.written} ${state} ZIP boundary shapes.`
+          : `Failed: ${data.error ?? response.status}`,
+      );
+    } catch (error) {
+      setPolygonResult(`Failed: ${error instanceof Error ? error.message : "network error"}`);
+    } finally {
+      setPolygonBusy(null);
+    }
+  }
 
   async function runImport() {
     setBusy(true);
@@ -426,6 +450,25 @@ function ZipDataSection({ password }: { password: string }) {
         {busy ? "Loading nationwide data…" : "Load Nationwide ZIP Data"}
       </button>
       {result && <p className="mt-2 text-xs text-gray-600">{result}</p>}
+
+      <p className="mt-4 text-xs font-medium text-gray-700">Boundary shapes (per state)</p>
+      <p className="mt-0.5 text-xs text-gray-500">
+        Loads real ZIP boundary polygons for the interactive maps. Run once per operating
+        state; each takes up to a minute.
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {["TX", "TN", "FL", "CA", "IL", "NY"].map((state) => (
+          <button
+            key={state}
+            onClick={() => runPolygonImport(state)}
+            disabled={polygonBusy !== null}
+            className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {polygonBusy === state ? `Loading ${state}…` : state}
+          </button>
+        ))}
+      </div>
+      {polygonResult && <p className="mt-2 text-xs text-gray-600">{polygonResult}</p>}
     </div>
   );
 }

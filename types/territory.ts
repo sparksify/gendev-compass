@@ -258,3 +258,29 @@ export interface TerritoryEvaluationResult {
   /** Present only when status === LOCATION_NOT_FOUND and multiple candidates matched. */
   candidates?: Array<{ label: string; city: string; stateCode: string; zipCode: string }>;
 }
+
+// ---------------------------------------------------------------------------
+// zip_code_geographies (0008/0009) — ZIP boundary layer. `geojson` is a
+// simplified display-grade GeoJSON geometry (Polygon/MultiPolygon); the
+// PostGIS geometry column is not exposed through the store.
+// ---------------------------------------------------------------------------
+export interface ZipGeographyRecord {
+  zip_code: string;
+  state_code: string | null;
+  latitude: number;
+  longitude: number;
+  /** Simplified GeoJSON geometry (display grade), or null if not loaded. */
+  geojson: Record<string, unknown> | null;
+  geometry_source: string | null;
+  geometry_version: string | null;
+}
+
+export interface UpsertZipGeographyInput {
+  zip_code: string;
+  state_code: string;
+  latitude: number;
+  longitude: number;
+  geojson: Record<string, unknown>;
+  geometry_source: string;
+  geometry_version: string;
+}

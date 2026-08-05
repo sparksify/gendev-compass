@@ -49,7 +49,9 @@ import type {
   TerritorySearchRecord,
   TerritoryStatus,
   TerritoryZipCodeRecord,
+  UpsertZipGeographyInput,
   ZipCodeReferenceRecord,
+  ZipGeographyRecord,
 } from "@/types/territory";
 
 export interface CreateLeadRecordInput {
@@ -486,6 +488,16 @@ export interface PortalStore {
     id: string,
     patch: TerritoryReviewRequestPatch,
   ): Promise<TerritoryReviewRequestRecord>;
+
+  /**
+   * ZIP boundary layer (zip_code_geographies.geojson). Bulk rows come from
+   * the polygon import pipeline; readers fetch display-grade GeoJSON for a
+   * specific set of ZIPs. In environments without the PostGIS table (local
+   * SQL harness) the Supabase implementation surfaces the database error;
+   * the dev store emulates the table in-process.
+   */
+  upsertZipGeographies(rows: UpsertZipGeographyInput[]): Promise<void>;
+  listZipGeographies(zipCodes: string[]): Promise<ZipGeographyRecord[]>;
 }
 
 /** Forward-only ordering used to avoid regressing a lead's status. */
