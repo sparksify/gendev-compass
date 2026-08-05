@@ -9,8 +9,9 @@ Facebook Lead Ads) receive a personalized magic link, watch an investor
 overview video, complete a qualification questionnaire, and — only if they
 qualify — unlock the advisor's calendar to book a consultation.
 
-The portal protects the sales team's time: no one reaches the calendar
-without finishing the video and passing server-side qualification.
+Scheduling opens the moment the questionnaire is submitted — the advisor
+reviews the investor profile before the call, so there is no manual
+approval gate between submission and the calendar.
 
 **Primary metric:** qualified booked calls per 100 portal visitors.
 
@@ -29,12 +30,16 @@ without finishing the video and passing server-side qualification.
 
 ```
 Facebook Lead Form → POST /api/leads → personalized link /p/<token>
-  → Dashboard → Investor Overview (Wistia, threshold-gated)
-  → Qualification Questionnaire (locked until video complete)
-  → Server-side qualification
-      → qualified        → /p/<token>/schedule  (calendar embed) → booked → /complete
-      → review_required  → /p/<token>/complete  (respectful holding page)
+  → Dashboard → Investor Overview (Wistia, optional educational path)
+  → Qualification Questionnaire
+  → /p/<token>/schedule  (calendar embed + FDD request + next-steps timeline)
+      → booked → confirmation state on the same page
 ```
+
+Every prospect who submits the questionnaire can schedule immediately —
+the advisor reviews the responses before the call, so there is no manual
+approval gate. Server-side qualification still runs at submission and the
+score/result are stored on the lead for the advisor's preparation.
 
 Progress persists: reopening the link resumes at the furthest legitimate step.
 
@@ -157,18 +162,13 @@ overview video) or a fast track straight to qualification for experienced
 investors. The video is no longer a qualification requirement — completing
 it still contributes to the informational score.
 
-Hard gate (all required for the calendar):
-
-1. Questionnaire completed
-2. Liquid capital ≥ $250,000
-3. Investment timeline is not "Researching for the future"
-
-A score (0–100+) is also computed for future analysis — weights in
-`lib/config/qualification.ts`, threshold via `QUALIFICATION_SCORE_THRESHOLD`
-(default 60, informational in the MVP). Prospects who don't qualify are
-marked `review_required` and see a respectful holding page — never a
-rejection — so the team can manually approve promising exceptions. Status,
-score, reasons, and timestamps are stored on the lead.
+The only requirement for the calendar is a completed questionnaire —
+qualification no longer gates scheduling. The evaluation still runs and
+records `qualified` / `review_required` plus a score (0–100+) on the lead
+(weights in `lib/config/qualification.ts`, threshold via
+`QUALIFICATION_SCORE_THRESHOLD`, default 60) so the advisor can prepare and
+the business can add explicit review rules later if specific answers
+warrant one — as a targeted rule, not a blanket gate.
 
 ## Event tracking
 

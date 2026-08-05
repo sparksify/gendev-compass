@@ -48,6 +48,8 @@ export type LeadPatch = Partial<
     | "booked_at"
     | "appointment_id"
     | "appointment_start_at"
+    | "fdd_requested_at"
+    | "fdd_acknowledged_at"
   >
 >;
 

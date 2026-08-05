@@ -19,10 +19,8 @@ export default async function QuestionnairePage({
   const { lead, state } = context;
 
   // Open to every prospect (the overview is optional); already-submitted
-  // prospects move on to their state-appropriate page.
-  if (state.booked || state.reviewRequired) redirect(`/p/${token}/complete`);
-  if (state.qualified) redirect(`/p/${token}/schedule`);
-  if (state.questionnaireCompleted) redirect(`/p/${token}`);
+  // prospects continue straight to scheduling.
+  if (state.questionnaireCompleted || state.booked) redirect(`/p/${token}/schedule`);
 
   await trackEvent(lead, "questionnaire_opened", null, "questionnaire");
 

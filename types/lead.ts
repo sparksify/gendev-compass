@@ -44,6 +44,8 @@ export interface LeadRecord {
   booked_at: string | null;
   appointment_id: string | null;
   appointment_start_at: string | null;
+  fdd_requested_at: string | null;
+  fdd_acknowledged_at: string | null;
 }
 
 export interface CreateLeadInput {

@@ -14,6 +14,9 @@ export const dynamic = "force-dynamic";
  * The questionnaire is open to every prospect — the investor overview is
  * an optional educational path, and experienced investors may fast-track
  * directly to qualification. Video completion still feeds the score.
+ *
+ * Qualification is recorded for the advisor's preparation but does not
+ * gate scheduling: every submitter continues straight to the calendar.
  */
 export async function POST(
   request: Request,
@@ -32,12 +35,10 @@ export async function POST(
 
   const existing = await store.getQuestionnaire(lead.id);
   if (existing) {
-    const nextUrl =
-      lead.qualification_result === "qualified" ? `${base}/schedule` : `${base}/complete`;
     return NextResponse.json({
       success: true,
       qualified: lead.qualification_result === "qualified",
-      nextUrl,
+      nextUrl: `${base}/schedule`,
       alreadySubmitted: true,
     });
   }
@@ -95,10 +96,12 @@ export async function POST(
       { score: qualification.score },
     );
 
+    // Every prospect proceeds directly to scheduling — the qualification
+    // result is internal context for the advisor, not an approval gate.
     return NextResponse.json({
       success: true,
       qualified: qualification.qualified,
-      nextUrl: qualification.qualified ? `${base}/schedule` : `${base}/complete`,
+      nextUrl: `${base}/schedule`,
     });
   } catch (error) {
     console.error("[questionnaire] save failed:", error);

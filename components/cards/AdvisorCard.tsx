@@ -1,20 +1,22 @@
 import Link from "next/link";
-import { ArrowRight, CalendarDays, Check, Mail, Phone } from "lucide-react";
+import { ArrowRight, CalendarDays, Check } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { AdvisorContact } from "@/components/cards/AdvisorContact";
 import { brand } from "@/lib/config/brand";
 import type { PortalState } from "@/types/portal";
 
 const CONSULTATION_EXPECTATIONS = [
   "Personalized guidance",
   "Direct answers",
-  "Professional consultation",
-  "No-pressure discussion",
+  "Opportunity-specific discussion",
+  "No-pressure evaluation",
 ];
 
 /**
  * Meet Your Advisor — communicates why the consultation is valuable and
- * routes the prospect to the state-appropriate next step.
+ * routes the prospect to the state-appropriate next step. Once the
+ * questionnaire is in, the step is always scheduling — never waiting.
  */
 export function AdvisorCard({
   token,
@@ -40,16 +42,18 @@ export function AdvisorCard({
             className="size-[84px] shrink-0 rounded-full object-cover"
           />
           <div className="min-w-0">
-            <p className="font-serif text-[21px] leading-[1.2] text-foreground">
+            <p className="break-words font-serif text-[21px] leading-[1.2] text-foreground">
               {brand.advisorName}
             </p>
-            <p className="mt-[3px] text-[12.5px] text-secondary-foreground">{brand.advisorTitle}</p>
+            <p className="mt-[3px] break-words text-[12.5px] text-secondary-foreground">
+              {brand.advisorTitle}
+            </p>
           </div>
         </div>
 
         <p className="mt-4 text-[12.5px] leading-[1.6] text-muted-foreground">
           {brand.advisorName} will help you evaluate whether this opportunity aligns with your
-          investment goals. Expect:
+          investment goals and experience. Expect:
         </p>
         <ul className="mt-2.5 space-y-1.5">
           {CONSULTATION_EXPECTATIONS.map((item) => (
@@ -63,38 +67,30 @@ export function AdvisorCard({
           ))}
         </ul>
 
-        <div className="mt-4 flex flex-col gap-2 border-t border-border-soft pt-3.5">
-          <p className="flex items-center gap-[9px] text-[12.5px] text-secondary-foreground">
-            <Phone className="size-[15px] shrink-0 text-faint-foreground" strokeWidth={1.6} />
-            {brand.advisorPhone}
-          </p>
-          <p className="flex items-center gap-[9px] text-[12.5px]">
-            <Mail className="size-[15px] shrink-0 text-faint-foreground" strokeWidth={1.6} />
-            <a
-              href={`mailto:${brand.advisorEmail}`}
-              className="text-primary hover:text-primary-hover"
-            >
-              {brand.advisorEmail}
-            </a>
-          </p>
-        </div>
+        <AdvisorContact token={token} phone={brand.advisorPhone} email={brand.advisorEmail} />
 
         {state.booked ? (
-          <Button asChild variant="secondary" className="mt-[18px] w-full">
-            <Link href={`${base}/complete`}>
-              <CalendarDays /> View Consultation Details
-            </Link>
-          </Button>
-        ) : state.qualified ? (
-          <Button asChild className="mt-[18px] w-full">
-            <Link href={`${base}/schedule`}>
-              <CalendarDays /> Schedule Consultation
-            </Link>
-          </Button>
-        ) : state.reviewRequired ? (
-          <p className="mt-[18px] rounded-control bg-surface px-4 py-3 text-center text-[12.5px] text-muted-foreground">
-            {brand.advisorName} is reviewing your investor profile and will reach out directly.
-          </p>
+          <div>
+            <p className="mt-[18px] rounded-control bg-surface px-4 py-3 text-center text-[12.5px] text-muted-foreground">
+              {brand.advisorName} is preparing for your scheduled consultation.
+            </p>
+            <Button asChild variant="secondary" className="mt-2.5 w-full">
+              <Link href={`${base}/schedule`}>
+                <CalendarDays /> View Consultation Details
+              </Link>
+            </Button>
+          </div>
+        ) : state.questionnaireCompleted ? (
+          <div>
+            <Button asChild className="mt-[18px] w-full">
+              <Link href={`${base}/schedule`}>
+                <CalendarDays /> Schedule Consultation
+              </Link>
+            </Button>
+            <p className="mt-2.5 text-center text-xs text-muted-foreground">
+              Schedule a convenient time to speak directly with {brand.advisorName}
+            </p>
+          </div>
         ) : (
           <div>
             <Button asChild className="mt-[18px] w-full">

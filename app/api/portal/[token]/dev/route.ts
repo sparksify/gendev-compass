@@ -10,7 +10,7 @@ import { getVideoCompletionThreshold } from "@/lib/config/qualification";
 export const dynamic = "force-dynamic";
 
 const devActionSchema = z.object({
-  action: z.enum(["simulate-video-completion", "reset-progress"]),
+  action: z.enum(["simulate-video-completion", "simulate-fdd-acknowledgment", "reset-progress"]),
 });
 
 /**
@@ -42,6 +42,17 @@ export async function POST(
   if (parsed.data.action === "reset-progress") {
     await store.resetLeadProgress(lead.id);
     return NextResponse.json({ success: true, message: "Progress reset" });
+  }
+
+  if (parsed.data.action === "simulate-fdd-acknowledgment") {
+    // Stands in for the e-sign provider webhook so the acknowledged state
+    // can be exercised locally.
+    await store.updateLead(lead.id, {
+      fdd_requested_at: lead.fdd_requested_at ?? now,
+      fdd_acknowledged_at: lead.fdd_acknowledged_at ?? now,
+    });
+    await trackEvent(lead, "fdd_acknowledged", { simulated: true });
+    return NextResponse.json({ success: true, message: "FDD acknowledgment simulated" });
   }
 
   const threshold = getVideoCompletionThreshold();

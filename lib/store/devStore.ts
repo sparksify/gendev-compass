@@ -86,6 +86,8 @@ export function createDevStore(): PortalStore {
           booked_at: null,
           appointment_id: null,
           appointment_start_at: null,
+          fdd_requested_at: null,
+          fdd_acknowledged_at: null,
         };
         data.leads.push(lead);
         await writeData(data);
@@ -207,6 +209,8 @@ export function createDevStore(): PortalStore {
             booked_at: null,
             appointment_id: null,
             appointment_start_at: null,
+            fdd_requested_at: null,
+            fdd_acknowledged_at: null,
             updated_at: nowIso(),
           });
         }

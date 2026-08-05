@@ -73,7 +73,7 @@ export async function PortalShell({ context, token, children }: PortalShellProps
           <SidebarNavigation
             token={token}
             supportEmail={brand.supportEmail}
-            consultationAvailable={state.qualified || state.booked}
+            consultationAvailable={state.questionnaireCompleted || state.booked}
           />
         </div>
       </aside>
@@ -90,7 +90,7 @@ export async function PortalShell({ context, token, children }: PortalShellProps
             <main className="min-w-0 flex-1">{children}</main>
 
             <aside className="hidden w-[376px] shrink-0 xl:block">
-              <RightSidebar token={token} state={state} />
+              <RightSidebar token={token} state={state} lead={lead} />
             </aside>
           </div>
 

@@ -6,6 +6,11 @@ import type { PortalRoute, PortalState, VideoProgressRecord } from "@/types/port
  * Derives everything route gating and UI need from the stored records.
  * Routes are controlled by state (spec §20): a prospect always resumes at
  * the furthest step they have legitimately reached.
+ *
+ * Completing the questionnaire opens the calendar directly — the advisor
+ * reviews the responses before the scheduled call, so there is no manual
+ * approval gate between submission and scheduling. The qualification
+ * result is still computed and stored for the advisor's preparation.
  */
 export function getPortalState(
   lead: LeadRecord,
@@ -19,11 +24,13 @@ export function getPortalState(
   const videoCompleted = Boolean(videoProgress?.completed) || Boolean(lead.video_completed_at);
   const videoStarted = Boolean(videoProgress?.started) || Boolean(lead.video_started_at);
   const videoPercent = Math.round(videoProgress?.highest_percent_watched ?? 0);
+  const fddRequested = Boolean(lead.fdd_requested_at);
+  const fddAcknowledged = Boolean(lead.fdd_acknowledged_at);
 
   let resumeRoute: PortalRoute;
-  if (booked || reviewRequired) {
-    resumeRoute = "complete";
-  } else if (qualified) {
+  if (questionnaireCompleted || booked) {
+    // The schedule page carries both the calendar and, once booked, the
+    // confirmation state.
     resumeRoute = "schedule";
   } else if (videoCompleted) {
     resumeRoute = "questionnaire";
@@ -34,12 +41,8 @@ export function getPortalState(
   let statusLabel: string;
   if (booked) {
     statusLabel = "Consultation Scheduled";
-  } else if (reviewRequired) {
-    statusLabel = "Application Under Review";
-  } else if (qualified) {
-    statusLabel = "Consultation Approved — Scheduling Pending";
   } else if (questionnaireCompleted) {
-    statusLabel = "Qualification Under Review";
+    statusLabel = "Ready to Schedule Your Consultation";
   } else if (videoCompleted) {
     statusLabel = "Qualification Questionnaire Pending";
   } else if (videoStarted) {
@@ -72,7 +75,7 @@ export function getPortalState(
       key: "schedule",
       label: "Schedule Consultation",
       done: scheduleDone,
-      current: qualified && !booked,
+      current: questionnaireCompleted && !booked,
     },
   ];
 
@@ -84,6 +87,8 @@ export function getPortalState(
     qualified,
     reviewRequired,
     booked,
+    fddRequested,
+    fddAcknowledged,
     resumeRoute,
     checklist,
     statusLabel,

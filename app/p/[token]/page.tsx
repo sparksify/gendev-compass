@@ -39,11 +39,7 @@ export default async function PortalDashboardPage({
         </p>
       </div>
 
-      {!state.videoCompleted &&
-      !state.questionnaireCompleted &&
-      !state.qualified &&
-      !state.reviewRequired &&
-      !state.booked ? (
+      {!state.videoCompleted && !state.questionnaireCompleted && !state.booked ? (
         <PathChooser
           token={token}
           videoStarted={state.videoStarted}

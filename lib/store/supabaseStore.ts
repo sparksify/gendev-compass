@@ -147,6 +147,8 @@ export function createSupabaseStore(): PortalStore {
           booked_at: null,
           appointment_id: null,
           appointment_start_at: null,
+          fdd_requested_at: null,
+          fdd_acknowledged_at: null,
           updated_at: nowIso(),
         })
         .eq("id", leadId);
