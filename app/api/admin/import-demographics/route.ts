@@ -1,16 +1,10 @@
 import { NextResponse } from "next/server";
 import { getAdminTestPassword, isProduction } from "@/lib/config/env";
 import { clientIpFrom, rateLimit } from "@/lib/rateLimit";
-import {
-  buildDemographicsUpsertRows,
-  CENSUS_SOURCE_LABEL,
-  downloadCensusDemographics,
-} from "@/lib/geocoding/censusImport";
-import { getStore } from "@/lib/store";
-import type { UpsertZipCodeReferenceInput } from "@/types/territory";
+import { refreshDemographics } from "@/lib/geocoding/censusImport";
 
 export const dynamic = "force-dynamic";
-/** Two ACS downloads (35s budget each, in parallel) + batched upserts. */
+/** 51 states x 2 vintages, concurrency 8, well under budget + batched upserts. */
 export const maxDuration = 60;
 
 /** Same auth model as the other admin routes: header password, required in production. */
@@ -21,34 +15,13 @@ function authorized(request: Request): boolean {
   return !isProduction();
 }
 
-/** Runs upserts with limited concurrency instead of one full sequential loop. */
-async function upsertConcurrently(
-  rows: UpsertZipCodeReferenceInput[],
-  batchSize: number,
-  concurrency: number,
-): Promise<void> {
-  const store = getStore();
-  const batches: UpsertZipCodeReferenceInput[][] = [];
-  for (let i = 0; i < rows.length; i += batchSize) batches.push(rows.slice(i, i + batchSize));
-
-  let next = 0;
-  async function worker() {
-    while (next < batches.length) {
-      const batch = batches[next++];
-      await store.upsertZipCodeReferences(batch);
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(concurrency, batches.length) }, worker));
-}
-
 /**
  * Loads real Census ACS demographics (population, households, median income,
  * 5-year growth) onto the nationwide ZIP reference already loaded by "Load
- * Nationwide ZIP Data". Reads the existing rows from our own store (no
- * external GeoNames re-download — those rows already satisfy the table's
- * NOT NULL constraints), merges in the Census figures, and writes only the
- * ZIPs that actually matched Census data, concurrently, in batches — bulk
- * work never runs inside Postgres (see docs/territory-advisor.md).
+ * Nationwide ZIP Data" — see lib/geocoding/censusImport.ts (refreshDemographics)
+ * for the actual work. Also runs automatically via the weekly cron job
+ * (app/api/cron/refresh-demographics/route.ts); this button is a manual
+ * override, not the only way to trigger it.
  *
  * Idempotent: upserts by zip_code; safe to run repeatedly.
  */
@@ -61,38 +34,8 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    const store = getStore();
-    const [existingRows, census] = await Promise.all([
-      store.listZipCodeReferences(),
-      downloadCensusDemographics(),
-    ]);
-
-    if (existingRows.length === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "No ZIP reference data loaded yet — click \"Load Nationwide ZIP Data\" first.",
-        },
-        { status: 409 },
-      );
-    }
-
-    const rows: UpsertZipCodeReferenceInput[] = buildDemographicsUpsertRows(
-      existingRows,
-      census,
-      new Date().toISOString(),
-    );
-
-    await upsertConcurrently(rows, 1000, 4);
-
-    return NextResponse.json({
-      success: true,
-      source: CENSUS_SOURCE_LABEL,
-      vintage: census.vintageLabel,
-      existingZips: existingRows.length,
-      withDemographics: rows.length,
-      written: rows.length,
-    });
+    const result = await refreshDemographics();
+    return NextResponse.json({ success: true, ...result });
   } catch (error) {
     console.error("[admin/import-demographics] failed:", error);
     const message =
@@ -101,6 +44,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         : error instanceof Error
           ? error.message
           : "Import failed";
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    const status = error instanceof Error && /No ZIP reference/.test(error.message) ? 409 : 500;
+    return NextResponse.json({ success: false, error: message }, { status });
   }
 }

@@ -403,9 +403,11 @@ function ZipDataSection({ password }: { password: string }) {
         headers: { "x-admin-password": password },
       });
       const data = await response.json();
+      const failedNote =
+        data.success && data.failedStates?.length ? ` (retry failed: ${data.failedStates.join(", ")})` : "";
       setDemoResult(
         data.success
-          ? `Loaded Census demographics for ${data.withDemographics} of ${data.existingZips} ZIPs (ACS ${data.vintage}).`
+          ? `Loaded Census demographics for ${data.withDemographics} of ${data.existingZips} ZIPs (ACS ${data.vintage}).${failedNote}`
           : `Failed: ${data.error ?? response.status}`,
       );
     } catch (error) {
