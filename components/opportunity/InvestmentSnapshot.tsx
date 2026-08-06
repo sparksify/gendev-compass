@@ -21,16 +21,16 @@ export function InvestmentSnapshot({
   return (
     <Card>
       <CardContent>
-        <div className="border-b border-border-soft pb-4">
+        <div className="border-b border-border-soft pb-3">
           {profile.logoPath && (
             // eslint-disable-next-line @next/next/no-img-element -- admin-uploaded asset
             <img
               src={profile.logoPath}
               alt={`${profile.name} logo`}
-              className="mx-auto h-auto max-h-32 w-3/4 object-contain"
+              className="mx-auto h-auto max-h-24 w-3/5 object-contain"
             />
           )}
-          <p className="mt-4 text-[13.5px] font-medium text-foreground">{profile.name}</p>
+          <p className="mt-3 text-[13.5px] font-medium text-foreground">{profile.name}</p>
           {profile.websiteUrl && (
             <a
               href={profile.websiteUrl}

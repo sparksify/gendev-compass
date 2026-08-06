@@ -44,7 +44,7 @@ export function StatusCard({
 
   return (
     <Card className="overflow-hidden">
-      <div className="flex flex-col gap-5 px-6 py-5 sm:flex-row sm:items-stretch sm:justify-between sm:gap-8 sm:px-9 sm:py-6">
+      <div className="flex flex-col gap-5 px-6 pb-2 pt-5 sm:flex-row sm:items-stretch sm:justify-between sm:gap-8 sm:px-9 sm:pb-2 sm:pt-6">
         <div className="flex min-w-0 flex-[3] gap-4">
           <span
             aria-hidden
@@ -115,7 +115,7 @@ export function StatusCard({
         </dl>
       </div>
 
-      <div id="progress" className="overflow-x-auto border-t border-border px-6 py-3.5 sm:px-8">
+      <div id="progress" className="overflow-x-auto border-t border-border px-6 pb-3.5 pt-0.5 sm:px-8">
         <ProgressTimeline milestones={journey.milestones} />
       </div>
     </Card>

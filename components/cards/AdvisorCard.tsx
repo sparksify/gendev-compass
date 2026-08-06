@@ -97,9 +97,9 @@ export function AdvisorCard({
           </div>
         ) : (
           <div>
-            <Button asChild variant="outline" className="mt-4 w-full">
+            <Button asChild variant="secondary" className="mt-4 w-full">
               <Link href={`${base}/questionnaire`}>
-                Begin Qualification <ArrowRight />
+                Prepare for My Consultation <ArrowRight />
               </Link>
             </Button>
             <p className="mt-2.5 text-center text-xs text-muted-foreground">
