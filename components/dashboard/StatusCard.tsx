@@ -44,42 +44,42 @@ export function StatusCard({
 
   return (
     <Card className="overflow-hidden">
-      <div className="flex flex-col gap-7 px-6 py-8 sm:flex-row sm:items-stretch sm:justify-between sm:gap-10 sm:px-10 sm:py-9">
-        <div className="flex min-w-0 flex-[3] gap-5">
+      <div className="flex flex-col gap-5 px-6 py-5 sm:flex-row sm:items-stretch sm:justify-between sm:gap-8 sm:px-9 sm:py-6">
+        <div className="flex min-w-0 flex-[3] gap-4">
           <span
             aria-hidden
-            className="flex size-[68px] shrink-0 items-center justify-center rounded-full border border-accent-gold bg-[#fbf7ef] text-sidebar"
+            className="flex size-14 shrink-0 items-center justify-center rounded-full border border-accent-gold bg-[#fbf7ef] text-sidebar"
           >
             {state.booked ? (
-              <Check className="size-6" strokeWidth={1.8} />
+              <Check className="size-5" strokeWidth={1.8} />
             ) : (
-              <Compass className="size-7" strokeWidth={1.4} />
+              <Compass className="size-6" strokeWidth={1.4} />
             )}
           </span>
-          <div className="min-w-0 pt-1">
-            <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-accent-gold">
+          <div className="min-w-0 pt-0.5">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-accent-gold">
               Your Current Step
             </p>
-            <p className="mt-1.5 font-serif text-[34px] font-medium leading-[1.08] text-sidebar sm:text-[36px]">
+            <p className="mt-1 font-serif text-[28px] font-medium leading-[1.08] text-sidebar sm:text-[30px]">
               {journey.currentMilestoneLabel}
             </p>
-            <p className="mt-3 max-w-[600px] text-[16px] leading-[1.6] text-muted-foreground">
+            <p className="mt-1.5 max-w-[600px] text-[14px] leading-[1.5] text-muted-foreground">
               {supporting}
             </p>
 
-            <div className="mt-6 flex flex-wrap items-center gap-7">
+            <div className="mt-4 flex flex-wrap items-center gap-6">
               <Button
                 asChild
-                className="h-[52px] rounded-[7px] bg-sidebar px-6 text-[15.5px] shadow-[0_1px_2px_rgb(16_24_40/0.08)] hover:bg-sidebar/90"
+                className="h-[46px] rounded-[7px] bg-sidebar px-5 text-[14px] shadow-[0_1px_2px_rgb(16_24_40/0.08)] hover:bg-sidebar/90"
               >
                 <Link href={ctaHref}>
-                  <Play className="size-[17px]" strokeWidth={1.8} /> {ctaLabel}
+                  <Play className="size-4" strokeWidth={1.8} /> {ctaLabel}
                 </Link>
               </Button>
               <Button
                 asChild
                 variant="link"
-                className="text-[15.5px] text-sidebar hover:text-sidebar/80"
+                className="text-[14px] text-sidebar hover:text-sidebar/80"
               >
                 <Link href={`${base}#progress`}>
                   View Full Journey <ArrowRight className="size-4" />
@@ -89,25 +89,25 @@ export function StatusCard({
           </div>
         </div>
 
-        <dl className="flex shrink-0 flex-col divide-y divide-border pt-0.5 sm:w-[240px] sm:flex-1 sm:border-l sm:border-border sm:pl-9">
+        <dl className="flex shrink-0 flex-col divide-y divide-border pt-0.5 sm:w-[220px] sm:flex-1 sm:border-l sm:border-border sm:pl-8">
           {journey.timeRemainingMinutes !== null && (
-            <div className="pb-5">
-              <dt className="flex items-center gap-1.5 whitespace-nowrap text-[12.5px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+            <div className="pb-3">
+              <dt className="flex items-center gap-1.5 whitespace-nowrap text-[11.5px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
                 <Clock className="size-3.5 shrink-0 text-faint-foreground" strokeWidth={1.8} />
                 Estimated Time Remaining
               </dt>
-              <dd className="mt-2 whitespace-nowrap font-serif text-[34px] font-medium leading-tight text-sidebar sm:text-[36px]">
+              <dd className="mt-1.5 whitespace-nowrap font-serif text-[28px] font-medium leading-tight text-sidebar sm:text-[30px]">
                 {journey.timeRemainingMinutes} Minutes
               </dd>
             </div>
           )}
           {journey.nextMilestoneLabel && (
-            <div className="pt-5">
-              <dt className="flex items-center gap-1.5 whitespace-nowrap text-[12.5px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+            <div className="pt-3">
+              <dt className="flex items-center gap-1.5 whitespace-nowrap text-[11.5px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
                 <Lock className="size-3.5 shrink-0 text-faint-foreground" strokeWidth={1.8} />
                 Next Unlock
               </dt>
-              <dd className="mt-2 font-serif text-[26px] font-medium leading-[1.15] text-sidebar">
+              <dd className="mt-1.5 font-serif text-[21px] font-medium leading-[1.15] text-sidebar">
                 {journey.nextMilestoneLabel}
               </dd>
             </div>
@@ -115,7 +115,7 @@ export function StatusCard({
         </dl>
       </div>
 
-      <div id="progress" className="overflow-x-auto border-t border-border px-7 py-5 sm:px-9">
+      <div id="progress" className="overflow-x-auto border-t border-border px-6 py-3.5 sm:px-8">
         <ProgressTimeline milestones={journey.milestones} />
       </div>
     </Card>

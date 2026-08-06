@@ -1,91 +1,87 @@
 /**
  * Extremely subtle topographic contour + compass-rose artwork behind the
  * page intro heading. Editorial/architectural, not decorative — kept to
- * ~5% opacity and faded out before the main hero card via a mask so it
+ * low opacity and faded out before the main hero card via a mask so it
  * never competes with the content in front of it.
+ *
+ * The compass is its own fixed-size SVG (not stretched to the container
+ * viewBox) so it always renders as a crisp, undistorted circle regardless
+ * of the intro area's aspect ratio at any breakpoint.
  */
 export function HeroBackdrop() {
   return (
-    <svg
+    <div
       aria-hidden
-      viewBox="0 0 1400 260"
-      preserveAspectRatio="xMidYMin slice"
-      className="pointer-events-none absolute inset-0 h-full w-full text-[#0b1a35] opacity-[0.055]"
+      className="pointer-events-none absolute inset-0 overflow-hidden text-[#0b1a35]"
       style={{
-        maskImage: "linear-gradient(to bottom, black 0%, black 55%, transparent 100%)",
-        WebkitMaskImage: "linear-gradient(to bottom, black 0%, black 55%, transparent 100%)",
+        maskImage: "linear-gradient(to bottom, black 0%, black 45%, transparent 92%)",
+        WebkitMaskImage: "linear-gradient(to bottom, black 0%, black 45%, transparent 92%)",
       }}
     >
-      {/* Topographic contour lines */}
-      <g fill="none" stroke="currentColor" strokeWidth="1">
-        <path d="M-40 40 C 220 10, 460 70, 720 35 S 1180 5, 1440 45" />
-        <path d="M-40 78 C 200 52, 480 108, 760 70 S 1220 44, 1440 84" />
-        <path d="M-40 114 C 260 150, 520 92, 820 128 S 1240 158, 1440 118" />
-        <path d="M-40 152 C 240 122, 540 178, 840 142 S 1260 110, 1440 156" />
-        <path d="M-40 190 C 280 220, 560 168, 880 202 S 1280 232, 1440 192" />
-      </g>
-
-      {/* Compass rose, upper right — kept well inside the viewBox so it
-          survives being cropped ("slice") to fit narrower container aspect
-          ratios without losing its edge. */}
-      <g transform="translate(1040 96)" fill="none" stroke="currentColor">
-        <circle r="72" strokeWidth="1" />
-        <circle r="53" strokeWidth="0.75" />
-        {Array.from({ length: 16 }).map((_, i) => {
-          const angle = (i * 360) / 16;
-          const long = i % 4 === 0;
-          const r1 = 72;
-          const r2 = long ? 61 : 66;
-          const rad = (angle * Math.PI) / 180;
-          return (
-            <line
-              key={angle}
-              x1={r1 * Math.sin(rad)}
-              y1={-r1 * Math.cos(rad)}
-              x2={r2 * Math.sin(rad)}
-              y2={-r2 * Math.cos(rad)}
-              strokeWidth={long ? 1 : 0.5}
-            />
-          );
-        })}
-        <path d="M0 -32 L8 0 L0 32 L-8 0 Z" strokeWidth="1" />
-        <path d="M-32 0 L0 -8 L32 0 L0 8 Z" strokeWidth="0.75" />
-        <text x="0" y="-80" textAnchor="middle" fontSize="10" stroke="none" fill="currentColor">
-          N
-        </text>
-        <text x="0" y="90" textAnchor="middle" fontSize="10" stroke="none" fill="currentColor">
-          S
-        </text>
-        <text x="84" y="4" textAnchor="middle" fontSize="10" stroke="none" fill="currentColor">
-          E
-        </text>
-        <text x="-84" y="4" textAnchor="middle" fontSize="10" stroke="none" fill="currentColor">
-          W
-        </text>
-      </g>
-
-      <text
-        x="930"
-        y="22"
-        textAnchor="end"
-        fontSize="12"
-        letterSpacing="0.04em"
-        stroke="none"
-        fill="currentColor"
+      {/* Topographic contour lines, full width */}
+      <svg
+        viewBox="0 0 1400 220"
+        preserveAspectRatio="none"
+        className="absolute inset-0 h-full w-full opacity-[0.06]"
       >
-        40.7128° N
-      </text>
-      <text
-        x="930"
-        y="40"
-        textAnchor="end"
-        fontSize="12"
-        letterSpacing="0.04em"
-        stroke="none"
-        fill="currentColor"
+        <g fill="none" stroke="currentColor" strokeWidth="1">
+          <path d="M-40 32 C 220 4, 460 58, 720 28 S 1180 2, 1440 36" />
+          <path d="M-40 64 C 200 42, 480 92, 760 58 S 1220 34, 1440 70" />
+          <path d="M-40 96 C 260 128, 520 78, 820 108 S 1240 134, 1440 100" />
+          <path d="M-40 128 C 240 102, 540 150, 840 120 S 1260 92, 1440 132" />
+          <path d="M-40 162 C 280 188, 560 142, 880 172 S 1280 198, 1440 164" />
+        </g>
+      </svg>
+
+      {/* Compass rose, upper right — fixed pixel size, never cropped or
+          stretched by the container's own aspect ratio. */}
+      <svg
+        viewBox="0 0 200 200"
+        className="absolute right-4 top-1 hidden size-[170px] opacity-[0.09] md:block lg:size-[190px]"
       >
-        74.0060° W
-      </text>
-    </svg>
+        <g transform="translate(100 100)" fill="none" stroke="currentColor">
+          <circle r="88" strokeWidth="1" />
+          <circle r="64" strokeWidth="0.75" />
+          {Array.from({ length: 32 }).map((_, i) => {
+            const angle = (i * 360) / 32;
+            const long = i % 8 === 0;
+            const mid = i % 4 === 0;
+            const r1 = 88;
+            const r2 = long ? 70 : mid ? 77 : 82;
+            const rad = (angle * Math.PI) / 180;
+            return (
+              <line
+                key={angle}
+                x1={r1 * Math.sin(rad)}
+                y1={-r1 * Math.cos(rad)}
+                x2={r2 * Math.sin(rad)}
+                y2={-r2 * Math.cos(rad)}
+                strokeWidth={long ? 1.1 : 0.6}
+              />
+            );
+          })}
+          <path d="M0 -48 L9 0 L0 48 L-9 0 Z" strokeWidth="1.1" />
+          <path d="M-48 0 L0 -9 L48 0 L0 9 Z" strokeWidth="0.8" />
+          <circle r="4" fill="currentColor" stroke="none" />
+          <text x="0" y="-96" textAnchor="middle" fontSize="12" stroke="none" fill="currentColor">
+            N
+          </text>
+          <text x="0" y="108" textAnchor="middle" fontSize="12" stroke="none" fill="currentColor">
+            S
+          </text>
+          <text x="100" y="4" textAnchor="middle" fontSize="12" stroke="none" fill="currentColor">
+            E
+          </text>
+          <text x="-100" y="4" textAnchor="middle" fontSize="12" stroke="none" fill="currentColor">
+            W
+          </text>
+        </g>
+      </svg>
+
+      <div className="absolute right-[200px] top-3 hidden text-right text-[12px] tracking-[0.04em] opacity-[0.22] lg:block">
+        <p>40.7128° N</p>
+        <p>74.0060° W</p>
+      </div>
+    </div>
   );
 }
