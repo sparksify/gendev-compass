@@ -2,7 +2,7 @@ import { StatusCard } from "@/components/dashboard/StatusCard";
 import { PathChooser } from "@/components/dashboard/PathChooser";
 import { HeroBackdrop } from "@/components/dashboard/HeroBackdrop";
 import { VideoCard } from "@/components/dashboard/VideoCard";
-import { FAQAccordion } from "@/components/dashboard/FAQAccordion";
+import { InvestorFAQ } from "@/components/dashboard/InvestorFAQ";
 import { InvalidPortal } from "@/components/portal/InvalidPortal";
 import { loadPortalContext } from "@/lib/portal/context";
 import { deriveJourney } from "@/lib/portal/journey";
@@ -66,7 +66,7 @@ export default async function PortalDashboardPage({
         }
       />
 
-      <FAQAccordion />
+      <InvestorFAQ token={token} />
     </div>
   );
 }
