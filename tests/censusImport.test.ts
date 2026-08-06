@@ -5,6 +5,7 @@ import {
   coveredDemographicsStates,
   DEMOGRAPHICS_VINTAGE_LABEL,
   downloadCensusDemographics,
+  fetchAcsForState,
   fetchAcsNational,
   FETCH_TIMEOUT_MS,
   STATE_FETCH_CONCURRENCY,
@@ -119,6 +120,26 @@ describe("fetchAcsNational (per-state querying)", () => {
 
     expect(result.failedStates).toHaveLength(1);
     expect(result.demographics.size).toBe(US_STATES.length - 1);
+  });
+
+  it("includes the response body in a failure's error message — a bare status code alone wasn't enough to diagnose a real production incident", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      text: async () => "error: unknown/invalid api key",
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(fetchAcsForState(2023, ["B01003_001E"], "06")).rejects.toThrow(
+      "HTTP 400: error: unknown/invalid api key",
+    );
+  });
+
+  it("still reports the status code when the response has no readable body (e.g. a mock without .text())", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 503 });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(fetchAcsForState(2023, ["B01003_001E"], "06")).rejects.toThrow("HTTP 503");
   });
 
   it("respects the concurrency cap without deadlocking (regression guard against workers stalling)", async () => {
