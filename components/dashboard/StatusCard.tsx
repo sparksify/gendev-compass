@@ -1,36 +1,10 @@
 import Link from "next/link";
-import {
-  ArrowRight,
-  BarChart3,
-  CalendarDays,
-  Check,
-  Clock,
-  FileText,
-  Lock,
-  MonitorPlay,
-  Play,
-  ShieldCheck,
-} from "lucide-react";
+import { ArrowRight, Check, Clock, Lock, Play, Star } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { brand } from "@/lib/config/brand";
 import type { PortalState } from "@/types/portal";
 import type { JourneySummary } from "@/lib/portal/journey";
-
-/**
- * Same glyph vocabulary as the journey timeline directly below this card,
- * so the "current step" badge here visually ties to its node in the
- * timeline (kept local — ProgressTimeline.tsx is a preserved component).
- */
-const STEP_ICONS: Record<string, typeof FileText> = {
-  application: FileText,
-  overview: MonitorPlay,
-  questionnaire: FileText,
-  consultation: CalendarDays,
-  "operations-call": MonitorPlay,
-  "qa-zoom": ShieldCheck,
-  "investment-review": BarChart3,
-};
 
 /** The command center: where am I, what's next, how long will it take. */
 export function StatusCard({
@@ -61,15 +35,10 @@ export function StatusCard({
     ctaHref = `${base}/questionnaire`;
     ctaLabel = "Begin Qualification";
   } else {
-    supporting = state.videoStarted
-      ? `Learn about the business model, investment requirements, and what it means to own a ${brand.brandName} business.`
-      : `Learn about the business model, investment requirements, and what it means to own a ${brand.brandName} business — or begin qualification directly if you're already experienced with franchise investing.`;
+    supporting = `Learn about the business model, investment requirements, and what it means to own a ${brand.brandName} business.`;
     ctaHref = `${base}/overview`;
     ctaLabel = state.videoStarted ? "Resume Investor Overview" : "Begin Investor Overview";
   }
-
-  const activeMilestone = journey.milestones.find((m) => m.status === "active");
-  const StepIcon = activeMilestone ? (STEP_ICONS[activeMilestone.key] ?? FileText) : null;
 
   return (
     <Card>
@@ -81,10 +50,8 @@ export function StatusCard({
           >
             {state.booked ? (
               <Check className="size-5" strokeWidth={2.2} />
-            ) : StepIcon ? (
-              <StepIcon className="size-5" strokeWidth={1.8} />
             ) : (
-              <FileText className="size-5" strokeWidth={1.8} />
+              <Star className="size-5 fill-current" strokeWidth={1.8} />
             )}
           </span>
           <div className="min-w-0">
@@ -100,14 +67,14 @@ export function StatusCard({
           </div>
         </div>
 
-        <dl className="flex shrink-0 gap-7 pt-0.5">
+        <dl className="flex shrink-0 flex-col gap-3.5 pt-0.5">
           {journey.timeRemainingMinutes !== null && (
-            <div className="border-r border-border pr-7">
+            <div>
               <dt className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.04em] text-muted-foreground">
                 <Clock className="size-3.5 text-faint-foreground" strokeWidth={1.8} />
                 Estimated Time Remaining
               </dt>
-              <dd className="mt-1.5 text-[19px] font-bold text-primary">
+              <dd className="mt-1 text-[19px] font-bold text-primary">
                 {journey.timeRemainingMinutes} Minutes
               </dd>
             </div>
@@ -118,7 +85,7 @@ export function StatusCard({
                 <Lock className="size-3.5 text-faint-foreground" strokeWidth={1.8} />
                 Next Unlock
               </dt>
-              <dd className="mt-1.5 max-w-[9rem] text-[15px] font-bold leading-tight text-foreground">
+              <dd className="mt-1 max-w-[10rem] text-[15px] font-bold leading-tight text-foreground">
                 {journey.nextMilestoneLabel}
               </dd>
             </div>
