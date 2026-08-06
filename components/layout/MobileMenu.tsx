@@ -63,7 +63,7 @@ export function MobileMenu({ token, supportEmail, consultationAvailable }: Mobil
             role="dialog"
             aria-modal="true"
             aria-label="Portal navigation"
-            className="absolute right-0 top-0 flex h-full w-[300px] max-w-[85vw] flex-col overflow-y-auto bg-sidebar shadow-2xl"
+            className="sidebar-shell absolute right-0 top-0 flex h-full w-[300px] max-w-[85vw] flex-col overflow-y-auto shadow-2xl"
           >
             <div className="flex h-[59px] shrink-0 items-center justify-between border-b border-sidebar-border pl-5 pr-3">
               <p className="text-[12px] font-bold uppercase tracking-[0.13em] text-sidebar-muted-foreground">
