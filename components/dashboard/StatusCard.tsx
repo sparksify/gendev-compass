@@ -67,25 +67,25 @@ export function StatusCard({
           </div>
         </div>
 
-        <dl className="flex shrink-0 flex-col gap-3.5 pt-0.5">
+        <dl className="flex shrink-0 flex-col gap-5 pt-0.5">
           {journey.timeRemainingMinutes !== null && (
             <div>
-              <dt className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.04em] text-muted-foreground">
-                <Clock className="size-3.5 text-faint-foreground" strokeWidth={1.8} />
+              <dt className="flex items-center gap-1.5 whitespace-nowrap text-[11px] uppercase tracking-[0.04em] text-muted-foreground">
+                <Clock className="size-3.5 shrink-0 text-faint-foreground" strokeWidth={1.8} />
                 Estimated Time Remaining
               </dt>
-              <dd className="mt-1 text-[19px] font-bold text-primary">
+              <dd className="mt-1.5 whitespace-nowrap text-[19px] font-bold text-primary">
                 {journey.timeRemainingMinutes} Minutes
               </dd>
             </div>
           )}
           {journey.nextMilestoneLabel && (
             <div>
-              <dt className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.04em] text-muted-foreground">
-                <Lock className="size-3.5 text-faint-foreground" strokeWidth={1.8} />
+              <dt className="flex items-center gap-1.5 whitespace-nowrap text-[11px] uppercase tracking-[0.04em] text-muted-foreground">
+                <Lock className="size-3.5 shrink-0 text-faint-foreground" strokeWidth={1.8} />
                 Next Unlock
               </dt>
-              <dd className="mt-1 max-w-[10rem] text-[15px] font-bold leading-tight text-foreground">
+              <dd className="mt-1.5 whitespace-nowrap text-[15px] font-bold leading-tight text-foreground">
                 {journey.nextMilestoneLabel}
               </dd>
             </div>
