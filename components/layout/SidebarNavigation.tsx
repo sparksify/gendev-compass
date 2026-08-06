@@ -59,14 +59,14 @@ export function SidebarNavigation({
             return (
               <li key={item.label}>
                 <span
-                  className="flex cursor-not-allowed items-center gap-2.5 whitespace-nowrap rounded-xl px-2.5 py-2.5 text-[12.5px] text-sidebar-muted-foreground"
+                  className="sidebar-row flex cursor-not-allowed items-center gap-2.5 whitespace-nowrap border border-transparent px-2.5 py-2.5 text-[12.5px] text-sidebar-muted-foreground/55"
                   title={item.lockNote}
                 >
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/5">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-sidebar-muted-foreground/45">
                     <Icon className="size-[15px]" strokeWidth={1.7} />
                   </span>
                   <span className="flex-1">{item.label}</span>
-                  <Lock className="size-3.5 shrink-0" aria-label={item.lockNote} />
+                  <Lock className="size-3.5 shrink-0 text-sidebar-muted-foreground/45" aria-label={item.lockNote} />
                 </span>
               </li>
             );
@@ -78,22 +78,24 @@ export function SidebarNavigation({
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "relative flex items-center gap-2.5 whitespace-nowrap rounded-xl px-2.5 py-2.5 text-[12.5px] transition-colors",
+                  "sidebar-row group relative flex items-center gap-2.5 whitespace-nowrap border border-transparent px-2.5 py-2.5 text-[12.5px]",
                   active
-                    ? "bg-white/[0.07] font-medium text-white ring-1 ring-inset ring-primary/40"
-                    : "text-sidebar-foreground/85 hover:bg-white/[0.06]",
+                    ? "sidebar-row-active font-medium text-sidebar-foreground"
+                    : "text-sidebar-muted-foreground/72 hover:bg-white/[0.03] hover:text-sidebar-foreground/90",
                 )}
               >
                 {active && (
                   <span
                     aria-hidden
-                    className="absolute -left-3 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-full bg-primary shadow-[0_0_10px_2px_rgba(37,99,235,0.65)]"
+                    className="sidebar-indicator absolute -left-[10px] top-1/2 h-[55%] w-[3px] -translate-y-1/2 rounded-full"
                   />
                 )}
                 <span
                   className={cn(
-                    "flex size-7 shrink-0 items-center justify-center rounded-full",
-                    active ? "bg-primary/25 text-white" : "bg-white/5 text-sidebar-muted-foreground",
+                    "flex size-7 shrink-0 items-center justify-center rounded-full border border-transparent transition-colors duration-200",
+                    active
+                      ? "sidebar-icon-active text-white"
+                      : "text-sidebar-muted-foreground/60 group-hover:bg-white/[0.04] group-hover:text-sidebar-foreground/85",
                   )}
                 >
                   <Icon className="size-[15px]" strokeWidth={1.7} />
@@ -106,10 +108,10 @@ export function SidebarNavigation({
         <li>
           <a
             href={`mailto:${supportEmail}`}
-            className="flex items-center gap-2.5 whitespace-nowrap rounded-xl px-2.5 py-2.5 text-[12.5px] text-sidebar-foreground/85 transition-colors hover:bg-white/[0.06]"
+            className="sidebar-row group flex items-center gap-2.5 whitespace-nowrap border border-transparent px-2.5 py-2.5 text-[12.5px] text-sidebar-muted-foreground/72 hover:bg-white/[0.03] hover:text-sidebar-foreground/90"
           >
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/5">
-              <Headphones className="size-[15px] text-sidebar-muted-foreground" strokeWidth={1.7} />
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-sidebar-muted-foreground/60 transition-colors duration-200 group-hover:bg-white/[0.04] group-hover:text-sidebar-foreground/85">
+              <Headphones className="size-[15px]" strokeWidth={1.7} />
             </span>
             Support
           </a>
@@ -117,14 +119,14 @@ export function SidebarNavigation({
       </ul>
 
       <div className="mx-5 mt-[22px] border-t border-sidebar-border" />
-      <p className="px-5 pb-2.5 pt-5 text-[10.5px] font-bold uppercase tracking-[0.13em] text-sidebar-muted-foreground">
+      <p className="px-5 pb-2.5 pt-5 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-sidebar-muted-foreground/55">
         Coming Soon
       </p>
       <ul className="flex flex-col gap-1 px-3">
         {COMING_SOON.map((item) => (
           <li
             key={item.key}
-            className="flex items-center gap-3 whitespace-nowrap px-3 py-[9px] text-[13px] text-sidebar-muted-foreground"
+            className="flex items-center gap-3 whitespace-nowrap px-3 py-[9px] text-[13px] text-sidebar-muted-foreground/55"
           >
             <Lock className="size-[15px] shrink-0" strokeWidth={1.8} />
             {item.shortTitle ?? item.title}
@@ -133,19 +135,19 @@ export function SidebarNavigation({
       </ul>
 
       <div className="mt-auto px-5 pt-5">
-        <div className="rounded-card border border-sidebar-border bg-sidebar-card p-4">
+        <div className="sidebar-support-card rounded-card border p-4">
           <p className="flex items-center gap-2.5 text-[13.5px] font-bold text-sidebar-foreground">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/5">
-              <Headphones className="size-4 text-sidebar-foreground" strokeWidth={1.7} />
+            <span className="sidebar-support-icon flex size-8 shrink-0 items-center justify-center rounded-full border">
+              <Headphones className="size-4 text-white" strokeWidth={1.7} />
             </span>
             Need Assistance?
           </p>
-          <p className="mt-2 text-[12.5px] text-sidebar-muted-foreground">
+          <p className="mt-2 text-[12.5px] text-sidebar-muted-foreground/70">
             Our team is here to help.
           </p>
           <a
             href={`mailto:${supportEmail}`}
-            className="mt-2.5 inline-block text-[12.5px] font-medium text-sidebar-accent hover:text-white"
+            className="mt-2.5 inline-block text-[12.5px] font-medium text-sidebar-accent transition-colors duration-200 hover:text-white"
           >
             Contact Support →
           </a>

@@ -85,8 +85,8 @@ export async function PortalShell({ context, token, children }: PortalShellProps
 
   return (
     <div className="flex min-h-screen">
-      <aside className="sticky top-0 hidden h-screen w-[236px] shrink-0 flex-col bg-sidebar lg:flex">
-        <div className="flex h-[59px] shrink-0 items-center border-b border-sidebar-border px-5">
+      <aside className="sidebar-shell sticky top-0 hidden h-screen w-[236px] shrink-0 flex-col lg:flex">
+        <div className="flex h-[59px] shrink-0 items-center border-b border-sidebar-border px-6">
           <BrandBlock logoUrl={siteLogoUrl} variant="sidebar" />
         </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-5">
