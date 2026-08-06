@@ -105,7 +105,7 @@ export const FETCH_TIMEOUT_MS = 20_000;
  *  states well inside a function's time budget without hammering the API. */
 export const STATE_FETCH_CONCURRENCY = 8;
 
-async function fetchAcsForState(
+export async function fetchAcsForState(
   vintage: number,
   variables: string[],
   fipsCode: string,
@@ -124,7 +124,20 @@ async function fetchAcsForState(
     headers: { "User-Agent": "GenDevCompass/1.0 (Territory Intelligence market data import)" },
   });
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
+    // The Census API's error responses are plain text explaining exactly
+    // what's wrong (invalid key, malformed query, rate limit, ...) — a
+    // bare status code was proven, in production, to not be enough to
+    // diagnose a systemic failure without guessing. Truncated: some error
+    // bodies echo the whole request back. Reading the body can fail (a
+    // response without one, or — in tests — a mock that doesn't implement
+    // .text()); that's never allowed to hide the real HTTP status.
+    let detail = "";
+    try {
+      detail = (await response.text()).trim().slice(0, 200);
+    } catch {
+      // no body available — fall through with just the status
+    }
+    throw new Error(`HTTP ${response.status}${detail ? `: ${detail}` : ""}`);
   }
   const rows = (await response.json()) as unknown[][];
   return parseAcsResponse(rows, variables);
