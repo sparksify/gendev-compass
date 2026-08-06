@@ -28,10 +28,10 @@ function JourneyStep({ milestone }: { milestone: JourneyMilestone }) {
   const Icon = STEP_ICONS[key] ?? FileText;
 
   return (
-    <li className="flex flex-1 flex-col items-center gap-2.5">
+    <li className="flex flex-1 flex-col items-center gap-2">
       <span
         className={cn(
-          "flex size-11 shrink-0 items-center justify-center rounded-full bg-card",
+          "flex size-10 shrink-0 items-center justify-center rounded-full bg-card",
           status === "completed" && "border-[1.5px] border-success text-success",
           status === "active" && "border-[1.5px] border-sidebar bg-sidebar",
           (status === "locked" || status === "future") &&
@@ -40,16 +40,16 @@ function JourneyStep({ milestone }: { milestone: JourneyMilestone }) {
         aria-hidden
       >
         {status === "completed" ? (
-          <Check className="size-[18px]" strokeWidth={2.2} />
+          <Check className="size-4" strokeWidth={2.2} />
         ) : status === "active" ? (
-          <span className="size-3 rounded-full bg-white" />
+          <span className="size-[11px] rounded-full bg-white" />
         ) : (
-          <Icon className="size-[17px]" strokeWidth={1.7} />
+          <Icon className="size-[15px]" strokeWidth={1.7} />
         )}
       </span>
       <span
         className={cn(
-          "max-w-[8.5rem] text-center text-[13px] leading-[1.25]",
+          "max-w-[8.5rem] text-center text-[12.5px] leading-[1.25]",
           status === "active"
             ? "font-semibold text-sidebar"
             : status === "completed"
@@ -76,7 +76,7 @@ export function ProgressTimeline({ milestones }: { milestones: JourneyMilestone[
       {milestones.map((milestone, index) => (
         <Fragment key={milestone.key}>
           {index > 0 && (
-            <li aria-hidden className="mt-[21px] h-px flex-1 shrink bg-border" />
+            <li aria-hidden className="mt-5 h-px flex-1 shrink bg-border" />
           )}
           <JourneyStep milestone={milestone} />
         </Fragment>

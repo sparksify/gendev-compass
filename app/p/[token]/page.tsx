@@ -27,17 +27,17 @@ export default async function PortalDashboardPage({
   const profile = await resolveOpportunityProfile();
 
   return (
-    <div className="space-y-4">
-      <div className="relative overflow-hidden pb-6 pt-9">
+    <div className="space-y-3.5">
+      <div className="relative overflow-hidden pb-3 pt-5">
         <HeroBackdrop />
         <div className="relative">
-          <p className="text-[14.5px] font-semibold uppercase tracking-[0.03em] text-sidebar">
+          <p className="text-[13px] font-semibold uppercase tracking-[0.03em] text-sidebar">
             Welcome back, {lead.first_name}
           </p>
-          <h1 className="mt-2 font-serif text-[48px] font-medium leading-[1.06] tracking-[-0.015em] text-sidebar sm:text-[52px]">
+          <h1 className="mt-1.5 font-serif text-[38px] font-medium leading-[1.08] tracking-[-0.015em] text-sidebar sm:text-[42px]">
             Your {profile.shortName} Investment Journey
           </h1>
-          <p className="mt-3 max-w-[800px] text-[17px] leading-[1.65] text-muted-foreground">
+          <p className="mt-2 max-w-[760px] text-[15px] leading-[1.55] text-muted-foreground">
             Evaluate this opportunity at your own pace. Everything you share here helps your
             advisor prepare a consultation tailored to your goals and experience.
           </p>
