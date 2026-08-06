@@ -33,7 +33,7 @@ function JourneyStep({ milestone }: { milestone: JourneyMilestone }) {
         className={cn(
           "flex size-[34px] shrink-0 items-center justify-center rounded-full bg-card",
           status === "completed" && "border-[1.5px] border-success text-success",
-          status === "active" && "border-[1.5px] border-primary bg-primary",
+          status === "active" && "border-[1.5px] border-sidebar bg-sidebar",
           (status === "locked" || status === "future") &&
             "border border-border-strong text-faint-foreground",
         )}
@@ -51,7 +51,7 @@ function JourneyStep({ milestone }: { milestone: JourneyMilestone }) {
         className={cn(
           "max-w-[7.5rem] text-center text-[11.5px] leading-[1.35]",
           status === "active"
-            ? "font-medium text-primary"
+            ? "font-medium text-sidebar"
             : status === "completed"
               ? "text-secondary-foreground"
               : "text-muted-foreground",

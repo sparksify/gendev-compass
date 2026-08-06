@@ -41,6 +41,12 @@
   --sidebar-border: rgb(140 168 224 / 12%);
   --sidebar-card: #14264a;
   --sidebar-accent: #6d9bff;
+
+  /* Antique-gold accent used only by the home dashboard's hero section
+   * (StatusCard / ProgressTimeline / PathChooser) — additive, doesn't
+   * replace --primary anywhere else in the app. */
+  --accent-gold: #a9824e;
+  --accent-gold-soft: #f2e9d8;
 }
 
 @theme inline {
@@ -72,6 +78,9 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-card: var(--sidebar-card);
   --color-sidebar-accent: var(--sidebar-accent);
+
+  --color-accent-gold: var(--accent-gold);
+  --color-accent-gold-soft: var(--accent-gold-soft);
 
   --radius-card: var(--radius);
   --radius-control: 8px;

@@ -25,11 +25,11 @@ export function PathChooser({ token, videoStarted, videoPercent }: PathChooserPr
 
   return (
     <div className="grid gap-[18px] lg:grid-cols-2">
-      <Card className="overflow-visible border-primary/30">
+      <Card className="overflow-visible border-accent-gold/40">
         <CardContent className="flex h-full flex-col p-6 sm:p-7">
           <Badge
             variant="primary"
-            className="w-fit bg-primary px-3 py-1 uppercase tracking-[0.04em] text-primary-foreground shadow-card"
+            className="w-fit bg-accent-gold-soft px-3 py-1 uppercase tracking-[0.04em] text-accent-gold shadow-card"
           >
             Recommended
           </Badge>
@@ -46,7 +46,7 @@ export function PathChooser({ token, videoStarted, videoPercent }: PathChooserPr
           <div className="mt-auto pt-5">
             <div className="rounded-control border border-border bg-surface p-3.5">
               <div className="flex items-center gap-2.5">
-                <BookOpen className="size-4 shrink-0 text-primary" strokeWidth={1.8} />
+                <BookOpen className="size-4 shrink-0 text-sidebar" strokeWidth={1.8} />
                 <span className="flex-1 text-[13px] font-semibold text-foreground">
                   Investor Overview
                 </span>
@@ -57,11 +57,16 @@ export function PathChooser({ token, videoStarted, videoPercent }: PathChooserPr
               <Progress
                 value={videoStarted ? videoPercent : 0}
                 className="mt-2.5"
+                indicatorClassName="bg-sidebar"
                 aria-label="Overview progress"
               />
             </div>
 
-            <Button asChild size="lg" className="mt-4 w-full justify-between">
+            <Button
+              asChild
+              size="lg"
+              className="mt-4 w-full justify-between bg-sidebar text-white hover:bg-sidebar/90"
+            >
               <Link href={`${base}/overview`}>
                 {overviewCtaLabel}
                 <ArrowRight />
@@ -74,7 +79,7 @@ export function PathChooser({ token, videoStarted, videoPercent }: PathChooserPr
       <Card className="border-transparent bg-sidebar">
         <CardContent className="flex h-full flex-col p-6 sm:p-7">
           <h2 className="font-serif text-2xl font-normal text-white">The Fast Lane</h2>
-          <p className="mt-1 text-[13px] font-medium text-sidebar-foreground/60">
+          <p className="mt-1 text-[13px] font-medium text-accent-gold">
             For experienced investors
           </p>
           <p className="mt-3 text-[13px] leading-[1.6] text-sidebar-foreground/70">
