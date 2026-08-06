@@ -1,90 +1,132 @@
 import Link from "next/link";
-import { ArrowRight, Play } from "lucide-react";
+import {
+  ArrowRight,
+  BarChart3,
+  CalendarDays,
+  Check,
+  Clock,
+  FileText,
+  Lock,
+  MonitorPlay,
+  Play,
+  ShieldCheck,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { CheckCircleSolid } from "@/components/dashboard/CheckCircleSolid";
 import { brand } from "@/lib/config/brand";
 import type { PortalState } from "@/types/portal";
 import type { JourneySummary } from "@/lib/portal/journey";
 
-interface StatusCardProps {
+/**
+ * Same glyph vocabulary as the journey timeline directly below this card,
+ * so the "current step" badge here visually ties to its node in the
+ * timeline (kept local — ProgressTimeline.tsx is a preserved component).
+ */
+const STEP_ICONS: Record<string, typeof FileText> = {
+  application: FileText,
+  overview: MonitorPlay,
+  questionnaire: FileText,
+  consultation: CalendarDays,
+  "operations-call": MonitorPlay,
+  "qa-zoom": ShieldCheck,
+  "investment-review": BarChart3,
+};
+
+/** The command center: where am I, what's next, how long will it take. */
+export function StatusCard({
+  token,
+  state,
+  journey,
+}: {
   token: string;
   state: PortalState;
   journey: JourneySummary;
-}
-
-/** The command center: where am I, what's next, how long will it take. */
-export function StatusCard({ token, state, journey }: StatusCardProps) {
+}) {
   const base = `/p/${token}`;
 
-  let headline: string;
   let supporting: string;
   let ctaHref: string;
   let ctaLabel: string;
 
   if (state.booked) {
-    headline = "Consultation Scheduled";
     supporting = "Your consultation is booked. Review your confirmation and prepare your questions.";
     ctaHref = `${base}/schedule`;
     ctaLabel = "View Consultation Details";
   } else if (state.questionnaireCompleted) {
-    headline = "Your Consultation Is the Next Step";
     supporting = `Your investor profile has been shared with ${brand.advisorName}. Choose a convenient time to discuss your goals and evaluate whether this opportunity is a strong mutual fit.`;
     ctaHref = `${base}/schedule`;
     ctaLabel = "Schedule Consultation";
   } else if (state.videoCompleted) {
-    headline = "Investor Overview Completed";
     supporting = `A few questions about your goals and experience help ${brand.advisorName} prepare a consultation tailored to you. Most investors finish in about 3–5 minutes.`;
     ctaHref = `${base}/questionnaire`;
     ctaLabel = "Begin Qualification";
   } else {
-    headline = "Initial Application Received";
     supporting = state.videoStarted
-      ? `You're currently reviewing the Investor Overview. ${brand.advisorName} will be ready to tailor your consultation when you are.`
-      : `Your next step is the Investor Overview — or begin qualification directly if you're already experienced with franchise investing.`;
+      ? `Learn about the business model, investment requirements, and what it means to own a ${brand.brandName} business.`
+      : `Learn about the business model, investment requirements, and what it means to own a ${brand.brandName} business — or begin qualification directly if you're already experienced with franchise investing.`;
     ctaHref = `${base}/overview`;
     ctaLabel = state.videoStarted ? "Resume Investor Overview" : "Begin Investor Overview";
   }
 
+  const activeMilestone = journey.milestones.find((m) => m.status === "active");
+  const StepIcon = activeMilestone ? (STEP_ICONS[activeMilestone.key] ?? FileText) : null;
+
   return (
     <Card>
-      <h2 className="px-6 pt-5 text-[15.5px] font-bold text-foreground">Your Current Status</h2>
-
-      <div className="flex flex-col gap-6 px-6 pt-3.5 sm:flex-row sm:items-start sm:gap-7">
-        <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-[9px] text-[16.5px] font-bold text-foreground">
-            <CheckCircleSolid className="size-[19px] shrink-0" />
-            {headline}
-          </p>
-          <p className="mt-2.5 max-w-md text-[13.5px] leading-[1.6] text-muted-foreground">
-            {supporting}
-          </p>
+      <div className="flex flex-col gap-6 p-6 sm:flex-row sm:items-start sm:justify-between sm:gap-7">
+        <div className="flex min-w-0 flex-1 gap-4">
+          <span
+            aria-hidden
+            className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
+          >
+            {state.booked ? (
+              <Check className="size-5" strokeWidth={2.2} />
+            ) : StepIcon ? (
+              <StepIcon className="size-5" strokeWidth={1.8} />
+            ) : (
+              <FileText className="size-5" strokeWidth={1.8} />
+            )}
+          </span>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-primary">
+              Your Current Step
+            </p>
+            <p className="mt-1 text-[19px] font-bold leading-tight text-foreground">
+              {journey.currentMilestoneLabel}
+            </p>
+            <p className="mt-2 max-w-md text-[13.5px] leading-[1.6] text-muted-foreground">
+              {supporting}
+            </p>
+          </div>
         </div>
 
         <dl className="flex shrink-0 gap-7 pt-0.5">
           {journey.timeRemainingMinutes !== null && (
             <div className="border-r border-border pr-7">
-              <dt className="text-xs text-muted-foreground">Estimated time remaining</dt>
+              <dt className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.04em] text-muted-foreground">
+                <Clock className="size-3.5 text-faint-foreground" strokeWidth={1.8} />
+                Estimated Time Remaining
+              </dt>
               <dd className="mt-1.5 text-[19px] font-bold text-primary">
                 {journey.timeRemainingMinutes} Minutes
               </dd>
             </div>
           )}
-          <div>
-            <dt className="text-xs text-muted-foreground">Progress</dt>
-            <dd className="mt-1.5 text-[19px] font-bold text-primary">
-              {journey.overallPercent}% Complete
-            </dd>
-          </div>
+          {journey.nextMilestoneLabel && (
+            <div>
+              <dt className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.04em] text-muted-foreground">
+                <Lock className="size-3.5 text-faint-foreground" strokeWidth={1.8} />
+                Next Unlock
+              </dt>
+              <dd className="mt-1.5 max-w-[9rem] text-[15px] font-bold leading-tight text-foreground">
+                {journey.nextMilestoneLabel}
+              </dd>
+            </div>
+          )}
         </dl>
       </div>
 
-      <div className="px-6 pt-[18px]">
-        <Progress value={journey.overallPercent} aria-label="Journey progress" />
-      </div>
-
-      <div className="flex flex-wrap items-center gap-[22px] px-6 pb-[22px] pt-[18px]">
+      <div className="flex flex-wrap items-center gap-[22px] px-6 pb-[22px] pt-1">
         <Button asChild size="lg">
           <Link href={ctaHref}>
             <Play strokeWidth={1.8} /> {ctaLabel}

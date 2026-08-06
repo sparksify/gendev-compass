@@ -39,14 +39,14 @@ export default async function PortalDashboardPage({
         </p>
       </div>
 
-      {!state.videoCompleted && !state.questionnaireCompleted && !state.booked ? (
+      <StatusCard token={token} state={state} journey={journey} />
+
+      {!state.videoCompleted && !state.questionnaireCompleted && !state.booked && (
         <PathChooser
           token={token}
           videoStarted={state.videoStarted}
           videoPercent={state.videoPercent}
         />
-      ) : (
-        <StatusCard token={token} state={state} journey={journey} />
       )}
 
       <section id="progress" className="overflow-x-auto px-1 pb-0.5 pt-1.5">
