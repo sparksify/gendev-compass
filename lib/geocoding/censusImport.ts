@@ -143,6 +143,119 @@ export async function fetchAcsForState(
   return parseAcsResponse(rows, variables);
 }
 
+/**
+ * Superseded by fetchAcsForZctas/fetchAcsForZipList below for the live
+ * sync path (see syncDemographics). Kept only because downloadCensusDemographics
+ * / refreshDemographics (older, currently unused by any route) still call it.
+ *
+ * `&in=state:{fips}` was confirmed live in production to be REJECTED by the
+ * Census API for the ZCTA geography — every state request (both the
+ * current 2023 vintage and the 2018 vintage) came back
+ * "HTTP 400: error: unknown/unsupported geography hierarchy". ZCTAs are
+ * not nested under state in the ACS5 API's geography hierarchy, so a state
+ * scope is simply not a valid query shape here, regardless of vintage —
+ * the "predating ZCTA-by-state support" theory in the comment above (and
+ * in syncDemographics) was a reasonable diagnosis from a partial symptom,
+ * but the state-scoped query never actually worked in production.
+ */
+
+/** Explicit-ZCTA-list requests stay comfortably clear of any URL-length or
+ *  intermediary body-size limit — small enough that the truncation
+ *  documented at the top of this file (a single nationwide wildcard
+ *  request coming back silently cut off) can't recur, while every request
+ *  is guaranteed a geography shape the Census API actually accepts (no
+ *  `in=` clause at all). */
+export const ZCTA_BATCH_SIZE = 200;
+
+/** How many ZCTA-batch requests run at once per state-processing worker —
+ *  kept low because this concurrency nests inside the outer per-state
+ *  worker pool (STATE_FETCH_CONCURRENCY), and the two multiply. */
+const ZCTA_BATCH_CONCURRENCY = 3;
+
+/**
+ * Fetches ACS data for an explicit, comma-separated list of ZCTA codes —
+ * the query shape the Census API actually supports for this geography (no
+ * `in=state:` scoping; see the note on fetchAcsForState above).
+ */
+export async function fetchAcsForZctas(
+  vintage: number,
+  variables: string[],
+  zctaCodes: string[],
+): Promise<Map<string, Record<string, number | null>>> {
+  if (zctaCodes.length === 0) return new Map();
+  const key = process.env.CENSUS_API_KEY?.trim();
+  const url =
+    `${CENSUS_API_BASE}/${vintage}/acs/acs5?get=${variables.join(",")}` +
+    `&for=zip%20code%20tabulation%20area:${zctaCodes.join(",")}` +
+    (key ? `&key=${encodeURIComponent(key)}` : "");
+  const response = await fetch(url, {
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    headers: { "User-Agent": "GenDevCompass/1.0 (Territory Intelligence market data import)" },
+  });
+  if (!response.ok) {
+    let detail = "";
+    try {
+      detail = (await response.text()).trim().slice(0, 200);
+    } catch {
+      // no body available — fall through with just the status
+    }
+    throw new Error(`HTTP ${response.status}${detail ? `: ${detail}` : ""}`);
+  }
+  const rows = (await response.json()) as unknown[][];
+  return parseAcsResponse(rows, variables);
+}
+
+export interface FetchAcsForZipListResult {
+  demographics: Map<string, Record<string, number | null>>;
+  /** ZCTA codes whose batch failed — reported, never silently dropped. */
+  failedZips: string[];
+  /** The most recent batch failure's message, for surfacing a concrete
+   *  cause (mirrors fetchAcsForState's single-request error contract). */
+  lastError: string | null;
+}
+
+/**
+ * Fetches ACS data for a state's full ZIP list, batched into requests of
+ * ZCTA_BATCH_SIZE codes each — the replacement for the single
+ * `in=state:{fips}` request fetchAcsForState used to issue. One batch
+ * failing doesn't lose the rest of the state's data; it's reported in
+ * failedZips instead.
+ */
+export async function fetchAcsForZipList(
+  vintage: number,
+  variables: string[],
+  zipCodes: string[],
+): Promise<FetchAcsForZipListResult> {
+  const demographics = new Map<string, Record<string, number | null>>();
+  const failedZips: string[] = [];
+  let lastError: string | null = null;
+
+  const batches: string[][] = [];
+  for (let i = 0; i < zipCodes.length; i += ZCTA_BATCH_SIZE) {
+    batches.push(zipCodes.slice(i, i + ZCTA_BATCH_SIZE));
+  }
+
+  const queue = [...batches];
+  async function worker() {
+    while (queue.length > 0) {
+      const batch = queue.shift();
+      if (!batch) return;
+      try {
+        const result = await fetchAcsForZctas(vintage, variables, batch);
+        for (const [zcta, values] of result) demographics.set(zcta, values);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`[census] ZCTA batch (vintage ${vintage}, ${batch.length} codes) failed:`, error);
+        failedZips.push(...batch);
+        lastError = message;
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(ZCTA_BATCH_CONCURRENCY, batches.length) }, worker));
+
+  return { demographics, failedZips, lastError };
+}
+
 export interface FetchAcsNationalResult {
   demographics: Map<string, Record<string, number | null>>;
   /** USPS codes for any state whose request failed — reported, never silent. */
@@ -423,26 +536,31 @@ export async function syncDemographics(
     while (queue.length > 0 && Date.now() - startedAt < budgetMs) {
       const stateCode = queue.shift();
       if (!stateCode) return;
-      const fips = STATE_FIPS_CODES[stateCode];
+      const stateRows = byState.get(stateCode) ?? [];
+      const zipCodes = stateRows.map((r) => r.zip_code);
       try {
+        // Fetched by explicit ZCTA list (see fetchAcsForZipList) — the
+        // Census API rejects `in=state:` scoping for this geography, at
+        // every vintage, confirmed live in production.
+        //
         // The current-vintage fetch (population/households/income) is
         // required; the prior-vintage fetch (growth comparison only) is
-        // decoupled and allowed to fail on its own — a state-scoped ZCTA
-        // query against an older vintage failing (observed in production:
-        // every state's prior-vintage request rejected with HTTP 400,
-        // predating when the Census API's ZCTA-by-state support was
-        // introduced) must never discard population/income data that
-        // fetched successfully. Growth simply stays null for that state.
-        const current = await fetchAcsForState(CENSUS_CURRENT_VINTAGE, CURRENT_VINTAGE_VARIABLES, fips);
+        // decoupled and allowed to fail on its own — a bad prior-vintage
+        // fetch must never discard population/income data that fetched
+        // successfully. Growth simply stays null for that state.
+        const currentResult = await fetchAcsForZipList(CENSUS_CURRENT_VINTAGE, CURRENT_VINTAGE_VARIABLES, zipCodes);
+        if (currentResult.demographics.size === 0 && currentResult.failedZips.length > 0) {
+          throw new Error(currentResult.lastError ?? "All ZCTA batches failed");
+        }
         let prior = new Map<string, Record<string, number | null>>();
         try {
-          prior = await fetchAcsForState(CENSUS_PRIOR_VINTAGE, ["B01003_001E"], fips);
+          prior = (await fetchAcsForZipList(CENSUS_PRIOR_VINTAGE, ["B01003_001E"], zipCodes)).demographics;
         } catch (priorError) {
           console.error(`[census] ${stateCode} prior-vintage (growth) fetch failed — proceeding without growth:`, priorError);
         }
-        const demographics = buildDemographics(current, prior);
+        const demographics = buildDemographics(currentResult.demographics, prior);
         const rows = buildDemographicsUpsertRows(
-          byState.get(stateCode) ?? [],
+          stateRows,
           { demographics, vintageLabel: DEMOGRAPHICS_VINTAGE_LABEL },
           new Date().toISOString(),
         );
@@ -457,7 +575,7 @@ export async function syncDemographics(
             state: stateCode,
             success: true,
             writtenRows: rows.length,
-            rawPayload: Object.fromEntries(current),
+            rawPayload: Object.fromEntries(currentResult.demographics),
           });
         }
       } catch (error) {

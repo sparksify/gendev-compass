@@ -171,6 +171,39 @@ describe("refreshZipReference / refreshDemographics / hasZipGeographiesForState 
     expect(row).toMatchObject({ population: 84600, median_household_income: 112000 });
   });
 
+  it("syncDemographics never sends the state-scoped `in=state:` query — confirmed live in production to be rejected by the Census API for the ZCTA geography (\"unknown/unsupported geography hierarchy\", every state, every vintage). Fetches by explicit ZCTA list instead", async () => {
+    const now = new Date().toISOString();
+    await store.upsertZipCodeReferences([
+      {
+        zip_code: "37067",
+        city: "Franklin",
+        state_code: "TN",
+        county_name: null,
+        latitude: 35.93,
+        longitude: -86.87,
+        timezone: null,
+        created_at: now,
+        updated_at: now,
+      },
+    ]);
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [
+        ["B01003_001E", "B11001_001E", "B19013_001E", "zip code tabulation area"],
+        ["50000", "20000", "75000", "37067"],
+      ],
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const { syncDemographics } = await import("@/lib/geocoding/censusImport");
+    await syncDemographics(Number.POSITIVE_INFINITY);
+
+    const urls = fetchMock.mock.calls.map(([url]) => String(url));
+    expect(urls.some((u) => u.includes("37067"))).toBe(true);
+    expect(urls.some((u) => u.includes("in=state"))).toBe(false);
+    expect(urls.every((u) => /for=zip%20code%20tabulation%20area:[\d,]+/.test(u))).toBe(true);
+  });
+
   it("syncDemographics writes a state's rows as soon as it's fetched and skips it once covered", async () => {
     // A fresh state untouched by the earlier refreshDemographics test (which
     // already covered TX in this same shared dev store).
@@ -221,9 +254,8 @@ describe("refreshZipReference / refreshDemographics / hasZipGeographiesForState 
   });
 
   it("syncDemographics reports a failed state without losing other states' progress", async () => {
-    const { STATE_FIPS_CODES } = await import("@/lib/geocoding/censusImport");
     global.fetch = vi.fn((url: string) => {
-      if (url.includes(`in=state:${STATE_FIPS_CODES.AZ}`)) {
+      if (url.includes("85001")) {
         return Promise.reject(new Error("simulated network failure"));
       }
       return Promise.resolve({
