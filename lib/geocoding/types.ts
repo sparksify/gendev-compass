@@ -26,6 +26,8 @@ export interface NearbyZip {
   population: number | null;
   households: number | null;
   medianHouseholdIncome: number | null;
+  populationGrowthPct: number | null;
+  demographicsSource: string | null;
 }
 
 export interface GeocodingProvider {

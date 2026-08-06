@@ -501,3 +501,39 @@ describe("stage service synchronization", () => {
     expect(reloaded?.current_stage).toBe("DUE_DILIGENCE");
   });
 });
+
+describe("zip boundary layer", () => {
+  it("round-trips display GeoJSON through the store", async () => {
+    const square = {
+      type: "Polygon",
+      coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+    };
+    await store.upsertZipGeographies([
+      {
+        zip_code: "75078",
+        state_code: "TX",
+        latitude: 33.24,
+        longitude: -96.8,
+        geojson: square,
+        geometry_source: "test",
+        geometry_version: "v1",
+      },
+    ]);
+    // Upsert again — replaces, never duplicates.
+    await store.upsertZipGeographies([
+      {
+        zip_code: "75078",
+        state_code: "TX",
+        latitude: 33.24,
+        longitude: -96.8,
+        geojson: square,
+        geometry_source: "test",
+        geometry_version: "v2",
+      },
+    ]);
+    const rows = await store.listZipGeographies(["75078", "99999"]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].geometry_version).toBe("v2");
+    expect(rows[0].geojson).toEqual(square);
+  });
+});

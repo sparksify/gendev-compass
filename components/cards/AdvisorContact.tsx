@@ -6,6 +6,8 @@ interface AdvisorContactProps {
   token: string;
   phone: string;
   email: string;
+  /** Overrides the default bordered/spaced wrapper. */
+  className?: string;
 }
 
 function track(token: string, eventName: "advisor_phone_clicked" | "advisor_email_clicked") {
@@ -17,9 +19,9 @@ function track(token: string, eventName: "advisor_phone_clicked" | "advisor_emai
 }
 
 /** Advisor phone and email rows with click tracking (fire-and-forget). */
-export function AdvisorContact({ token, phone, email }: AdvisorContactProps) {
+export function AdvisorContact({ token, phone, email, className }: AdvisorContactProps) {
   return (
-    <div className="mt-4 flex flex-col gap-2 border-t border-border-soft pt-3.5">
+    <div className={className ?? "mt-4 flex flex-col gap-2 border-t border-border-soft pt-3.5"}>
       <p className="flex items-center gap-[9px] text-[12.5px]">
         <Phone className="size-[15px] shrink-0 text-faint-foreground" strokeWidth={1.6} />
         <a

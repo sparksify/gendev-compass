@@ -13,6 +13,9 @@ interface ChatMessageProps {
   onSelectCandidate?: (candidate: { label: string; city: string; stateCode: string; zipCode: string }) => void;
   onSelectAlternative: (alternative: TerritoryAlternative) => void;
   disabled?: boolean;
+  /** Suppress the per-status CTA buttons (the workspace renders smart chips
+   *  and the advisor follow-up for the latest result instead). */
+  hideCtas?: boolean;
 }
 
 export function ChatMessage({
@@ -21,6 +24,7 @@ export function ChatMessage({
   onSelectCandidate,
   onSelectAlternative,
   disabled,
+  hideCtas,
 }: ChatMessageProps) {
   const isUser = message.role === "user";
 
@@ -43,7 +47,7 @@ export function ChatMessage({
     );
   }
 
-  const cta = message.result ? ctaForStatus(message.result.status) : null;
+  const cta = message.result && !hideCtas ? ctaForStatus(message.result.status) : null;
 
   return (
     <div className="flex flex-col gap-2.5">

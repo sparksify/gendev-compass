@@ -7,11 +7,17 @@ import { trackEvent } from "@/lib/portal/events";
 import { getStore } from "@/lib/store";
 import { getCurrentBrand, fallbackBrandName } from "@/lib/territory/brand";
 import { brand } from "@/lib/config/brand";
+import { CMDT_PROFILE } from "@/lib/config/opportunity";
 import type { TerritoryEvaluationResult } from "@/types/territory";
 
 export const dynamic = "force-dynamic";
 
 const HISTORY_LIMIT = 5;
+
+/** Compact brand context for the workspace header (replaces the rail card). */
+function snapshotValue(key: string): string | null {
+  return CMDT_PROFILE.snapshot.entries.find((entry) => entry.key === key)?.value ?? null;
+}
 
 /**
  * Client-facing Territory Advisor: a conversational preliminary
@@ -32,7 +38,7 @@ export default async function TerritoryAdvisorPage({ params }: { params: Promise
   if (!franchiseBrand) {
     return (
       <div className="max-w-xl">
-        <h1 className="font-serif text-3xl font-normal text-foreground">Territory Advisor</h1>
+        <h1 className="font-serif text-3xl font-normal text-foreground">Territory Intelligence</h1>
         <Card className="mt-5 p-6">
           <div className="flex items-start gap-3">
             <HelpCircle className="mt-0.5 size-5 shrink-0 text-muted-foreground" strokeWidth={1.7} />
@@ -67,7 +73,12 @@ export default async function TerritoryAdvisorPage({ params }: { params: Promise
         token={token}
         firstName={lead.first_name}
         brandName={franchiseBrand.name}
+        advisorName={brand.advisorName}
         advisorEmail={brand.advisorEmail}
+        brandContext={{
+          industry: snapshotValue("industry"),
+          investmentRange: snapshotValue("investment"),
+        }}
         defaultRadiusMiles={franchiseBrand.default_radius_miles}
         initialResults={initialResults}
       />

@@ -12,7 +12,9 @@
     "seed:reset": "tsx scripts/seed.ts --reset",
     "seed:advisor": "tsx scripts/seed-advisor.ts",
     "seed:territory": "tsx scripts/seed-territory.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "import:zips": "tsx scripts/import-zip-data.ts",
+    "build:zcta": "tsx scripts/build-zcta-bundle.ts"
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "^5.3.0",
@@ -27,8 +29,10 @@
     "@radix-ui/react-slot": "^1.3.3",
     "@radix-ui/react-tooltip": "^1.2.16",
     "@supabase/supabase-js": "^2.49.0",
+    "@types/leaflet": "^1.9.22",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "leaflet": "^1.9.4",
     "lucide-react": "^1.28.0",
     "next": "^15.5.0",
     "react": "^19.1.0",

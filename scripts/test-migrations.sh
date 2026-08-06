@@ -140,11 +140,22 @@ echo "==> Applying 0006 + 0007 (first pass)"
 run_file "$MIGRATIONS_DIR/0006_platform_domain.sql"
 run_file "$MIGRATIONS_DIR/0007_platform_backfill.sql"
 
-echo "==> Applying 0006 + 0007 AGAIN (rerun safety)"
+run_file "$MIGRATIONS_DIR/0008_zip_geographies.sql"
+run_file "$MIGRATIONS_DIR/0009_zip_geojson.sql"
+run_file "$MIGRATIONS_DIR/0010_zip_demographics.sql"
+
+echo "==> Applying 0006 + 0007 + 0008 + 0009 + 0010 AGAIN (rerun safety)"
 run_file "$MIGRATIONS_DIR/0006_platform_domain.sql"
 run_file "$MIGRATIONS_DIR/0007_platform_backfill.sql"
+run_file "$MIGRATIONS_DIR/0008_zip_geographies.sql"
+run_file "$MIGRATIONS_DIR/0009_zip_geojson.sql"
+run_file "$MIGRATIONS_DIR/0010_zip_demographics.sql"
 
 echo "==> Asserting backfill invariants"
+assert_eq "zip_code_reference demographics columns (0010)" 3 \
+  "$(scalar "select count(*) from information_schema.columns
+             where table_schema='public' and table_name='zip_code_reference'
+               and column_name in ('population_growth_pct','demographics_source','demographics_vintage')")"
 assert_eq "organizations (gendev, exactly one)" 1 \
   "$(scalar "select count(*) from organizations where slug='gendev'")"
 assert_eq "cmdt brand exactly one, owned by gendev" 1 \

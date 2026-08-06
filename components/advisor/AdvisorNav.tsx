@@ -9,12 +9,18 @@ const LINKS = [
   { href: "/advisor/investors", label: "Clients" },
 ];
 
-const ADMIN_LINKS = [{ href: "/advisor/territories", label: "Territories" }];
+const ADMIN_LINKS = [
+  { href: "/advisor/territories", label: "Territories" },
+  { href: "/advisor/platform", label: "Platform" },
+];
+
+/** Team is visible to everyone (self-service password change lives there). */
+const SHARED_LINKS = [{ href: "/advisor/team", label: "Team" }];
 
 /** Header nav with an active-route highlight. Client component only for usePathname. */
 export function AdvisorNav({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
-  const links = isAdmin ? [...LINKS, ...ADMIN_LINKS] : LINKS;
+  const links = isAdmin ? [...LINKS, ...ADMIN_LINKS, ...SHARED_LINKS] : [...LINKS, ...SHARED_LINKS];
 
   return (
     <nav className="flex items-center gap-1" aria-label="Main">

@@ -49,12 +49,19 @@ import type {
 } from "@/types/domain";
 import type {
   BrandStateEligibilityRecord,
+  CensusAcsRawRecord,
+  CensusImportJobPatch,
+  CensusImportJobRecord,
+  CreateCensusImportJobInput,
   FranchiseBrandRecord,
+  RecordCensusRawImportInput,
   TerritoryDefinitionRecord,
   TerritoryReviewRequestRecord,
   TerritorySearchRecord,
   TerritoryZipCodeRecord,
   ZipCodeReferenceRecord,
+  UpsertZipCodeReferenceInput,
+  ZipGeographyRecord,
 } from "@/types/territory";
 
 /**
@@ -90,8 +97,11 @@ interface DevData {
   territory_definitions: TerritoryDefinitionRecord[];
   territory_zip_codes: TerritoryZipCodeRecord[];
   zip_code_reference: ZipCodeReferenceRecord[];
+  zip_code_geographies: ZipGeographyRecord[];
   territory_searches: TerritorySearchRecord[];
   territory_review_requests: TerritoryReviewRequestRecord[];
+  census_import_jobs: CensusImportJobRecord[];
+  census_acs_raw: CensusAcsRawRecord[];
 }
 
 const DATA_DIR = path.join(process.cwd(), ".dev-data");
@@ -124,8 +134,11 @@ const EMPTY: DevData = {
   territory_definitions: [],
   territory_zip_codes: [],
   zip_code_reference: [],
+  zip_code_geographies: [],
   territory_searches: [],
   territory_review_requests: [],
+  census_import_jobs: [],
+  census_acs_raw: [],
 };
 
 /**
@@ -1407,16 +1420,62 @@ export function createDevStore(): PortalStore {
       return (await readData()).zip_code_reference;
     },
 
-    async upsertZipCodeReferences(rows: ZipCodeReferenceRecord[]): Promise<void> {
+    async upsertZipCodeReferences(rows: UpsertZipCodeReferenceInput[]): Promise<void> {
       await withLock(async () => {
         const data = await readData();
+        const demographicDefaults = {
+          population: null,
+          households: null,
+          median_household_income: null,
+          population_growth_pct: null,
+          demographics_source: null,
+          demographics_vintage: null,
+        };
         for (const row of rows) {
           const index = data.zip_code_reference.findIndex((z) => z.zip_code === row.zip_code);
-          if (index === -1) data.zip_code_reference.push(row);
-          else data.zip_code_reference[index] = row;
+          if (index === -1) {
+            data.zip_code_reference.push({ ...demographicDefaults, ...row });
+          } else {
+            // Merge: omitted demographic keys keep their existing values.
+            data.zip_code_reference[index] = { ...data.zip_code_reference[index], ...row };
+          }
         }
         await writeData(data);
       });
+    },
+
+    async upsertZipGeographies(rows): Promise<void> {
+      await withLock(async () => {
+        const data = await readData();
+        for (const row of rows) {
+          const record: ZipGeographyRecord = {
+            zip_code: row.zip_code,
+            state_code: row.state_code,
+            latitude: row.latitude,
+            longitude: row.longitude,
+            geojson: row.geojson,
+            geometry_source: row.geometry_source,
+            geometry_version: row.geometry_version,
+          };
+          const index = data.zip_code_geographies.findIndex((g) => g.zip_code === row.zip_code);
+          if (index === -1) data.zip_code_geographies.push(record);
+          else data.zip_code_geographies[index] = record;
+        }
+        await writeData(data);
+      });
+    },
+
+    async listZipGeographies(zipCodes): Promise<ZipGeographyRecord[]> {
+      const wanted = new Set(zipCodes);
+      return (await readData()).zip_code_geographies.filter(
+        (g) => wanted.has(g.zip_code) && g.geojson !== null,
+      );
+    },
+
+    async hasZipGeographiesForState(stateCode: string): Promise<boolean> {
+      return (await readData()).zip_code_geographies.some(
+        (g) => g.state_code === stateCode && g.geojson !== null,
+      );
     },
 
     async createTerritorySearch(input: CreateTerritorySearchInput): Promise<TerritorySearchRecord> {
@@ -1520,6 +1579,91 @@ export function createDevStore(): PortalStore {
         await writeData(data);
         return record;
       });
+    },
+
+    async createCensusImportJob(input: CreateCensusImportJobInput): Promise<CensusImportJobRecord> {
+      return withLock(async () => {
+        const data = await readData();
+        const now = nowIso();
+        const record: CensusImportJobRecord = {
+          id: randomUUID(),
+          status: "running",
+          trigger: input.trigger,
+          vintage: input.vintage,
+          states_total: input.states_total,
+          states_done: 0,
+          states_failed: 0,
+          last_error: null,
+          started_at: now,
+          finished_at: null,
+          updated_at: now,
+        };
+        data.census_import_jobs.push(record);
+        await writeData(data);
+        return record;
+      });
+    },
+
+    async updateCensusImportJob(id: string, patch: CensusImportJobPatch): Promise<CensusImportJobRecord> {
+      return withLock(async () => {
+        const data = await readData();
+        const record = data.census_import_jobs.find((j) => j.id === id);
+        if (!record) throw new Error(`Census import job not found: ${id}`);
+        Object.assign(record, patch, { updated_at: nowIso() });
+        await writeData(data);
+        return record;
+      });
+    },
+
+    async getCensusImportJob(id: string): Promise<CensusImportJobRecord | null> {
+      return (await readData()).census_import_jobs.find((j) => j.id === id) ?? null;
+    },
+
+    async getActiveCensusImportJob(): Promise<CensusImportJobRecord | null> {
+      const jobs = (await readData()).census_import_jobs
+        .filter((j) => j.status === "running")
+        .sort((a, b) => b.started_at.localeCompare(a.started_at));
+      return jobs[0] ?? null;
+    },
+
+    async listCensusImportJobs(limit: number): Promise<CensusImportJobRecord[]> {
+      return (await readData()).census_import_jobs
+        .slice()
+        .sort((a, b) => b.started_at.localeCompare(a.started_at))
+        .slice(0, limit);
+    },
+
+    async recordCensusRawImport(input: RecordCensusRawImportInput): Promise<void> {
+      await withLock(async () => {
+        const data = await readData();
+        const existing = data.census_acs_raw.find(
+          (r) => r.vintage === input.vintage && r.state_code === input.state_code,
+        );
+        const fetched_at = nowIso();
+        if (existing) {
+          Object.assign(existing, {
+            job_id: input.job_id,
+            variables: input.variables,
+            payload: input.payload,
+            fetched_at,
+          });
+        } else {
+          data.census_acs_raw.push({
+            id: randomUUID(),
+            job_id: input.job_id,
+            vintage: input.vintage,
+            state_code: input.state_code,
+            variables: input.variables,
+            payload: input.payload,
+            fetched_at,
+          });
+        }
+        await writeData(data);
+      });
+    },
+
+    async countCensusAcsRaw(): Promise<number> {
+      return (await readData()).census_acs_raw.length;
     },
   };
 }

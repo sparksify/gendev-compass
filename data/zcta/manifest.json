@@ -1,0 +1,261 @@
+{
+  "version": "census-zcta-2010/opendatade",
+  "builtAt": "2026-08-05T18:57:07.211Z",
+  "states": [
+    {
+      "state": "AK",
+      "zctas": 238,
+      "gzBytes": 394975
+    },
+    {
+      "state": "AL",
+      "zctas": 645,
+      "gzBytes": 414308
+    },
+    {
+      "state": "AR",
+      "zctas": 596,
+      "gzBytes": 351110
+    },
+    {
+      "state": "AZ",
+      "zctas": 408,
+      "gzBytes": 249350
+    },
+    {
+      "state": "CA",
+      "zctas": 1769,
+      "gzBytes": 773047
+    },
+    {
+      "state": "CO",
+      "zctas": 526,
+      "gzBytes": 288614
+    },
+    {
+      "state": "CT",
+      "zctas": 282,
+      "gzBytes": 53614
+    },
+    {
+      "state": "DC",
+      "zctas": 53,
+      "gzBytes": 6064
+    },
+    {
+      "state": "DE",
+      "zctas": 68,
+      "gzBytes": 23619
+    },
+    {
+      "state": "FL",
+      "zctas": 983,
+      "gzBytes": 340459
+    },
+    {
+      "state": "GA",
+      "zctas": 735,
+      "gzBytes": 440220
+    },
+    {
+      "state": "HI",
+      "zctas": 94,
+      "gzBytes": 33503
+    },
+    {
+      "state": "IA",
+      "zctas": 935,
+      "gzBytes": 343498
+    },
+    {
+      "state": "ID",
+      "zctas": 285,
+      "gzBytes": 248824
+    },
+    {
+      "state": "IL",
+      "zctas": 1384,
+      "gzBytes": 516585
+    },
+    {
+      "state": "IN",
+      "zctas": 776,
+      "gzBytes": 284627
+    },
+    {
+      "state": "KS",
+      "zctas": 700,
+      "gzBytes": 277740
+    },
+    {
+      "state": "KY",
+      "zctas": 770,
+      "gzBytes": 394408
+    },
+    {
+      "state": "LA",
+      "zctas": 516,
+      "gzBytes": 271706
+    },
+    {
+      "state": "MA",
+      "zctas": 538,
+      "gzBytes": 103467
+    },
+    {
+      "state": "MD",
+      "zctas": 468,
+      "gzBytes": 150330
+    },
+    {
+      "state": "ME",
+      "zctas": 433,
+      "gzBytes": 148052
+    },
+    {
+      "state": "MI",
+      "zctas": 989,
+      "gzBytes": 440133
+    },
+    {
+      "state": "MN",
+      "zctas": 890,
+      "gzBytes": 428415
+    },
+    {
+      "state": "MO",
+      "zctas": 1029,
+      "gzBytes": 497970
+    },
+    {
+      "state": "MS",
+      "zctas": 424,
+      "gzBytes": 290951
+    },
+    {
+      "state": "MT",
+      "zctas": 363,
+      "gzBytes": 349616
+    },
+    {
+      "state": "NC",
+      "zctas": 808,
+      "gzBytes": 442402
+    },
+    {
+      "state": "ND",
+      "zctas": 393,
+      "gzBytes": 209751
+    },
+    {
+      "state": "NE",
+      "zctas": 586,
+      "gzBytes": 238236
+    },
+    {
+      "state": "NH",
+      "zctas": 248,
+      "gzBytes": 55899
+    },
+    {
+      "state": "NJ",
+      "zctas": 595,
+      "gzBytes": 130898
+    },
+    {
+      "state": "NM",
+      "zctas": 372,
+      "gzBytes": 288078
+    },
+    {
+      "state": "NV",
+      "zctas": 176,
+      "gzBytes": 118825
+    },
+    {
+      "state": "NY",
+      "zctas": 1794,
+      "gzBytes": 677015
+    },
+    {
+      "state": "OH",
+      "zctas": 1197,
+      "gzBytes": 432391
+    },
+    {
+      "state": "OK",
+      "zctas": 649,
+      "gzBytes": 320998
+    },
+    {
+      "state": "OR",
+      "zctas": 419,
+      "gzBytes": 343404
+    },
+    {
+      "state": "PA",
+      "zctas": 1798,
+      "gzBytes": 603331
+    },
+    {
+      "state": "RI",
+      "zctas": 77,
+      "gzBytes": 15504
+    },
+    {
+      "state": "SC",
+      "zctas": 424,
+      "gzBytes": 256117
+    },
+    {
+      "state": "SD",
+      "zctas": 385,
+      "gzBytes": 191451
+    },
+    {
+      "state": "TN",
+      "zctas": 631,
+      "gzBytes": 375428
+    },
+    {
+      "state": "TX",
+      "zctas": 1939,
+      "gzBytes": 1128743
+    },
+    {
+      "state": "UT",
+      "zctas": 294,
+      "gzBytes": 202155
+    },
+    {
+      "state": "VA",
+      "zctas": 896,
+      "gzBytes": 440141
+    },
+    {
+      "state": "VT",
+      "zctas": 255,
+      "gzBytes": 71508
+    },
+    {
+      "state": "WA",
+      "zctas": 598,
+      "gzBytes": 292413
+    },
+    {
+      "state": "WI",
+      "zctas": 774,
+      "gzBytes": 416540
+    },
+    {
+      "state": "WV",
+      "zctas": 708,
+      "gzBytes": 311893
+    },
+    {
+      "state": "WY",
+      "zctas": 179,
+      "gzBytes": 178135
+    }
+  ]
+}

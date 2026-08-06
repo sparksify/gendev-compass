@@ -1,0 +1,395 @@
+/**
+ * Tests for the scheduled backend automation: cron auth, the polygon
+ * backfill's "pick next state" logic, and the shared refresh functions
+ * (refreshZipReference / refreshDemographics) run end-to-end against the
+ * file-backed dev store, following the same pattern as storeFlows.test.ts.
+ */
+import { mkdtempSync, rmSync } from "fs";
+import os from "os";
+import path from "path";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { authorizedCron } from "@/lib/config/cron";
+import { pickUncoveredStates, targetPolygonStates, SUPPORTED_POLYGON_STATES } from "@/lib/territory/polygonImport";
+import { listBundledStates, loadBundledStateRows, readZctaBundleManifest } from "@/lib/territory/zctaBundle";
+import type { PortalStore } from "@/lib/store/types";
+
+describe("authorizedCron", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("requires the exact Bearer token when CRON_SECRET is set, regardless of environment", () => {
+    vi.stubEnv("CRON_SECRET", "s3cret");
+    vi.stubEnv("NODE_ENV", "production");
+
+    const authorized = new Request("https://x.test", { headers: { authorization: "Bearer s3cret" } });
+    const wrongToken = new Request("https://x.test", { headers: { authorization: "Bearer nope" } });
+    const noHeader = new Request("https://x.test");
+
+    expect(authorizedCron(authorized)).toBe(true);
+    expect(authorizedCron(wrongToken)).toBe(false);
+    expect(authorizedCron(noHeader)).toBe(false);
+  });
+
+  it("without CRON_SECRET, falls back to allowing only outside production (same pattern as the admin routes)", () => {
+    vi.stubEnv("CRON_SECRET", "");
+    const request = new Request("https://x.test");
+
+    vi.stubEnv("NODE_ENV", "production");
+    expect(authorizedCron(request)).toBe(false);
+
+    vi.stubEnv("NODE_ENV", "development");
+    expect(authorizedCron(request)).toBe(true);
+  });
+});
+
+describe("targetPolygonStates", () => {
+  const originalStates = process.env.TERRITORY_POLYGON_STATES;
+  afterEach(() => {
+    if (originalStates === undefined) delete process.env.TERRITORY_POLYGON_STATES;
+    else process.env.TERRITORY_POLYGON_STATES = originalStates;
+  });
+
+  it("defaults to the whole country (all 50 states + DC)", () => {
+    delete process.env.TERRITORY_POLYGON_STATES;
+    expect(targetPolygonStates()).toEqual(SUPPORTED_POLYGON_STATES);
+    expect(targetPolygonStates()).toHaveLength(51);
+  });
+
+  it("honors TERRITORY_POLYGON_STATES, filtered to states with a real boundary source", () => {
+    process.env.TERRITORY_POLYGON_STATES = "tx, oh , not-a-state";
+    expect(targetPolygonStates()).toEqual(["TX", "OH"]);
+  });
+});
+
+describe("pickUncoveredStates", () => {
+  it("returns the target states not yet covered, in target order", () => {
+    expect(pickUncoveredStates(["TX", "TN", "FL"], new Set(["TN"]))).toEqual(["TX", "FL"]);
+  });
+
+  it("returns empty once every target state is covered (the sync becomes a no-op)", () => {
+    expect(pickUncoveredStates(["TX", "TN"], new Set(["TX", "TN"]))).toEqual([]);
+  });
+});
+
+describe("shipped ZCTA bundle (data/zcta)", () => {
+  it("covers the whole country: all 50 states + DC, tens of thousands of ZCTAs", () => {
+    const manifest = readZctaBundleManifest();
+    expect(manifest).not.toBeNull();
+    expect(listBundledStates()).toHaveLength(51);
+    expect(listBundledStates()).toEqual(expect.arrayContaining(SUPPORTED_POLYGON_STATES));
+    const totalZctas = manifest!.states.reduce((sum, s) => sum + s.zctas, 0);
+    expect(totalZctas).toBeGreaterThan(30_000);
+  });
+
+  it("loads upsert-ready rows with valid simplified geometries (spot check: DC)", () => {
+    const rows = loadBundledStateRows("DC");
+    expect(rows).not.toBeNull();
+    expect(rows!.length).toBeGreaterThan(10);
+    for (const row of rows!) {
+      expect(row.zip_code).toMatch(/^\d{5}$/);
+      expect(row.state_code).toBe("DC");
+      expect(["Polygon", "MultiPolygon"]).toContain((row.geojson as { type?: string }).type);
+      expect(row.geometry_version).toBe("census-zcta-2010/opendatade");
+    }
+  });
+
+  it("returns null for a state that is not bundled (download fallback path)", () => {
+    expect(loadBundledStateRows("ZZ")).toBeNull();
+  });
+});
+
+describe("refreshZipReference / refreshDemographics / hasZipGeographiesForState (dev store)", () => {
+  const tmpDir = mkdtempSync(path.join(os.tmpdir(), "cron-automation-test-"));
+  const originalCwd = process.cwd();
+  const originalFetch = global.fetch;
+
+  let store: PortalStore;
+  let refreshZipReference: typeof import("@/lib/geocoding/zipImport").refreshZipReference;
+  let refreshDemographics: typeof import("@/lib/geocoding/censusImport").refreshDemographics;
+
+  beforeAll(async () => {
+    process.chdir(tmpDir);
+    const storeModule = await import("@/lib/store");
+    store = storeModule.getStore();
+    ({ refreshZipReference } = await import("@/lib/geocoding/zipImport"));
+    ({ refreshDemographics } = await import("@/lib/geocoding/censusImport"));
+  });
+
+  afterAll(() => {
+    process.chdir(originalCwd);
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  it("refreshZipReference downloads, parses, and writes through the store", async () => {
+    const geoNamesLine = "US\t75201\tDallas\tTexas\tTX\tDallas\t113\t\t\t32.7831\t-96.8067\t4";
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, text: async () => geoNamesLine }) as unknown as typeof fetch;
+
+    const result = await refreshZipReference();
+
+    expect(result.written).toBeGreaterThan(0);
+    const row = await store.getZipCodeReference("75201");
+    expect(row).toMatchObject({ city: "Dallas", state_code: "TX" });
+  });
+
+  it("refreshDemographics throws a clear, actionable error when no ZIP reference is loaded", async () => {
+    // Fresh temp dir with nothing seeded yet.
+    const emptyDir = mkdtempSync(path.join(os.tmpdir(), "cron-automation-empty-"));
+    process.chdir(emptyDir);
+    vi.resetModules();
+    const { refreshDemographics: freshRefreshDemographics } = await import("@/lib/geocoding/censusImport");
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [["B01003_001E", "zip code tabulation area"]],
+    }) as unknown as typeof fetch;
+
+    await expect(freshRefreshDemographics()).rejects.toThrow(/No ZIP reference data loaded/);
+
+    process.chdir(tmpDir);
+    rmSync(emptyDir, { recursive: true, force: true });
+    vi.resetModules();
+  });
+
+  it("refreshDemographics writes real figures once a ZIP reference exists (runs after the refreshZipReference test seeds 75201/TX)", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [
+        ["B01003_001E", "B11001_001E", "B19013_001E", "zip code tabulation area"],
+        ["84600", "24000", "112000", "75201"],
+      ],
+    }) as unknown as typeof fetch;
+
+    const result = await refreshDemographics();
+
+    expect(result.written).toBeGreaterThan(0);
+    const row = await store.getZipCodeReference("75201");
+    expect(row).toMatchObject({ population: 84600, median_household_income: 112000 });
+  });
+
+  it("syncDemographics never sends the state-scoped `in=state:` query — confirmed live in production to be rejected by the Census API for the ZCTA geography (\"unknown/unsupported geography hierarchy\", every state, every vintage). Fetches by explicit ZCTA list instead", async () => {
+    const now = new Date().toISOString();
+    await store.upsertZipCodeReferences([
+      {
+        zip_code: "37067",
+        city: "Franklin",
+        state_code: "TN",
+        county_name: null,
+        latitude: 35.93,
+        longitude: -86.87,
+        timezone: null,
+        created_at: now,
+        updated_at: now,
+      },
+    ]);
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [
+        ["B01003_001E", "B11001_001E", "B19013_001E", "zip code tabulation area"],
+        ["50000", "20000", "75000", "37067"],
+      ],
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const { syncDemographics } = await import("@/lib/geocoding/censusImport");
+    await syncDemographics(Number.POSITIVE_INFINITY);
+
+    const urls = fetchMock.mock.calls.map(([url]) => String(url));
+    expect(urls.some((u) => u.includes("37067"))).toBe(true);
+    expect(urls.some((u) => u.includes("in=state"))).toBe(false);
+    expect(urls.every((u) => /for=zip%20code%20tabulation%20area:[\d,]+/.test(u))).toBe(true);
+  });
+
+  it("syncDemographics writes a state's rows as soon as it's fetched and skips it once covered", async () => {
+    // A fresh state untouched by the earlier refreshDemographics test (which
+    // already covered TX in this same shared dev store).
+    const now = new Date().toISOString();
+    await store.upsertZipCodeReferences([
+      {
+        zip_code: "80202",
+        city: "Denver",
+        state_code: "CO",
+        county_name: null,
+        latitude: 39.75,
+        longitude: -105.0,
+        timezone: null,
+        created_at: now,
+        updated_at: now,
+      },
+    ]);
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [
+        ["B01003_001E", "B11001_001E", "B19013_001E", "zip code tabulation area"],
+        ["84600", "24000", "112000", "80202"],
+      ],
+    }) as unknown as typeof fetch;
+
+    const { syncDemographics, DEMOGRAPHICS_VINTAGE_LABEL } = await import("@/lib/geocoding/censusImport");
+    const first = await syncDemographics(Number.POSITIVE_INFINITY);
+    expect(first.loadedStates).toContain("CO");
+    const row = await store.getZipCodeReference("80202");
+    expect(row).toMatchObject({ population: 84600, demographics_vintage: DEMOGRAPHICS_VINTAGE_LABEL });
+
+    // Second call: CO already carries the current vintage — never re-queued.
+    const second = await syncDemographics(Number.POSITIVE_INFINITY);
+    expect(second.loadedStates).not.toContain("CO");
+    expect(second.remainingStates).not.toContain("CO");
+  });
+
+  it("syncDemographics respects the time budget, deferring untouched states to the next call", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [["B01003_001E", "B11001_001E", "B19013_001E", "zip code tabulation area"]],
+    }) as unknown as typeof fetch;
+
+    const { syncDemographics } = await import("@/lib/geocoding/censusImport");
+    const result = await syncDemographics(0);
+    expect(result.loadedStates).toEqual([]);
+    expect(result.remainingStates.length).toBeGreaterThan(0);
+  });
+
+  it("syncDemographics reports a failed state without losing other states' progress", async () => {
+    global.fetch = vi.fn((url: string) => {
+      if (url.includes("85001")) {
+        return Promise.reject(new Error("simulated network failure"));
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => [
+          ["B01003_001E", "B11001_001E", "B19013_001E", "zip code tabulation area"],
+          ["1000", "400", "50000", "85001"],
+        ],
+      });
+    }) as unknown as typeof fetch;
+
+    const now = new Date().toISOString();
+    await store.upsertZipCodeReferences([
+      {
+        zip_code: "85001",
+        city: "Phoenix",
+        state_code: "AZ",
+        county_name: null,
+        latitude: 33.45,
+        longitude: -112.07,
+        timezone: null,
+        created_at: now,
+        updated_at: now,
+      },
+    ]);
+
+    const { syncDemographics } = await import("@/lib/geocoding/censusImport");
+    const result = await syncDemographics(Number.POSITIVE_INFINITY);
+    expect(result.failedStates).toContain("AZ");
+    expect(result.remainingStates).toContain("AZ");
+    // The real cause is surfaced, not just the state code — a stuck sync
+    // needs to be diagnosable from the admin UI alone.
+    expect(result.failedStateErrors.AZ).toBe("simulated network failure");
+    // AZ's ZIP was never written — a rejected fetch never partially applies.
+    const row = await store.getZipCodeReference("85001");
+    expect(row?.population).toBeNull();
+  });
+
+  it("syncDemographics still writes population/income when only the prior-vintage (growth) fetch fails", async () => {
+    // Regression guard for a real production incident: every state's
+    // prior-vintage request failed with HTTP 400 (predating when the
+    // Census API's ZCTA-by-state support was introduced), and because both
+    // vintages were fetched via a single Promise.all, that one failure
+    // discarded population/income data that had fetched successfully.
+    global.fetch = vi.fn((url: string) => {
+      if (url.includes("/2018/acs/acs5")) {
+        return Promise.reject(new Error("HTTP 400"));
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => [
+          ["B01003_001E", "B11001_001E", "B19013_001E", "zip code tabulation area"],
+          ["500000", "200000", "60000", "87101"],
+        ],
+      });
+    }) as unknown as typeof fetch;
+
+    const now = new Date().toISOString();
+    await store.upsertZipCodeReferences([
+      {
+        zip_code: "87101",
+        city: "Albuquerque",
+        state_code: "NM",
+        county_name: null,
+        latitude: 35.08,
+        longitude: -106.65,
+        timezone: null,
+        created_at: now,
+        updated_at: now,
+      },
+    ]);
+
+    const { syncDemographics } = await import("@/lib/geocoding/censusImport");
+    const result = await syncDemographics(Number.POSITIVE_INFINITY);
+    expect(result.loadedStates).toContain("NM");
+    expect(result.failedStates).not.toContain("NM");
+    const row = await store.getZipCodeReference("87101");
+    expect(row).toMatchObject({ population: 500000, median_household_income: 60000 });
+    // Growth couldn't be computed without the prior vintage — null, not fabricated.
+    expect(row?.population_growth_pct).toBeNull();
+  });
+
+  it("hasZipGeographiesForState reflects coverage per state after an upsert", async () => {
+    expect(await store.hasZipGeographiesForState("TX")).toBe(false);
+
+    await store.upsertZipGeographies([
+      {
+        zip_code: "75201",
+        state_code: "TX",
+        latitude: 32.78,
+        longitude: -96.8,
+        geojson: { type: "Polygon", coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] },
+        geometry_source: "test",
+        geometry_version: "test",
+      },
+    ]);
+
+    expect(await store.hasZipGeographiesForState("TX")).toBe(true);
+    expect(await store.hasZipGeographiesForState("TN")).toBe(false);
+  });
+
+  it("syncPolygons loads every uncovered target state and skips covered ones on re-run", async () => {
+    vi.stubEnv("TERRITORY_POLYGON_STATES", "DC");
+    // Deterministic regardless of module-cache state: serve DC via the
+    // download fallback so the test never depends on the bundle dir's
+    // cwd binding (the bundle read path has its own tests above).
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        features: [
+          {
+            properties: { ZCTA5CE10: "20001", INTPTLAT10: "38.91", INTPTLON10: "-77.02" },
+            geometry: { type: "Polygon", coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] },
+          },
+        ],
+      }),
+    }) as unknown as typeof fetch;
+
+    const { syncPolygons } = await import("@/lib/territory/polygonImport");
+    const first = await syncPolygons(45_000);
+    expect(first.loadedStates).toEqual(["DC"]);
+    // Row count depends on which path served DC (bundle when the module
+    // cache is intact, fallback otherwise) — either way, rows landed.
+    expect(first.written).toBeGreaterThan(0);
+    expect(first.remainingStates).toEqual([]);
+    expect(await store.hasZipGeographiesForState("DC")).toBe(true);
+
+    // Second run: DC is covered → fast no-op, nothing re-fetched.
+    const fetchCallsBefore = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.length;
+    const second = await syncPolygons(45_000);
+    expect(second.loadedStates).toEqual([]);
+    expect(second.remainingStates).toEqual([]);
+    expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(fetchCallsBefore);
+
+    vi.unstubAllEnvs();
+  });
+});

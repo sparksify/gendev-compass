@@ -104,3 +104,100 @@ wistia-player {
   border-radius: 6px;
   overflow: hidden;
 }
+
+/* ---------------------------------------------------------------------------
+ * Territory Intelligence motion language. Each successful search should feel
+ * rewarding: cards rise in, the map pin drops with a pulse, stats count up
+ * (see components/territory). All motion is disabled for users who prefer
+ * reduced motion.
+ * ------------------------------------------------------------------------- */
+@keyframes ti-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ti-pin-drop {
+  0% {
+    transform: translateY(-18px);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(2px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes ti-pulse-ring {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+@keyframes ti-meter-fill {
+  from {
+    width: 0;
+  }
+}
+
+.ti-fade-up {
+  animation: ti-fade-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.ti-pin {
+  animation: ti-pin-drop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.ti-pin-ring {
+  animation: ti-pulse-ring 1.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+.ti-meter-bar {
+  animation: ti-meter-fill 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Map overlays (radius circle, ZIP boundaries, nearby-market markers)
+ * fade in rather than popping — applied via Leaflet's className option. */
+@keyframes ti-layer-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.ti-layer-in {
+  animation: ti-layer-in 0.55s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ti-fade-up,
+  .ti-pin,
+  .ti-pin-ring,
+  .ti-meter-bar,
+  .ti-layer-in {
+    animation: none;
+  }
+}
+
+/*
+ * Territory Intelligence workspace: the split chat/map workstation opts out
+ * of the portal's right sidebar (advisor + brand cards) — advisor intro
+ * moves into the conversation after a result, and brand context shrinks to
+ * the workspace header. The rail is the <aside> sibling of <main> in
+ * PortalShell.
+ */
+main:has(.ti-workspace) + aside {
+  display: none;
+}

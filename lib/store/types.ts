@@ -41,7 +41,11 @@ import type {
 } from "@/types/domain";
 import type {
   BrandStateEligibilityRecord,
+  CensusImportJobPatch,
+  CensusImportJobRecord,
+  CreateCensusImportJobInput,
   FranchiseBrandRecord,
+  RecordCensusRawImportInput,
   StateEligibilityStatus,
   TerritoryDefinitionRecord,
   TerritoryDefinitionType,
@@ -49,7 +53,10 @@ import type {
   TerritorySearchRecord,
   TerritoryStatus,
   TerritoryZipCodeRecord,
+  UpsertZipGeographyInput,
   ZipCodeReferenceRecord,
+  UpsertZipCodeReferenceInput,
+  ZipGeographyRecord,
 } from "@/types/territory";
 
 export interface CreateLeadRecordInput {
@@ -471,7 +478,7 @@ export interface PortalStore {
 
   getZipCodeReference(zipCode: string): Promise<ZipCodeReferenceRecord | null>;
   listZipCodeReferences(): Promise<ZipCodeReferenceRecord[]>;
-  upsertZipCodeReferences(rows: ZipCodeReferenceRecord[]): Promise<void>;
+  upsertZipCodeReferences(rows: UpsertZipCodeReferenceInput[]): Promise<void>;
 
   createTerritorySearch(input: CreateTerritorySearchInput): Promise<TerritorySearchRecord>;
   getTerritorySearch(id: string): Promise<TerritorySearchRecord | null>;
@@ -486,6 +493,35 @@ export interface PortalStore {
     id: string,
     patch: TerritoryReviewRequestPatch,
   ): Promise<TerritoryReviewRequestRecord>;
+
+  /**
+   * ZIP boundary layer (zip_code_geographies.geojson). Bulk rows come from
+   * the polygon import pipeline; readers fetch display-grade GeoJSON for a
+   * specific set of ZIPs. In environments without the PostGIS table (local
+   * SQL harness) the Supabase implementation surfaces the database error;
+   * the dev store emulates the table in-process.
+   */
+  upsertZipGeographies(rows: UpsertZipGeographyInput[]): Promise<void>;
+  listZipGeographies(zipCodes: string[]): Promise<ZipGeographyRecord[]>;
+  /** True once at least one boundary shape has been loaded for the state — used by the polygon backfill cron to pick the next uncovered state. */
+  hasZipGeographiesForState(stateCode: string): Promise<boolean>;
+
+  /**
+   * Backend job tracking for the Census ACS import (lib/geocoding/censusJob.ts)
+   * — the server-side worker's source of truth, independent of any browser
+   * tab. See types/territory.ts for the full architecture note.
+   */
+  createCensusImportJob(input: CreateCensusImportJobInput): Promise<CensusImportJobRecord>;
+  updateCensusImportJob(id: string, patch: CensusImportJobPatch): Promise<CensusImportJobRecord>;
+  getCensusImportJob(id: string): Promise<CensusImportJobRecord | null>;
+  /** Most recent job with status 'running', or null if nothing is in flight. */
+  getActiveCensusImportJob(): Promise<CensusImportJobRecord | null>;
+  /** Most recent jobs first — used to derive "last successful"/"last failed" for the admin health view. */
+  listCensusImportJobs(limit: number): Promise<CensusImportJobRecord[]>;
+  /** Upserts the raw ACS capture for one (vintage, state) — see CensusAcsRawRecord. */
+  recordCensusRawImport(input: RecordCensusRawImportInput): Promise<void>;
+  /** Total distinct (vintage, state) raw captures on file — used by the admin health view. */
+  countCensusAcsRaw(): Promise<number>;
 }
 
 /** Forward-only ordering used to avoid regressing a lead's status. */

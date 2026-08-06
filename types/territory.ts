@@ -131,7 +131,39 @@ export interface ZipCodeReferenceRecord {
   timezone: string | null;
   created_at: string;
   updated_at: string;
+  /** 5-year population growth percentage (e.g. 8.2 for +8.2%), when known. */
+  population_growth_pct: number | null;
+  /** Provenance for the demographic figures (e.g. "US Census Bureau ACS 5-Year"). */
+  demographics_source: string | null;
+  /** Data vintage (e.g. "2019-2023"). */
+  demographics_vintage: string | null;
 }
+
+/**
+ * Upsert input for zip_code_reference. Demographic fields are optional:
+ * when omitted, an update leaves any existing Census figures untouched
+ * (so re-running the plain GeoNames import never wipes loaded demographics).
+ */
+export type UpsertZipCodeReferenceInput = Omit<
+  ZipCodeReferenceRecord,
+  | "population"
+  | "households"
+  | "median_household_income"
+  | "population_growth_pct"
+  | "demographics_source"
+  | "demographics_vintage"
+> &
+  Partial<
+    Pick<
+      ZipCodeReferenceRecord,
+      | "population"
+      | "households"
+      | "median_household_income"
+      | "population_growth_pct"
+      | "demographics_source"
+      | "demographics_vintage"
+    >
+  >;
 
 // ---------------------------------------------------------------------------
 // territory_searches
@@ -221,6 +253,9 @@ export interface TerritoryAlternative {
   zipCode: string | null;
   distanceMiles: number | null;
   status: TerritoryResultStatus;
+  /** Public ZIP centroid, for plotting the market on the prospect map. */
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface TerritoryEvaluationResult {
@@ -249,6 +284,12 @@ export interface TerritoryEvaluationResult {
     population: number | null;
     households: number | null;
     medianHouseholdIncome: number | null;
+    /** Population-weighted 5-year growth % across the evaluated ZIPs, when known. */
+    populationGrowthPct?: number | null;
+    /** How many of the evaluated ZIPs carried demographic data (transparency). */
+    zipsWithData?: number;
+    /** Provenance of the figures (e.g. "U.S. Census Bureau, ACS 5-Year 2019–2023"). */
+    source?: string | null;
   };
   alternatives: TerritoryAlternative[];
   checkedAt: string;
@@ -257,4 +298,96 @@ export interface TerritoryEvaluationResult {
   searchId: string | null;
   /** Present only when status === LOCATION_NOT_FOUND and multiple candidates matched. */
   candidates?: Array<{ label: string; city: string; stateCode: string; zipCode: string }>;
+}
+
+// ---------------------------------------------------------------------------
+// zip_code_geographies (0008/0009) — ZIP boundary layer. `geojson` is a
+// simplified display-grade GeoJSON geometry (Polygon/MultiPolygon); the
+// PostGIS geometry column is not exposed through the store.
+// ---------------------------------------------------------------------------
+export interface ZipGeographyRecord {
+  zip_code: string;
+  state_code: string | null;
+  latitude: number;
+  longitude: number;
+  /** Simplified GeoJSON geometry (display grade), or null if not loaded. */
+  geojson: Record<string, unknown> | null;
+  geometry_source: string | null;
+  geometry_version: string | null;
+}
+
+export interface UpsertZipGeographyInput {
+  zip_code: string;
+  state_code: string;
+  latitude: number;
+  longitude: number;
+  geojson: Record<string, unknown>;
+  geometry_source: string;
+  geometry_version: string;
+}
+
+// ---------------------------------------------------------------------------
+// census_import_jobs (0011) — backend job tracking for the Census ACS
+// import. Census data is infrastructure: it's loaded and refreshed by a
+// server-side job independent of the browser, never by a user clicking a
+// button and waiting on a request loop. See lib/geocoding/censusJob.ts.
+// ---------------------------------------------------------------------------
+export type CensusImportJobStatus = "running" | "succeeded" | "failed";
+/** What started the job: the scheduled health-check cron, a staff member's
+ *  manual "Run Manual Refresh" click, or the system auto-detecting empty
+ *  data (e.g. right after a fresh deploy) with no human involved. */
+export type CensusImportJobTrigger = "cron" | "manual" | "system";
+
+export interface CensusImportJobRecord {
+  id: string;
+  status: CensusImportJobStatus;
+  trigger: CensusImportJobTrigger;
+  vintage: string;
+  states_total: number;
+  states_done: number;
+  states_failed: number;
+  last_error: string | null;
+  started_at: string;
+  finished_at: string | null;
+  updated_at: string;
+}
+
+export interface CreateCensusImportJobInput {
+  trigger: CensusImportJobTrigger;
+  vintage: string;
+  states_total: number;
+}
+
+export interface CensusImportJobPatch {
+  status?: CensusImportJobStatus;
+  states_done?: number;
+  states_failed?: number;
+  last_error?: string | null;
+  finished_at?: string | null;
+}
+
+/**
+ * Durable raw layer: the Census figures per ZCTA exactly as returned by the
+ * ACS API for one state/vintage, before being joined onto our own ZIP
+ * reference (city/state/lat/lng) and written to zip_code_reference (the
+ * normalized layer the application actually queries). Lets a bad
+ * normalization run be reprocessed without re-fetching from census.gov.
+ * One row per (vintage, state) — a re-fetch replaces the prior capture.
+ */
+export interface CensusAcsRawRecord {
+  id: string;
+  job_id: string | null;
+  vintage: string;
+  state_code: string;
+  variables: string[];
+  payload: Record<string, Record<string, number | null>>;
+  fetched_at: string;
+}
+
+export interface RecordCensusRawImportInput {
+  job_id: string | null;
+  vintage: string;
+  state_code: string;
+  variables: string[];
+  payload: Record<string, Record<string, number | null>>;
 }

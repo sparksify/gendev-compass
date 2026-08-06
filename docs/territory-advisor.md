@@ -121,6 +121,164 @@ with no policies (service-role only), matching the app's deny-all model:
 | `zip_code_reference` | Geocoding source for the built-in provider: city, state, lat/lng, optional demographics. |
 | `territory_searches` | One row per evaluated prospect search (sales follow-up + analytics). |
 | `territory_review_requests` | The manual-review queue (`new → in_review → contacted → approved/declined → closed`). |
+| `zip_code_geographies` | PostGIS boundary layer (`0008_zip_geographies.sql`): ZCTA polygons + centroids for future exact-boundary evaluation. Not yet read by the app. |
+| `census_import_jobs` | Backend job tracking for the Census ACS import (`0011_census_import_jobs.sql`) — status, progress, errors. See "Real Census demographics" below. |
+| `census_acs_raw` | Durable raw Census figures per (vintage, state), before normalization onto `zip_code_reference` (`0011_census_import_jobs.sql`). |
+
+## Nationwide ZIP data pipeline
+
+`npm run import:zips` loads the full US ZIP reference (~41k rows: city,
+state, county, lat/lng) from the GeoNames postal dataset (CC BY 4.0) into
+`zip_code_reference`. Add `-- --dry` to parse and report without writing.
+Re-running it never wipes demographics: the GeoNames rows omit the
+demographic columns entirely, so upserts leave them untouched.
+
+### Real Census demographics — automated backend infrastructure
+
+Census data is infrastructure, not something a person operates. It's
+loaded into Supabase once, refreshed on a low-frequency schedule that
+matches how often ACS actually publishes new data, and the application
+only ever reads it from `zip_code_reference` — **no user-facing request
+ever calls census.gov live**. Nobody has to notice empty/incomplete data
+and click a button; the system detects that state itself and starts a job.
+
+**The pieces:**
+
+- `census_import_jobs` (migration `0011`) — one row per import attempt:
+  status (`running`/`succeeded`/`failed`), trigger (`cron`/`manual`/`system`),
+  vintage, states done/failed, last error, timestamps. The single source of
+  truth for "is a sync running, how far did it get" — nothing about it
+  lives in browser state.
+- `census_acs_raw` (migration `0011`) — the Census figures per ZCTA exactly
+  as the ACS API returned them for one (vintage, state), before being
+  joined onto our own ZIP reference and written to `zip_code_reference`
+  (the normalized layer the app actually queries). Lets a bad
+  normalization run be reprocessed without re-fetching from census.gov.
+- `lib/geocoding/censusImport.ts` — the pure fetch/parse/write layer:
+  `syncDemographics(budgetMs, onStateResult?)` processes one time-budgeted
+  chunk of states (population B01003, households B11001, median income
+  B19013 for the current vintage; a 5-year growth figure from a decoupled,
+  best-effort prior-vintage fetch — see the code comment on why that
+  second fetch is never allowed to discard the primary data). Scoped
+  **per state** (`&in=state:{fips}`), not one nationwide call — a single
+  request for all ~33,791 ZCTAs was observed in production silently
+  truncated by an intermediary between us and census.gov. A state only
+  counts as "covered" once at least 20% of its rows carry the current
+  vintage (`coveredDemographicsStates`), so a handful of stale leftover
+  rows from an old partial import can never masquerade as "done" again.
+- `lib/geocoding/censusJob.ts` — the job orchestration layer. A job runs
+  to completion **without any persistent server process**: each
+  invocation processes one chunk, then — if there's more work — schedules
+  its own continuation via a fire-and-forget self-request, using Next's
+  `after()` so that request is guaranteed to go out before the current
+  serverless function exits. `enqueueCensusImportJob` guards against
+  duplicate concurrent jobs; `resumeStuckJobIfAny` restarts a chain that
+  silently broke (e.g. a cold-start hiccup on the self-request), so the
+  job never sits "running" forever with nothing actually happening.
+- `lib/geocoding/censusHealth.ts` — read-only aggregation for the admin
+  dashboard (active vintage, record counts, coverage %, last
+  success/failure, current job, next scheduled refresh), plus
+  `reconcileCensusImportState`: the actual "no human required" logic. It
+  starts a job only when the **current ACS vintage has never fully
+  succeeded** — never on every visit, never just because coverage isn't
+  literally 100% (which it structurally can't be — plenty of GeoNames ZIP
+  entries, PO boxes and unique large-employer ZIPs, have no Census ZCTA
+  match at all). This is what makes a fresh/empty deploy self-heal: an
+  empty `census_import_jobs` table has no successful run for the current
+  vintage, so the very first check starts one.
+
+**Where the "no human required" guarantee actually comes from:**
+`/api/cron/refresh-demographics` runs **daily** and is the authoritative
+trigger — it's cheap (a health check, not a fetch), calls
+`reconcileCensusImportState("cron")`, and either resumes a stuck job or
+starts a fresh one. `/api/admin/census-health` (the dashboard's GET) calls
+the same reconciliation as a faster opportunistic path — loading the
+admin page can notice an empty/incomplete state sooner than the next
+cron tick — but it is not required for correctness; the daily cron alone
+guarantees this eventually happens with zero clicks. The actual work runs
+in `/api/cron/census-worker`, chunk by chunk, entirely independent of
+either of those routes or of any browser tab staying open.
+
+**"Run Manual Refresh"** (`POST /api/admin/import-demographics`) is a
+secondary, admin-only recovery tool for development or forcing an update
+— it enqueues a job and returns immediately. It does not loop, does not
+fetch anything itself, and closing the browser tab that clicked it has no
+effect on the job that's now running server-side.
+
+**census.gov rejects all unauthenticated requests with HTTP 403** — a
+`CENSUS_API_KEY` env var (free, instant signup at
+api.census.gov/data/key_signup.html) is required in practice; without it
+every request fails immediately. Each fetch times out at 20s, well under
+any route's `maxDuration`, so a slow response surfaces as a proper JSON
+error instead of Vercel's platform-level HTML timeout page.
+
+#### The other two data sources — still cron-driven, unchanged
+
+- **`/api/cron/refresh-zip-data`** — daily. Refreshes the GeoNames ZIP
+  reference (`refreshZipReference`) — the base geocoding layer Census
+  demographics attach to.
+- **`/api/cron/backfill-polygons`** — daily. Loads boundary shapes for
+  every not-yet-covered target state from the **shipped nationwide bundle**
+  (see below — no runtime downloads), as many as fit in a time budget per
+  run; the whole country typically completes within one or two runs, after
+  which it's a fast no-op. `TERRITORY_POLYGON_STATES` (comma-separated USPS
+  codes) can narrow the footprint; the default is all 50 states + DC.
+
+**Securing the cron routes:** set a `CRON_SECRET` env var in Vercel —
+Vercel automatically sends it as `Authorization: Bearer <secret>` on every
+scheduled invocation (https://vercel.com/docs/cron-jobs/manage-cron-jobs#securing-cron-jobs);
+`lib/config/cron.ts` verifies the match. The same secret authenticates the
+Census worker's self-chained continuation requests — they're
+server-to-server, never reachable from a browser. Without `CRON_SECRET`
+set, the routes only respond outside production (same fallback pattern as
+the admin password gate), so nothing scheduled runs unauthenticated in
+production by accident — but you do need to set it for the crons (and the
+Census worker's self-chain) to actually do anything once deployed.
+
+The evaluator aggregates
+these across every evaluated ZIP (`aggregateMarketData`) — population and
+households sum, income is household-weighted, growth population-weighted —
+and the prospect UI (Market Analysis, Territory Assessment, Why this
+market?) only ever renders figures that actually loaded, with the source
+cited. Nothing is fabricated; missing data is simply omitted.
+
+### Boundary polygons and the interactive maps
+
+ZCTA boundary shapes are **static between decennial Censuses**, so the app
+ships them pre-processed instead of downloading them at runtime:
+`npm run build:zcta` (`scripts/build-zcta-bundle.ts`) downloads all 50
+states + DC from the OpenDataDE mirror once at development time, simplifies
+each shape to display weight (`lib/geo/simplify.ts`, Douglas–Peucker
+~200 m tolerance), and writes `data/zcta/*.json.gz` + `manifest.json`
+(~15 MB total, committed to the repo; a once-a-decade job). The routes that
+load this data include it in their serverless bundles via
+`outputFileTracingIncludes` (next.config.ts) and read it with
+`lib/territory/zctaBundle.ts` — production never fetches boundary data
+from the network (a state missing from the bundle falls back to download).
+
+`POST /api/admin/import-polygons` ("Load All Boundary Shapes" on `/admin`
+under Territory ZIP Data) syncs every uncovered target state from the
+bundle within a time budget and reports `remainingStates`; the admin UI
+keeps calling until the whole country is covered (usually 1–2 calls). Pass
+`{state}` to force-reload one state. The daily backfill cron runs the same
+`syncPolygons` logic automatically. Rows land in
+`zip_code_geographies.geojson`; two maps consume them (Leaflet over
+CARTO/OSM tiles, no API key):
+
+- **Prospect** (Territory Advisor page): real basemap with the searched
+  point, evaluation radius, and public ZIP boundaries of the prospect's own
+  search area — never any territory status, ownership, or sold boundary.
+- **Advisor** (`/advisor/territories/map`): the full picture — every
+  territory rendered from its ZIP shapes or radius, color-coded by status,
+  with click-through details. Staff session required.
+
+**Hard rule:** all downloading and parsing happens in the script process —
+the database only receives small batched upserts through the normal store
+layer. Never run HTTP fetches or GeoJSON parsing inside Postgres: the first
+import attempt did exactly that against production and froze the database
+(out-of-memory) until it was force-restarted. Polygon/boundary loading into
+`zip_code_geographies` must follow the same pattern (process the OpenDataDE
+state GeoJSON files client-side, then write batched rows).
 
 `leads` is the canonical prospect identity (there is no separate portal
 "user" table), so prospect-scoped tables FK to `leads.id`.
@@ -252,11 +410,11 @@ receiver) — this is the CRM integration hook; no new CRM was built.
 
 ## Known limitations
 
-- **Bundled ZIP reference data is illustrative**, covering the DFW metro,
-  Nashville metro, and a few spot cities, with placeholder demographics.
-  For production, load a real ZCTA dataset (e.g. Census Gazetteer +
-  licensed demographics) into `zip_code_reference` via
-  `store.upsertZipCodeReferences()`; the schema and provider need no changes.
+- **Demographics are not loaded.** `npm run import:zips` provides real
+  nationwide names/coordinates, but population/household/income columns are
+  null until a real Census/licensed demographics source is added (the demo
+  seed's figures were placeholders and are intentionally replaced). The app
+  renders gracefully without them.
 - The `local` geocoder only resolves what's in the reference table; typo
   tolerance and true neighborhood/POI lookup need a real geocoding provider
   (the abstraction is ready).

@@ -35,12 +35,18 @@ import type {
 } from "./types";
 import type {
   BrandStateEligibilityRecord,
+  CensusImportJobPatch,
+  CensusImportJobRecord,
+  CreateCensusImportJobInput,
   FranchiseBrandRecord,
+  RecordCensusRawImportInput,
   TerritoryDefinitionRecord,
   TerritoryReviewRequestRecord,
   TerritorySearchRecord,
   TerritoryZipCodeRecord,
   ZipCodeReferenceRecord,
+  UpsertZipCodeReferenceInput,
+  ZipGeographyRecord,
 } from "@/types/territory";
 import type {
   ActivityEventRecord,
@@ -1063,15 +1069,112 @@ export function createSupabaseStore(): PortalStore {
     },
 
     async listZipCodeReferences(): Promise<ZipCodeReferenceRecord[]> {
-      const { data, error } = await db.from("zip_code_reference").select();
-      if (error) throw new Error(`Failed to list zip code references: ${error.message}`);
-      return (data as ZipCodeReferenceRecord[]) ?? [];
+      // zip_code_reference holds ~41k rows nationwide — well past
+      // PostgREST's default per-request row cap (1,000) — so a single
+      // .select() silently truncates to the first page (whatever the
+      // table's default ordering puts first) instead of erroring. That
+      // silent truncation is exactly the kind of bug this app has already
+      // been bitten by twice at the network layer (see the truncation
+      // notes in lib/geocoding/censusImport.ts and
+      // lib/territory/polygonImport.ts) — same failure shape, this time
+      // at the database layer.
+      //
+      // Pages are fetched with .range() IN PARALLEL, not sequentially: ~41
+      // pages awaited one at a time (round-trip latency × 41) was itself
+      // slow enough to blow a caller's own maxDuration in production (the
+      // admin Census health check, calling this from a 15–30s route) — the
+      // same "our own fix made the timeout worse" shape as the census
+      // per-state sync fixes elsewhere in this file's callers. A cheap
+      // head-count query first tells us how many pages exist, then every
+      // page request fires at once.
+      const PAGE_SIZE = 1000;
+      const { count, error: countError } = await db
+        .from("zip_code_reference")
+        .select("*", { count: "exact", head: true });
+      if (countError) throw new Error(`Failed to count zip code references: ${countError.message}`);
+      const total = count ?? 0;
+      if (total === 0) return [];
+
+      const pageStarts: number[] = [];
+      for (let from = 0; from < total; from += PAGE_SIZE) pageStarts.push(from);
+
+      const pages = await Promise.all(
+        pageStarts.map(async (from) => {
+          const { data, error } = await db
+            .from("zip_code_reference")
+            .select()
+            .range(from, from + PAGE_SIZE - 1);
+          if (error) throw new Error(`Failed to list zip code references: ${error.message}`);
+          return (data as ZipCodeReferenceRecord[]) ?? [];
+        }),
+      );
+      return pages.flat();
     },
 
-    async upsertZipCodeReferences(rows: ZipCodeReferenceRecord[]): Promise<void> {
+    async upsertZipCodeReferences(rows: UpsertZipCodeReferenceInput[]): Promise<void> {
       if (rows.length === 0) return;
-      const { error } = await db.from("zip_code_reference").upsert(rows, { onConflict: "zip_code" });
-      if (error) throw new Error(`Failed to upsert zip code references: ${error.message}`);
+      // PostgREST bulk upserts require identical keys on every object, and
+      // only payload keys are SET on conflict (omitted demographic keys keep
+      // their existing values). Group by key-shape so mixed batches work.
+      const groups = new Map<string, UpsertZipCodeReferenceInput[]>();
+      for (const row of rows) {
+        const shape = Object.keys(row).sort().join(",");
+        const group = groups.get(shape);
+        if (group) group.push(row);
+        else groups.set(shape, [row]);
+      }
+      for (const group of groups.values()) {
+        const { error } = await db
+          .from("zip_code_reference")
+          .upsert(group, { onConflict: "zip_code" });
+        if (error) throw new Error(`Failed to upsert zip code references: ${error.message}`);
+      }
+    },
+
+    async upsertZipGeographies(rows): Promise<void> {
+      if (rows.length === 0) return;
+      const payload = rows.map((r) => ({
+        zip_code: r.zip_code,
+        state_code: r.state_code,
+        latitude: r.latitude,
+        longitude: r.longitude,
+        geojson: r.geojson,
+        geometry_source: r.geometry_source,
+        geometry_version: r.geometry_version,
+        // centroid is NOT NULL PostGIS geometry; EWKT is accepted as input.
+        centroid: `SRID=4326;POINT(${r.longitude} ${r.latitude})`,
+        updated_at: nowIso(),
+      }));
+      const { error } = await db
+        .from("zip_code_geographies")
+        .upsert(payload, { onConflict: "zip_code" });
+      if (error) throw new Error(`Failed to upsert zip geographies: ${error.message}`);
+    },
+
+    async listZipGeographies(zipCodes): Promise<ZipGeographyRecord[]> {
+      if (zipCodes.length === 0) return [];
+      const out: ZipGeographyRecord[] = [];
+      for (let i = 0; i < zipCodes.length; i += 200) {
+        const { data, error } = await db
+          .from("zip_code_geographies")
+          .select("zip_code, state_code, latitude, longitude, geojson, geometry_source, geometry_version")
+          .in("zip_code", zipCodes.slice(i, i + 200))
+          .not("geojson", "is", null);
+        if (error) throw new Error(`Failed to load zip geographies: ${error.message}`);
+        out.push(...((data as ZipGeographyRecord[]) ?? []));
+      }
+      return out;
+    },
+
+    async hasZipGeographiesForState(stateCode: string): Promise<boolean> {
+      const { data, error } = await db
+        .from("zip_code_geographies")
+        .select("zip_code")
+        .eq("state_code", stateCode)
+        .not("geojson", "is", null)
+        .limit(1);
+      if (error) throw new Error(`Failed to check zip geography coverage: ${error.message}`);
+      return (data?.length ?? 0) > 0;
     },
 
     async createTerritorySearch(input: CreateTerritorySearchInput): Promise<TerritorySearchRecord> {
@@ -1162,6 +1265,85 @@ export function createSupabaseStore(): PortalStore {
         .single();
       if (error) throw new Error(`Failed to update territory review request: ${error.message}`);
       return data as TerritoryReviewRequestRecord;
+    },
+
+    async createCensusImportJob(input: CreateCensusImportJobInput): Promise<CensusImportJobRecord> {
+      const { data, error } = await db
+        .from("census_import_jobs")
+        .insert({
+          status: "running",
+          trigger: input.trigger,
+          vintage: input.vintage,
+          states_total: input.states_total,
+        })
+        .select()
+        .single();
+      if (error) throw new Error(`Failed to create census import job: ${error.message}`);
+      return data as CensusImportJobRecord;
+    },
+
+    async updateCensusImportJob(id: string, patch: CensusImportJobPatch): Promise<CensusImportJobRecord> {
+      const { data, error } = await db
+        .from("census_import_jobs")
+        .update({ ...patch, updated_at: nowIso() })
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw new Error(`Failed to update census import job: ${error.message}`);
+      return data as CensusImportJobRecord;
+    },
+
+    async getCensusImportJob(id: string): Promise<CensusImportJobRecord | null> {
+      const { data, error } = await db.from("census_import_jobs").select().eq("id", id).maybeSingle();
+      if (error) throw new Error(`Failed to load census import job: ${error.message}`);
+      return (data as CensusImportJobRecord | null) ?? null;
+    },
+
+    async getActiveCensusImportJob(): Promise<CensusImportJobRecord | null> {
+      const { data, error } = await db
+        .from("census_import_jobs")
+        .select()
+        .eq("status", "running")
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw new Error(`Failed to load active census import job: ${error.message}`);
+      return (data as CensusImportJobRecord | null) ?? null;
+    },
+
+    async listCensusImportJobs(limit: number): Promise<CensusImportJobRecord[]> {
+      const { data, error } = await db
+        .from("census_import_jobs")
+        .select()
+        .order("started_at", { ascending: false })
+        .limit(limit);
+      if (error) throw new Error(`Failed to list census import jobs: ${error.message}`);
+      return (data as CensusImportJobRecord[]) ?? [];
+    },
+
+    async recordCensusRawImport(input: RecordCensusRawImportInput): Promise<void> {
+      const { error } = await db
+        .from("census_acs_raw")
+        .upsert(
+          {
+            job_id: input.job_id,
+            vintage: input.vintage,
+            state_code: input.state_code,
+            variables: input.variables,
+            payload: input.payload,
+            fetched_at: nowIso(),
+          },
+          { onConflict: "vintage,state_code" },
+        );
+      if (error) throw new Error(`Failed to record raw Census import: ${error.message}`);
+    },
+
+    async countCensusAcsRaw(): Promise<number> {
+      const { count, error } = await db
+        .from("census_acs_raw")
+        .select("*", { count: "exact", head: true });
+      if (error) throw new Error(`Failed to count raw Census imports: ${error.message}`);
+      return count ?? 0;
     },
   };
 }
