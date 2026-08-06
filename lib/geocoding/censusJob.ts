@@ -42,10 +42,22 @@ const MAX_JOB_DURATION_MS = 2 * 60 * 60 * 1000; // 2 hours
 const WORKER_PATH = "/api/cron/census-worker";
 
 function workerUrl(): string {
-  // Vercel sets VERCEL_URL to the current deployment's own hostname —
-  // always correct for a server-to-server self-call, unlike a hardcoded
-  // public domain that could point at a different environment.
-  const host = process.env.VERCEL_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "localhost:3000";
+  // VERCEL_URL points at this specific deployment's own auto-generated
+  // *.vercel.app alias — which, confirmed directly against production,
+  // sits behind Vercel's SSO/Authentication deployment protection even
+  // for the production deployment: a self-call to it 302-redirected to
+  // vercel.com/sso-api before ever reaching this app, so every worker
+  // continuation silently died and the job just sat "running" forever
+  // with zero progress. VERCEL_PROJECT_PRODUCTION_URL is the project's
+  // actual assigned production domain (the custom domain), which is not
+  // behind that wall — prefer it. NEXT_PUBLIC_SITE_URL is a manual
+  // override for anywhere neither Vercel var applies (e.g. local dev
+  // against a tunneled URL).
+  const host =
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ??
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    process.env.VERCEL_URL ??
+    "localhost:3000";
   const protocol = host.startsWith("localhost") ? "http" : "https";
   return `${protocol}://${host}${WORKER_PATH}`;
 }
