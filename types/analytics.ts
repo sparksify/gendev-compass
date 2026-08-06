@@ -3,6 +3,8 @@ export type PortalEventName =
   | "portal_opened"
   | "overview_page_opened"
   | "opportunity_overview_opened"
+  | "faq_opened"
+  | "resources_opened"
   | "video_started"
   | "video_progress_25"
   | "video_progress_50"
