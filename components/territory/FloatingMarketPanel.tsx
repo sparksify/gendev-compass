@@ -67,9 +67,6 @@ export function FloatingMarketPanel({ result }: { result: TerritoryEvaluationRes
   if (evaluation.radiusMiles > 0) {
     rows.push({ label: "Radius", content: <>{evaluation.radiusMiles} mi</> });
   }
-  if (evaluation.zipCodes.length > 0) {
-    rows.push({ label: "ZIPs reviewed", content: <>{evaluation.zipCodes.length}</> });
-  }
 
   return (
     <div className="ti-fade-up w-[290px] overflow-hidden rounded-card border border-border bg-card/95 shadow-lg backdrop-blur-sm">
