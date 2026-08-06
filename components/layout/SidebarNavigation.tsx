@@ -59,12 +59,14 @@ export function SidebarNavigation({
             return (
               <li key={item.label}>
                 <span
-                  className="flex cursor-not-allowed items-center gap-3 rounded-control border border-transparent px-3 py-[11px] text-[13px] text-sidebar-muted-foreground"
+                  className="flex cursor-not-allowed items-center gap-2.5 whitespace-nowrap rounded-full px-2.5 py-2 text-[12.5px] text-sidebar-muted-foreground"
                   title={item.lockNote}
                 >
-                  <Icon className="size-[17px] shrink-0" strokeWidth={1.7} />
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/5">
+                    <Icon className="size-[15px]" strokeWidth={1.7} />
+                  </span>
                   <span className="flex-1">{item.label}</span>
-                  <Lock className="size-3.5" aria-label={item.lockNote} />
+                  <Lock className="size-3.5 shrink-0" aria-label={item.lockNote} />
                 </span>
               </li>
             );
@@ -76,19 +78,26 @@ export function SidebarNavigation({
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-3 rounded-control border px-3 py-[11px] text-[13px] transition-colors",
+                  "relative flex items-center gap-2.5 whitespace-nowrap rounded-full px-2.5 py-2 text-[12.5px] transition-colors",
                   active
-                    ? "border-transparent bg-primary font-medium text-primary-foreground"
-                    : "border-transparent text-sidebar-foreground/85 hover:bg-white/[0.06]",
+                    ? "bg-white/[0.07] font-medium text-white ring-1 ring-inset ring-primary/40"
+                    : "text-sidebar-foreground/85 hover:bg-white/[0.06]",
                 )}
               >
-                <Icon
+                {active && (
+                  <span
+                    aria-hidden
+                    className="absolute -left-3 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-primary shadow-[0_0_10px_2px_rgba(37,99,235,0.65)]"
+                  />
+                )}
+                <span
                   className={cn(
-                    "size-[17px] shrink-0",
-                    active ? "text-primary-foreground" : "text-sidebar-muted-foreground",
+                    "flex size-7 shrink-0 items-center justify-center rounded-full",
+                    active ? "bg-primary/25 text-white" : "bg-white/5 text-sidebar-muted-foreground",
                   )}
-                  strokeWidth={1.7}
-                />
+                >
+                  <Icon className="size-[15px]" strokeWidth={1.7} />
+                </span>
                 {item.label}
               </Link>
             </li>
@@ -97,9 +106,11 @@ export function SidebarNavigation({
         <li>
           <a
             href={`mailto:${supportEmail}`}
-            className="flex items-center gap-3 rounded-control border border-transparent px-3 py-[11px] text-[13px] text-sidebar-foreground/85 transition-colors hover:bg-white/[0.06]"
+            className="flex items-center gap-2.5 whitespace-nowrap rounded-full px-2.5 py-2 text-[12.5px] text-sidebar-foreground/85 transition-colors hover:bg-white/[0.06]"
           >
-            <Headphones className="size-[17px] shrink-0 text-sidebar-muted-foreground" strokeWidth={1.7} />
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/5">
+              <Headphones className="size-[15px] text-sidebar-muted-foreground" strokeWidth={1.7} />
+            </span>
             Support
           </a>
         </li>
@@ -123,8 +134,10 @@ export function SidebarNavigation({
 
       <div className="mt-auto px-5 pt-5">
         <div className="rounded-card border border-sidebar-border bg-sidebar-card p-4">
-          <p className="flex items-center gap-2 text-[13.5px] font-bold text-sidebar-foreground">
-            <Headphones className="size-4 text-sidebar-foreground" strokeWidth={1.7} />
+          <p className="flex items-center gap-2.5 text-[13.5px] font-bold text-sidebar-foreground">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/5">
+              <Headphones className="size-4 text-sidebar-foreground" strokeWidth={1.7} />
+            </span>
             Need Assistance?
           </p>
           <p className="mt-2 text-[12.5px] text-sidebar-muted-foreground">
