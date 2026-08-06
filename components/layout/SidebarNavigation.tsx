@@ -120,7 +120,7 @@ export function SidebarNavigation({
 
       <div className="mx-5 mt-[22px] border-t border-sidebar-border" />
       <p className="px-5 pb-2.5 pt-5 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-sidebar-muted-foreground/55">
-        Coming Soon
+        Unlocks Later
       </p>
       <ul className="flex flex-col gap-1 px-3">
         {COMING_SOON.map((item) => (

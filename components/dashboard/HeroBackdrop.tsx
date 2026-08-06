@@ -22,7 +22,7 @@ export function HeroBackdrop() {
       <svg
         viewBox="0 0 1400 220"
         preserveAspectRatio="none"
-        className="absolute inset-0 h-full w-full opacity-[0.06]"
+        className="absolute inset-0 h-full w-full opacity-[0.08]"
       >
         <g fill="none" stroke="currentColor" strokeWidth="1">
           <path d="M-40 32 C 220 4, 460 58, 720 28 S 1180 2, 1440 36" />
@@ -37,7 +37,7 @@ export function HeroBackdrop() {
           stretched by the container's own aspect ratio. */}
       <svg
         viewBox="0 0 200 200"
-        className="absolute right-4 top-1 hidden size-[170px] opacity-[0.09] md:block lg:size-[190px]"
+        className="absolute right-4 top-1 hidden size-[170px] opacity-[0.13] md:block lg:size-[190px]"
       >
         <g transform="translate(100 100)" fill="none" stroke="currentColor">
           <circle r="88" strokeWidth="1" />
@@ -77,11 +77,6 @@ export function HeroBackdrop() {
           </text>
         </g>
       </svg>
-
-      <div className="absolute right-[200px] top-3 hidden text-right text-[12px] tracking-[0.04em] opacity-[0.22] lg:block">
-        <p>40.7128° N</p>
-        <p>74.0060° W</p>
-      </div>
     </div>
   );
 }

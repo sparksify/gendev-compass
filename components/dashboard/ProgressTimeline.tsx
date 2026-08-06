@@ -33,7 +33,8 @@ function JourneyStep({ milestone }: { milestone: JourneyMilestone }) {
         className={cn(
           "flex size-10 shrink-0 items-center justify-center rounded-full bg-card",
           status === "completed" && "border-[1.5px] border-success text-success",
-          status === "active" && "border-[1.5px] border-sidebar bg-sidebar",
+          status === "active" &&
+            "border-[1.5px] border-sidebar bg-sidebar shadow-[0_0_0_5px_rgba(11,26,53,0.12)]",
           (status === "locked" || status === "future") &&
             "border border-border-strong text-faint-foreground",
         )}

@@ -49,7 +49,7 @@ export function deriveJourney(state: PortalState): JourneySummary {
     },
     {
       key: "questionnaire",
-      label: "Qualification Questionnaire",
+      label: "Investor Alignment",
       status: state.questionnaireCompleted
         ? "completed"
         : state.videoCompleted
