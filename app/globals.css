@@ -106,7 +106,10 @@ body {
  * dashboard's dark "Fast Lane" card), so the main content area is untouched.
  * ------------------------------------------------------------------------- */
 .sidebar-shell {
-  position: relative;
+  /* No position declared here on purpose — the desktop rail relies on
+   * Tailwind's `sticky top-0` and the mobile drawer on `absolute`; this
+   * class must never override either. Both hosts are already positioned
+   * elements, which is enough for the ::after below to size to them. */
   background:
     radial-gradient(120% 45% at 50% 0%, rgb(72 108 190 / 16%), transparent 65%),
     linear-gradient(180deg, #0a1c3a 0%, #081733 42%, #06152d 100%);
