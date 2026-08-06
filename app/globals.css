@@ -29,6 +29,14 @@
   --ring: #2563eb;
   /* Card radius per comp. Smaller elements step down from it. */
   --radius: 10px;
+
+  /* Dark navy rail — the app's left/mobile navigation. */
+  --sidebar: #0b1a35;
+  --sidebar-foreground: #e4e9f5;
+  --sidebar-muted-foreground: #8996b8;
+  --sidebar-border: rgb(255 255 255 / 8%);
+  --sidebar-card: #14264a;
+  --sidebar-accent: #6d9bff;
 }
 
 @theme inline {
@@ -53,6 +61,13 @@
   --color-warning: var(--warning);
   --color-destructive: var(--destructive);
   --color-ring: var(--ring);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted-foreground: var(--sidebar-muted-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-card: var(--sidebar-card);
+  --color-sidebar-accent: var(--sidebar-accent);
 
   --radius-card: var(--radius);
   --radius-control: 8px;

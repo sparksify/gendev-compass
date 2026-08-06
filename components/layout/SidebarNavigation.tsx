@@ -59,7 +59,7 @@ export function SidebarNavigation({
             return (
               <li key={item.label}>
                 <span
-                  className="flex cursor-not-allowed items-center gap-3 rounded-control border border-transparent px-3 py-[11px] text-[13px] text-faint-foreground"
+                  className="flex cursor-not-allowed items-center gap-3 rounded-control border border-transparent px-3 py-[11px] text-[13px] text-sidebar-muted-foreground"
                   title={item.lockNote}
                 >
                   <Icon className="size-[17px] shrink-0" strokeWidth={1.7} />
@@ -78,14 +78,14 @@ export function SidebarNavigation({
                 className={cn(
                   "flex items-center gap-3 rounded-control border px-3 py-[11px] text-[13px] transition-colors",
                   active
-                    ? "border-primary-soft-border bg-primary-soft font-medium text-primary"
-                    : "border-transparent text-secondary-foreground hover:bg-surface",
+                    ? "border-transparent bg-primary font-medium text-primary-foreground"
+                    : "border-transparent text-sidebar-foreground/85 hover:bg-white/[0.06]",
                 )}
               >
                 <Icon
                   className={cn(
                     "size-[17px] shrink-0",
-                    active ? "text-primary" : "text-[#475467]",
+                    active ? "text-primary-foreground" : "text-sidebar-muted-foreground",
                   )}
                   strokeWidth={1.7}
                 />
@@ -97,23 +97,23 @@ export function SidebarNavigation({
         <li>
           <a
             href={`mailto:${supportEmail}`}
-            className="flex items-center gap-3 rounded-control border border-transparent px-3 py-[11px] text-[13px] text-secondary-foreground transition-colors hover:bg-surface"
+            className="flex items-center gap-3 rounded-control border border-transparent px-3 py-[11px] text-[13px] text-sidebar-foreground/85 transition-colors hover:bg-white/[0.06]"
           >
-            <Headphones className="size-[17px] shrink-0 text-[#475467]" strokeWidth={1.7} />
+            <Headphones className="size-[17px] shrink-0 text-sidebar-muted-foreground" strokeWidth={1.7} />
             Support
           </a>
         </li>
       </ul>
 
-      <div className="mx-5 mt-[22px] border-t border-border" />
-      <p className="px-5 pb-2.5 pt-5 text-[10.5px] font-bold uppercase tracking-[0.13em] text-faint-foreground">
+      <div className="mx-5 mt-[22px] border-t border-sidebar-border" />
+      <p className="px-5 pb-2.5 pt-5 text-[10.5px] font-bold uppercase tracking-[0.13em] text-sidebar-muted-foreground">
         Coming Soon
       </p>
       <ul className="flex flex-col gap-1 px-3">
         {COMING_SOON.map((item) => (
           <li
             key={item.key}
-            className="flex items-center gap-3 whitespace-nowrap px-3 py-[9px] text-[13px] text-faint-foreground"
+            className="flex items-center gap-3 whitespace-nowrap px-3 py-[9px] text-[13px] text-sidebar-muted-foreground"
           >
             <Lock className="size-[15px] shrink-0" strokeWidth={1.8} />
             {item.shortTitle ?? item.title}
@@ -122,15 +122,17 @@ export function SidebarNavigation({
       </ul>
 
       <div className="mt-auto px-5 pt-5">
-        <div className="rounded-card border border-border bg-surface-raised p-4">
-          <p className="flex items-center gap-2 text-[13.5px] font-bold text-foreground">
-            <Headphones className="size-4 text-foreground" strokeWidth={1.7} />
+        <div className="rounded-card border border-sidebar-border bg-sidebar-card p-4">
+          <p className="flex items-center gap-2 text-[13.5px] font-bold text-sidebar-foreground">
+            <Headphones className="size-4 text-sidebar-foreground" strokeWidth={1.7} />
             Need Assistance?
           </p>
-          <p className="mt-2 text-[12.5px] text-muted-foreground">Our team is here to help.</p>
+          <p className="mt-2 text-[12.5px] text-sidebar-muted-foreground">
+            Our team is here to help.
+          </p>
           <a
             href={`mailto:${supportEmail}`}
-            className="mt-2.5 inline-block text-[12.5px] font-medium text-primary hover:text-primary-hover"
+            className="mt-2.5 inline-block text-[12.5px] font-medium text-sidebar-accent hover:text-white"
           >
             Contact Support →
           </a>

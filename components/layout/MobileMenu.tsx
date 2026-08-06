@@ -63,17 +63,17 @@ export function MobileMenu({ token, supportEmail, consultationAvailable }: Mobil
             role="dialog"
             aria-modal="true"
             aria-label="Portal navigation"
-            className="absolute right-0 top-0 flex h-full w-[300px] max-w-[85vw] flex-col overflow-y-auto bg-card shadow-2xl"
+            className="absolute right-0 top-0 flex h-full w-[300px] max-w-[85vw] flex-col overflow-y-auto bg-sidebar shadow-2xl"
           >
-            <div className="flex h-[59px] shrink-0 items-center justify-between border-b border-border pl-5 pr-3">
-              <p className="text-[12px] font-bold uppercase tracking-[0.13em] text-muted-foreground">
+            <div className="flex h-[59px] shrink-0 items-center justify-between border-b border-sidebar-border pl-5 pr-3">
+              <p className="text-[12px] font-bold uppercase tracking-[0.13em] text-sidebar-muted-foreground">
                 Menu
               </p>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="Close menu"
-                className="flex size-10 items-center justify-center rounded-control text-secondary-foreground transition-colors hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                className="flex size-10 items-center justify-center rounded-control text-sidebar-foreground transition-colors hover:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
               >
                 <X className="size-[20px]" strokeWidth={1.8} />
               </button>

@@ -48,7 +48,7 @@ export function PathChooser({ token, videoStarted, videoPercent }: PathChooserPr
           <p className="mt-2 text-[12.5px] font-semibold text-primary">Most investors start here.</p>
 
           <div className="mt-auto pt-5">
-            <Button asChild size="lg" className="w-full">
+            <Button asChild variant="outline" size="lg" className="w-full">
               <Link href={`${base}/overview`}>
                 <Play strokeWidth={1.8} /> Continue Investor Overview <ArrowRight />
               </Link>
