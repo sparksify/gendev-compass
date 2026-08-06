@@ -42,11 +42,11 @@ export function StatusCard({
 
   return (
     <Card>
-      <div className="flex flex-col gap-6 p-6 sm:flex-row sm:items-start sm:justify-between sm:gap-7">
+      <div className="flex flex-col gap-6 p-6 sm:flex-row sm:items-stretch sm:justify-between sm:gap-8 sm:p-7">
         <div className="flex min-w-0 flex-1 gap-4">
           <span
             aria-hidden
-            className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
+            className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
           >
             {state.booked ? (
               <Check className="size-5" strokeWidth={2.2} />
@@ -54,56 +54,56 @@ export function StatusCard({
               <Star className="size-5 fill-current" strokeWidth={1.8} />
             )}
           </span>
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-primary">
+          <div className="min-w-0 pt-0.5">
+            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-primary">
               Your Current Step
             </p>
-            <p className="mt-1 text-[19px] font-bold leading-tight text-foreground">
+            <p className="mt-1.5 text-[26px] font-bold leading-tight text-foreground">
               {journey.currentMilestoneLabel}
             </p>
-            <p className="mt-2 max-w-md text-[13.5px] leading-[1.6] text-muted-foreground">
+            <p className="mt-2.5 max-w-md text-[14px] leading-[1.6] text-muted-foreground">
               {supporting}
             </p>
+
+            <div className="mt-5 flex flex-wrap items-center gap-6">
+              <Button asChild size="lg">
+                <Link href={ctaHref}>
+                  <Play strokeWidth={1.8} /> {ctaLabel}
+                </Link>
+              </Button>
+              <Button asChild variant="link">
+                <Link href={`${base}#progress`}>
+                  View Full Journey <ArrowRight />
+                </Link>
+              </Button>
+            </div>
           </div>
         </div>
 
-        <dl className="flex shrink-0 flex-col gap-5 pt-0.5">
+        <dl className="flex shrink-0 flex-col divide-y divide-border pt-0.5 sm:w-[220px] sm:border-l sm:border-border sm:pl-8">
           {journey.timeRemainingMinutes !== null && (
-            <div>
-              <dt className="flex items-center gap-1.5 whitespace-nowrap text-[11px] uppercase tracking-[0.04em] text-muted-foreground">
+            <div className="pb-4">
+              <dt className="flex items-center gap-1.5 whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
                 <Clock className="size-3.5 shrink-0 text-faint-foreground" strokeWidth={1.8} />
                 Estimated Time Remaining
               </dt>
-              <dd className="mt-1.5 whitespace-nowrap text-[19px] font-bold text-primary">
+              <dd className="mt-1.5 whitespace-nowrap text-[26px] font-bold text-primary">
                 {journey.timeRemainingMinutes} Minutes
               </dd>
             </div>
           )}
           {journey.nextMilestoneLabel && (
-            <div>
-              <dt className="flex items-center gap-1.5 whitespace-nowrap text-[11px] uppercase tracking-[0.04em] text-muted-foreground">
+            <div className="pt-4">
+              <dt className="flex items-center gap-1.5 whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
                 <Lock className="size-3.5 shrink-0 text-faint-foreground" strokeWidth={1.8} />
                 Next Unlock
               </dt>
-              <dd className="mt-1.5 whitespace-nowrap text-[15px] font-bold leading-tight text-foreground">
+              <dd className="mt-1.5 text-[16px] font-bold leading-tight text-foreground">
                 {journey.nextMilestoneLabel}
               </dd>
             </div>
           )}
         </dl>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-[22px] px-6 pb-[22px] pt-1">
-        <Button asChild size="lg">
-          <Link href={ctaHref}>
-            <Play strokeWidth={1.8} /> {ctaLabel}
-          </Link>
-        </Button>
-        <Button asChild variant="link">
-          <Link href={`${base}#progress`}>
-            View Full Journey <ArrowRight />
-          </Link>
-        </Button>
       </div>
     </Card>
   );
