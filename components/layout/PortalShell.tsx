@@ -3,10 +3,18 @@ import { SidebarNavigation } from "@/components/layout/SidebarNavigation";
 import { RightSidebar } from "@/components/layout/RightSidebar";
 import { brand } from "@/lib/config/brand";
 import { getSiteLogoUrl } from "@/lib/assets";
+import { cn } from "@/lib/utils";
 import type { PortalContext } from "@/lib/portal/context";
 
 /** Brand lockup shown at the top of the sidebar (and in the header on mobile). */
-export function BrandBlock({ logoUrl }: { logoUrl?: string }) {
+export function BrandBlock({
+  logoUrl,
+  variant = "header",
+}: {
+  logoUrl?: string;
+  /** "sidebar" renders light text for the dark navy rail; "header" (default) is dark-on-white. */
+  variant?: "header" | "sidebar";
+}) {
   // An admin-uploaded logo is the complete lockup — render it alone.
   if (logoUrl && logoUrl !== brand.logoPath) {
     return (
@@ -23,6 +31,8 @@ export function BrandBlock({ logoUrl }: { logoUrl?: string }) {
   const subMark = brand.productName.startsWith(brand.brandName)
     ? brand.productName.slice(brand.brandName.length).trim()
     : brand.productName;
+  const textColor = variant === "sidebar" ? "text-sidebar-foreground" : "text-foreground";
+  const lineColor = variant === "sidebar" ? "bg-sidebar-foreground/50" : "bg-foreground/60";
   return (
     <div className="flex items-center gap-2.5">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -32,14 +42,24 @@ export function BrandBlock({ logoUrl }: { logoUrl?: string }) {
         className="h-8 w-auto max-w-[64px] object-contain"
       />
       <div className="leading-none">
-        <p className="whitespace-nowrap font-serif text-[19px] font-medium leading-none tracking-tight text-foreground">
+        <p
+          className={cn(
+            "whitespace-nowrap font-serif text-[19px] font-medium leading-none tracking-tight",
+            textColor,
+          )}
+        >
           {brand.brandName}
         </p>
         {subMark && (
-          <p className="mt-1 flex items-center gap-1.5 whitespace-nowrap text-[7.5px] font-medium uppercase tracking-[0.3em] text-foreground">
-            <span aria-hidden className="h-px w-3 bg-foreground/60" />
+          <p
+            className={cn(
+              "mt-1 flex items-center gap-1.5 whitespace-nowrap text-[7.5px] font-medium uppercase tracking-[0.3em]",
+              textColor,
+            )}
+          >
+            <span aria-hidden className={cn("h-px w-3", lineColor)} />
             {subMark}
-            <span aria-hidden className="h-px w-3 bg-foreground/60" />
+            <span aria-hidden className={cn("h-px w-3", lineColor)} />
           </p>
         )}
       </div>
@@ -65,9 +85,9 @@ export async function PortalShell({ context, token, children }: PortalShellProps
 
   return (
     <div className="flex min-h-screen">
-      <aside className="sticky top-0 hidden h-screen w-[236px] shrink-0 flex-col border-r border-border bg-card lg:flex">
-        <div className="flex h-[59px] shrink-0 items-center border-b border-border px-5">
-          <BrandBlock logoUrl={siteLogoUrl} />
+      <aside className="sticky top-0 hidden h-screen w-[236px] shrink-0 flex-col bg-sidebar lg:flex">
+        <div className="flex h-[59px] shrink-0 items-center border-b border-sidebar-border px-5">
+          <BrandBlock logoUrl={siteLogoUrl} variant="sidebar" />
         </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-5">
           <SidebarNavigation
@@ -87,7 +107,7 @@ export async function PortalShell({ context, token, children }: PortalShellProps
           consultationAvailable={state.questionnaireCompleted || state.booked}
         />
 
-        <div className="flex-1 px-4 pb-8 pt-[26px] sm:px-7">
+        <div className="flex-1 px-4 pb-8 pt-5 sm:px-7">
           <div className="mx-auto flex max-w-[1360px] items-start gap-6">
             <main className="min-w-0 flex-1">{children}</main>
 

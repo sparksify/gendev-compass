@@ -19,15 +19,15 @@ export function PathChooser({ token, videoStarted, videoPercent }: PathChooserPr
 
   return (
     <Card>
-      <CardContent className="p-6 sm:p-7">
+      <CardContent className="p-5 sm:p-6">
         <h2 className="text-[15.5px] font-bold text-foreground">Choose Your Path</h2>
         <p className="mt-1.5 max-w-2xl text-[13.5px] leading-[1.6] text-muted-foreground">
           Whether you&apos;re just beginning your research or already have experience evaluating
           franchise opportunities, choose the experience that best fits where you are today.
         </p>
 
-        <div className="mt-5 grid gap-[18px] lg:grid-cols-2">
-          <div className="flex flex-col rounded-card border border-border p-5">
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <div className="flex flex-col rounded-card border border-border p-4">
             <span className="flex size-9 items-center justify-center rounded-control border border-primary-soft-border bg-primary-soft text-primary">
               <BookOpen className="size-[17px]" strokeWidth={1.7} />
             </span>
@@ -39,7 +39,7 @@ export function PathChooser({ token, videoStarted, videoPercent }: PathChooserPr
               evaluate whether this opportunity is right for you.
             </p>
             <div className="mt-auto pt-4">
-              <Button asChild className="w-full">
+              <Button asChild variant="outline" className="w-full">
                 <Link href={`${base}/overview`}>
                   Continue Learning <ArrowRight />
                 </Link>
@@ -50,7 +50,7 @@ export function PathChooser({ token, videoStarted, videoPercent }: PathChooserPr
             </div>
           </div>
 
-          <div className="flex flex-col rounded-card border border-border p-5">
+          <div className="flex flex-col rounded-card border border-border p-4">
             <span className="flex size-9 items-center justify-center rounded-control border border-primary-soft-border bg-primary-soft text-primary">
               <ClipboardCheck className="size-[17px]" strokeWidth={1.7} />
             </span>
@@ -63,7 +63,7 @@ export function PathChooser({ token, videoStarted, videoPercent }: PathChooserPr
               prepare for a productive consultation.
             </p>
             <div className="mt-auto pt-4">
-              <Button asChild className="w-full">
+              <Button asChild variant="secondary" className="w-full">
                 <Link href={`${base}/questionnaire`}>
                   Begin Qualification <ArrowRight />
                 </Link>

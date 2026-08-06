@@ -82,7 +82,7 @@ export function AdvisorCard({
           </div>
         ) : state.questionnaireCompleted ? (
           <div>
-            <Button asChild className="mt-[18px] w-full">
+            <Button asChild variant="outline" className="mt-4 w-full">
               <Link href={`${base}/schedule`}>
                 <CalendarDays /> Schedule Consultation
               </Link>
@@ -93,7 +93,7 @@ export function AdvisorCard({
           </div>
         ) : (
           <div>
-            <Button asChild className="mt-[18px] w-full">
+            <Button asChild variant="outline" className="mt-4 w-full">
               <Link href={`${base}/questionnaire`}>
                 Begin Qualification <ArrowRight />
               </Link>

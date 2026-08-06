@@ -49,22 +49,22 @@ export function StatusCard({ token, state, journey }: StatusCardProps) {
 
   return (
     <Card>
-      <h2 className="px-6 pt-5 text-[15.5px] font-bold text-foreground">Your Current Status</h2>
+      <h2 className="px-6 pt-[18px] text-[15.5px] font-bold text-foreground">Your Current Status</h2>
 
-      <div className="flex flex-col gap-6 px-6 pt-3.5 sm:flex-row sm:items-start sm:gap-7">
+      <div className="flex flex-col gap-5 px-6 pt-3 sm:flex-row sm:items-start sm:gap-6">
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-[9px] text-[16.5px] font-bold text-foreground">
             <CheckCircleSolid className="size-[19px] shrink-0" />
             {headline}
           </p>
-          <p className="mt-2.5 max-w-md text-[13.5px] leading-[1.6] text-muted-foreground">
+          <p className="mt-2 max-w-md text-[13.5px] leading-[1.6] text-muted-foreground">
             {supporting}
           </p>
         </div>
 
-        <dl className="flex shrink-0 gap-7 pt-0.5">
+        <dl className="flex shrink-0 gap-6 pt-0.5">
           {journey.timeRemainingMinutes !== null && (
-            <div className="border-r border-border pr-7">
+            <div className="border-r border-border pr-6">
               <dt className="text-xs text-muted-foreground">Estimated time remaining</dt>
               <dd className="mt-1.5 text-[19px] font-bold text-primary">
                 {journey.timeRemainingMinutes} Minutes
@@ -80,11 +80,11 @@ export function StatusCard({ token, state, journey }: StatusCardProps) {
         </dl>
       </div>
 
-      <div className="px-6 pt-[18px]">
+      <div className="px-6 pt-4">
         <Progress value={journey.overallPercent} aria-label="Journey progress" />
       </div>
 
-      <div className="flex flex-wrap items-center gap-[22px] px-6 pb-[22px] pt-[18px]">
+      <div className="flex flex-wrap items-center gap-5 px-6 pb-5 pt-4">
         <Button asChild size="lg">
           <Link href={ctaHref}>
             <Play strokeWidth={1.8} /> {ctaLabel}

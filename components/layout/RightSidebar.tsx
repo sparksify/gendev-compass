@@ -25,7 +25,7 @@ export async function RightSidebar({ token, state, lead }: RightSidebarProps) {
   ]);
 
   return (
-    <div className="space-y-[18px]">
+    <div className="space-y-4">
       <AdvisorCard token={token} state={state} photoUrl={advisorPhotoUrl ?? undefined} />
       {state.questionnaireCompleted && (
         <FddCard
