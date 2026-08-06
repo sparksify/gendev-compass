@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Search, MapPin, ArrowRight, Map as MapIcon, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/form-fields";
+import { HeroBackdrop } from "@/components/dashboard/HeroBackdrop";
 import { LiveTerritoryMap } from "./LiveTerritoryMap";
 import { FloatingMarketPanel } from "./FloatingMarketPanel";
 import { TerritoryAssessment } from "./TerritoryAssessment";
@@ -13,8 +15,10 @@ import { WhyThisMarket } from "./WhyThisMarket";
 import { ChatMessage } from "./ChatMessage";
 import { ReviewRequestModal } from "./ReviewRequestModal";
 import { Disclaimer } from "./Disclaimer";
+import { STATUS_META } from "./statusMeta";
 import { cn } from "@/lib/utils";
 import { RADIUS_OPTIONS_MILES } from "@/lib/config/territory";
+import { availabilitySignal } from "@/lib/territory/briefing";
 import type { CtaAction } from "./cta";
 import type { ChatMessageData } from "./types";
 import type { TerritoryAlternative, TerritoryEvaluationResult, TerritoryResultStatus } from "@/types/territory";
@@ -322,25 +326,69 @@ export function TerritoryAdvisorClient({
 
   const showMapPane = isMdUp || mobileMapOpen;
 
+  // Header-only bindings — a restatement of state already computed above,
+  // never new data: the availability badge/confidence shown in the
+  // workspace header, once a search has completed.
+  const headerStatusMeta = evaluated && lastResult ? STATUS_META[lastResult.status] : null;
+  const headerSignal = evaluated && lastResult ? availabilitySignal(lastResult) : null;
+  const headerLocation = evaluated && lastResult ? (lastResult.location.displayName ?? lastResult.location.query) : null;
+
   return (
     <div className="ti-workspace flex flex-col gap-4">
-      {/* Workspace header: identity left, compact brand context right. */}
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
-        <div>
-          <h1 className="text-[19px] font-bold text-foreground">Territory Intelligence</h1>
-          <p className="mt-0.5 text-[13px] text-muted-foreground">
-            Explore markets, compare opportunities, and check preliminary availability for {brandName}.
-          </p>
+      {/* Workspace header: institutional hero matching the redesigned
+          investor dashboard — compact, since this is an operational tool,
+          not a marketing moment. */}
+      <div className="relative overflow-hidden rounded-card border border-border bg-card px-6 py-5 shadow-card sm:px-7">
+        <HeroBackdrop />
+        <div className="relative flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-8">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-accent-gold">
+              Territory Advisor
+            </p>
+            <h1 className="mt-1 font-serif text-[24px] font-medium leading-[1.15] text-sidebar sm:text-[26px]">
+              Check Territory Availability
+            </h1>
+            <p className="mt-1.5 max-w-xl text-[13px] leading-[1.55] text-muted-foreground">
+              Search by city or ZIP code to identify whether an area appears open for purchase. This
+              is a preliminary territory check; final availability must be confirmed by GenDev and
+              the franchisor.
+            </p>
+            <p className="mt-3 text-[12px] text-secondary-foreground">
+              <span className="font-semibold">{brandName}</span>
+              {headerLocation && <> · {headerLocation}</>}
+              {" · "}
+              {radiusMiles}-mile radius
+            </p>
+          </div>
+
+          {headerStatusMeta && headerSignal && lastResult && (
+            <div className="shrink-0 lg:w-[230px] lg:border-l lg:border-border lg:pl-7">
+              <Badge className={cn("gap-1.5 px-2.5 py-1 text-[12.5px] font-medium", headerStatusMeta.badgeClass)}>
+                <headerStatusMeta.icon className="size-3.5" strokeWidth={2} />
+                {headerStatusMeta.label}
+              </Badge>
+              <p className="mt-1.5 text-[11.5px] text-muted-foreground">
+                Preliminary territory check · {headerSignal.percent}% confidence
+              </p>
+              <div className="mt-3 flex flex-col gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleAction("checkAnother", lastResult)}
+                >
+                  Check Another Area
+                </Button>
+                <Button
+                  size="sm"
+                  className="bg-sidebar text-white hover:bg-sidebar/90"
+                  onClick={() => handleAction("requestReview", lastResult)}
+                >
+                  Request Territory Review
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
-        <p className="text-[12px] text-muted-foreground">
-          <span className="font-semibold text-secondary-foreground">{brandName}</span>
-          {brandContext.industry && <> · {brandContext.industry}</>}
-          {brandContext.investmentRange && <> · {brandContext.investmentRange}</>}
-          {" · "}
-          <Link href={`${base}/opportunity`} className="text-primary hover:text-primary-hover">
-            Learn more →
-          </Link>
-        </p>
       </div>
 
       {/* Split workspace: conversation | live map. Fixed height on desktop so
