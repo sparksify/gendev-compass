@@ -31,7 +31,7 @@ function JourneyStep({ milestone }: { milestone: JourneyMilestone }) {
     <li className="flex flex-1 flex-col items-center gap-2.5">
       <span
         className={cn(
-          "flex size-[34px] shrink-0 items-center justify-center rounded-full bg-card",
+          "flex size-11 shrink-0 items-center justify-center rounded-full bg-card",
           status === "completed" && "border-[1.5px] border-success text-success",
           status === "active" && "border-[1.5px] border-sidebar bg-sidebar",
           (status === "locked" || status === "future") &&
@@ -40,18 +40,18 @@ function JourneyStep({ milestone }: { milestone: JourneyMilestone }) {
         aria-hidden
       >
         {status === "completed" ? (
-          <Check className="size-4" strokeWidth={2.2} />
+          <Check className="size-[18px]" strokeWidth={2.2} />
         ) : status === "active" ? (
-          <span className="size-[11px] rounded-full bg-white" />
+          <span className="size-3 rounded-full bg-white" />
         ) : (
-          <Icon className="size-[15px]" strokeWidth={1.7} />
+          <Icon className="size-[17px]" strokeWidth={1.7} />
         )}
       </span>
       <span
         className={cn(
-          "max-w-[7.5rem] text-center text-[11.5px] leading-[1.35]",
+          "max-w-[8.5rem] text-center text-[13px] leading-[1.25]",
           status === "active"
-            ? "font-medium text-sidebar"
+            ? "font-semibold text-sidebar"
             : status === "completed"
               ? "text-secondary-foreground"
               : "text-muted-foreground",
@@ -64,17 +64,19 @@ function JourneyStep({ milestone }: { milestone: JourneyMilestone }) {
   );
 }
 
-/** Horizontal seven-milestone journey tracker (comp: Journey Timeline). */
+/** Horizontal seven-milestone journey tracker, integrated into StatusCard's
+ * bottom section — every step visible on desktop, evenly distributed;
+ * scrolls horizontally only when the viewport is too narrow to fit them. */
 export function ProgressTimeline({ milestones }: { milestones: JourneyMilestone[] }) {
   return (
     <ol
       aria-label="Investment journey milestones"
-      className="flex min-w-[700px] items-start"
+      className="flex min-w-[620px] items-start lg:min-w-0"
     >
       {milestones.map((milestone, index) => (
         <Fragment key={milestone.key}>
           {index > 0 && (
-            <li aria-hidden className="mt-[17px] h-px w-[26px] shrink-0 bg-border-strong" />
+            <li aria-hidden className="mt-[21px] h-px flex-1 shrink bg-border" />
           )}
           <JourneyStep milestone={milestone} />
         </Fragment>

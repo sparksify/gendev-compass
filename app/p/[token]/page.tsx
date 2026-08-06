@@ -1,6 +1,6 @@
 import { StatusCard } from "@/components/dashboard/StatusCard";
 import { PathChooser } from "@/components/dashboard/PathChooser";
-import { ProgressTimeline } from "@/components/dashboard/ProgressTimeline";
+import { HeroBackdrop } from "@/components/dashboard/HeroBackdrop";
 import { VideoCard } from "@/components/dashboard/VideoCard";
 import { FAQAccordion } from "@/components/dashboard/FAQAccordion";
 import { InvalidPortal } from "@/components/portal/InvalidPortal";
@@ -28,15 +28,20 @@ export default async function PortalDashboardPage({
 
   return (
     <div className="space-y-4">
-      <div>
-        <p className="text-[13.5px] text-muted-foreground">Welcome back, {lead.first_name}</p>
-        <h1 className="mt-1 font-serif text-[32px] font-normal leading-[1.1] tracking-[-0.01em] text-foreground sm:text-[38px]">
-          Your {profile.shortName} Investment Journey
-        </h1>
-        <p className="mt-2.5 max-w-[38rem] text-[13.5px] leading-[1.65] text-muted-foreground">
-          Evaluate this opportunity at your own pace. Everything you share here helps your advisor
-          prepare a consultation tailored to your goals and experience.
-        </p>
+      <div className="relative overflow-hidden pb-6 pt-9">
+        <HeroBackdrop />
+        <div className="relative">
+          <p className="text-[14.5px] font-semibold uppercase tracking-[0.03em] text-sidebar">
+            Welcome back, {lead.first_name}
+          </p>
+          <h1 className="mt-2 font-serif text-[48px] font-medium leading-[1.06] tracking-[-0.015em] text-sidebar sm:text-[52px]">
+            Your {profile.shortName} Investment Journey
+          </h1>
+          <p className="mt-3 max-w-[800px] text-[17px] leading-[1.65] text-muted-foreground">
+            Evaluate this opportunity at your own pace. Everything you share here helps your
+            advisor prepare a consultation tailored to your goals and experience.
+          </p>
+        </div>
       </div>
 
       <StatusCard token={token} state={state} journey={journey} />
@@ -48,10 +53,6 @@ export default async function PortalDashboardPage({
           videoPercent={state.videoPercent}
         />
       )}
-
-      <section id="progress" className="overflow-x-auto px-1 pb-0.5 pt-1.5">
-        <ProgressTimeline milestones={journey.milestones} />
-      </section>
 
       <VideoCard
         token={token}
