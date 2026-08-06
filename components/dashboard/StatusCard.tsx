@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Check, Clock, Lock, Play, Star } from "lucide-react";
+import { ArrowRight, Check, Clock, Lock, Play, Sparkle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { brand } from "@/lib/config/brand";
@@ -46,16 +46,16 @@ export function StatusCard({
         <div className="flex min-w-0 flex-1 gap-4">
           <span
             aria-hidden
-            className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
+            className="flex size-12 shrink-0 items-center justify-center rounded-full border-[1.5px] border-accent-gold bg-[#fbf7ef] text-accent-gold"
           >
             {state.booked ? (
-              <Check className="size-5" strokeWidth={2.2} />
+              <Check className="size-5" strokeWidth={2} />
             ) : (
-              <Star className="size-5 fill-current" strokeWidth={1.8} />
+              <Sparkle className="size-5" strokeWidth={1.6} />
             )}
           </span>
           <div className="min-w-0 pt-0.5">
-            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-primary">
+            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-accent-gold">
               Your Current Step
             </p>
             <p className="mt-1.5 text-[26px] font-bold leading-tight text-foreground">
@@ -66,12 +66,12 @@ export function StatusCard({
             </p>
 
             <div className="mt-5 flex flex-wrap items-center gap-6">
-              <Button asChild size="lg">
+              <Button asChild size="lg" className="bg-sidebar text-white hover:bg-sidebar/90">
                 <Link href={ctaHref}>
                   <Play strokeWidth={1.8} /> {ctaLabel}
                 </Link>
               </Button>
-              <Button asChild variant="link">
+              <Button asChild variant="link" className="text-sidebar hover:text-sidebar/80">
                 <Link href={`${base}#progress`}>
                   View Full Journey <ArrowRight />
                 </Link>
@@ -87,7 +87,7 @@ export function StatusCard({
                 <Clock className="size-3.5 shrink-0 text-faint-foreground" strokeWidth={1.8} />
                 Estimated Time Remaining
               </dt>
-              <dd className="mt-1.5 whitespace-nowrap text-[26px] font-bold text-primary">
+              <dd className="mt-1.5 whitespace-nowrap text-[26px] font-bold text-sidebar">
                 {journey.timeRemainingMinutes} Minutes
               </dd>
             </div>
