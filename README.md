@@ -249,6 +249,21 @@ events. If `POSTHOG_KEY` is set, events are mirrored to PostHog with a hashed
 token as the distinct ID; analytics failures never affect the prospect flow,
 and detailed financial answers never leave Supabase.
 
+## Tracking & Attribution (GTM / Meta Pixel / Meta CAPI)
+
+Every portal event above also routes through a centralized tracking layer:
+Google Tag Manager (`dataLayer`), Meta Pixel (via GTM or direct mode), and
+the Meta Conversions API with browser/server event-ID dedup. UTM/Facebook
+click-ID attribution is captured on the first portal visit (first-touch,
+never overwritten) and updated on later qualified visits (latest-touch).
+Configure everything from **Advisor → Tracking & Attribution**
+(`/advisor/tracking`, admin-only) with zero deploys.
+
+See [`docs/tracking-attribution.md`](docs/tracking-attribution.md) for the
+full architecture, the GTM `dataLayer` contract, the Meta event mapping,
+and the security rules (the CAPI access token never leaves the server, and
+questionnaire/financial data never reaches GTM or Meta).
+
 ## Deploying to Vercel
 
 1. Push this repo to GitHub and import it in Vercel.
@@ -404,13 +419,18 @@ security rules, limitations: [docs/territory-advisor.md](docs/territory-advisor.
 
 ## Next recommended integrations
 
-1. **Facebook Lead Ads webhook** → `POST /api/leads` (endpoint is ready;
-   add signature verification).
+1. **Facebook Lead Ads webhook** → `POST /api/leads` (endpoint is ready,
+   including `facebook_campaign_id/adset_id/ad_id/form_id/page_id`; add
+   signature verification).
 2. **Calendar provider webhook** for authoritative booking capture
    (appointment ID, start time, reschedules, cancellations).
 3. **CRM sync** (HighLevel/CloseBot) on `lead_qualified` / `booked`.
 4. **Email/SMS nudges** for stalled prospects (video started, not finished).
 5. **PostHog dashboards** for the funnel metrics listed in the spec.
+6. **Google Ads / LinkedIn / TikTok tags** — add via the same
+   `dataLayer` `portal_event` contract inside GTM, or extend
+   `lib/tracking/dispatch.ts` for a new server-side API; see
+   docs/tracking-attribution.md, "Extending to a new provider".
 
 ## Project structure
 
@@ -425,8 +445,12 @@ app/
                            questionnaire, booking, territory-advisor, dev (dev-only)
   api/advisor/territories/ territory records, eligibility, CSV import, reviews (ADMIN)
   api/events/              client event sink (prefixed, whitelisted)
+  api/admin/tracking/      GTM/Meta/consent settings, test events, diagnostics (ADMIN)
+  api/cron/tracking-retry/ bounded-retry worker for failed Meta CAPI deliveries
+  api/consent/             marketing/analytics consent decisions
   p/[token]/               journey dashboard, overview, questionnaire, schedule,
                            territory-advisor, complete
+  advisor/tracking/        Tracking & Attribution admin (ADMIN)
 components/
   ui/                      design-system primitives (button, card, badge, dialog, …)
   layout/                  TopNavigation, SidebarNavigation, RightSidebar, PortalShell
@@ -435,7 +459,9 @@ components/
   forms/                   QuestionnaireForm (React Hook Form + Zod)
   portal/                  WistiaPlayer, CalendarEmbed, dev tools, shared portal pieces
   territory/               Territory Advisor chat, schematic map, result cards
+  tracking/                GTM/Pixel bootstrap, consent banner, attribution capture
 components/advisor/        dashboard tables, badges, staff forms, territories/ admin
+components/adminSections/  platform admin panels + Tracking & Attribution admin panels
 lib/
   advisor/                 auth, RBAC, stages, follow-up rules, queries
   config/                  brand, qualification, territory, env helpers
@@ -444,6 +470,8 @@ lib/
   store/                   data layer: Supabase + local dev store
   supabase/                service-role client (server-only)
   territory/               deterministic evaluation, intent parsing, copy, webhook
+  tracking/                centralized event dispatch, GTM/Meta integration, attribution,
+                           consent, encryption — see docs/tracking-attribution.md
   validation/              Zod schemas
 scripts/seed.ts            demo lead seeding / reset
 scripts/seed-advisor.ts    advisor-backend dev seed (staff + investors)

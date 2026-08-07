@@ -69,13 +69,44 @@ export async function POST(
       });
       await autoAdvanceStage(lead, "CONSULTATION_SCHEDULED", "portal");
 
-      await trackEvent(lead, "calendar_booking_completed", {
+      const bookingTracking = await trackEvent(lead, "calendar_booking_completed", {
         detectedVia: parsed.data.detectedVia,
       });
+      // Primary conversion event (spec §8 tier 1 / §24) — a distinct
+      // canonical event so it maps cleanly to Meta's "Schedule" and any
+      // future ad platform's booking goal.
+      const appointmentTracking = await trackEvent(
+        lead,
+        "appointment_booked",
+        {
+          appointmentId: parsed.data.appointmentId ?? null,
+          advisorId: lead.assigned_advisor_id,
+          qualificationStatus: lead.qualification_result,
+        },
+        null,
+        {
+          eventId: bookingTracking.eventId,
+          meta: {
+            customData: {
+              qualification_status: lead.qualification_result ?? "unknown",
+              content_name: "consultation",
+            },
+          },
+        },
+      );
       await trackEvent(lead, "portal_completed", null);
+
+      return NextResponse.json({
+        success: true,
+        nextUrl: `/p/${token}/schedule`,
+        tracking: [
+          { eventId: appointmentTracking.eventId, dataLayerPayload: appointmentTracking.dataLayerPayload, metaPixelBrowser: appointmentTracking.metaPixelBrowser },
+        ],
+      });
     }
 
-    // The schedule page renders the booked confirmation state in place.
+    // Already booked (idempotent replay, e.g. a second widget postMessage) —
+    // no new event, no new tracking.
     return NextResponse.json({ success: true, nextUrl: `/p/${token}/schedule` });
   } catch (error) {
     console.error("[booking] failed:", error);

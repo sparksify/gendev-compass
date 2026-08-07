@@ -4,6 +4,7 @@ import { ProgressTimeline } from "@/components/dashboard/ProgressTimeline";
 import { VideoCard } from "@/components/dashboard/VideoCard";
 import { FAQAccordion } from "@/components/dashboard/FAQAccordion";
 import { InvalidPortal } from "@/components/portal/InvalidPortal";
+import { PortalEventFirer } from "@/components/tracking/PortalEventFirer";
 import { loadPortalContext } from "@/lib/portal/context";
 import { deriveJourney } from "@/lib/portal/journey";
 import { resolveOpportunityProfile } from "@/lib/assets";
@@ -28,6 +29,7 @@ export default async function PortalDashboardPage({
 
   return (
     <div className="space-y-[18px]">
+      <PortalEventFirer result={context.openEventTracking} />
       <div>
         <p className="text-[13.5px] text-muted-foreground">Welcome back, {lead.first_name}</p>
         <h1 className="mt-1 font-serif text-4xl font-normal leading-[1.1] tracking-[-0.01em] text-foreground sm:text-[42px]">

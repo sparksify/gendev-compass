@@ -11,6 +11,7 @@ import { FieldError, Label, Textarea } from "@/components/ui/form-fields";
 import { RadioCardGroup } from "@/components/forms/RadioCardGroup";
 import { SectionHeader } from "@/components/dashboard/SectionHeader";
 import { questionnaireSchema, type QuestionnairePayload } from "@/lib/validation/questionnaire";
+import { firePortalTrackingResults, type PortalTrackingResult } from "@/lib/tracking/client";
 import {
   BUSINESS_OWNERSHIP_OPTIONS,
   DECISION_PARTICIPANT_OPTIONS,
@@ -87,8 +88,10 @@ export function QuestionnaireForm({ token, advisorName, defaults }: Questionnair
         success: boolean;
         nextUrl?: string;
         error?: string;
+        tracking?: PortalTrackingResult[];
       };
       if (data.success && data.nextUrl) {
+        firePortalTrackingResults(data.tracking ?? []);
         router.push(data.nextUrl);
         router.refresh();
         return;

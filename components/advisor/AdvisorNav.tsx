@@ -11,6 +11,7 @@ const LINKS = [
 
 const ADMIN_LINKS = [
   { href: "/advisor/territories", label: "Territories" },
+  { href: "/advisor/tracking", label: "Tracking & Attribution" },
   { href: "/advisor/platform", label: "Platform" },
 ];
 

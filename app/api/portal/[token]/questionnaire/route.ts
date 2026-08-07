@@ -120,11 +120,18 @@ export async function POST(
 
     await autoAdvanceStage(lead, "QUESTIONNAIRE_COMPLETED", "portal");
 
-    await trackEvent(lead, "questionnaire_submitted", null);
-    await trackEvent(
+    const submittedTracking = await trackEvent(lead, "questionnaire_submitted", null);
+    const qualificationTracking = await trackEvent(
       lead,
       qualification.qualified ? "lead_qualified" : "lead_sent_to_review",
       { score: qualification.score },
+      null,
+      // Tier 2 conversion (spec §8) — the business cares about qualified
+      // volume, not raw submissions. Only a coarse boolean ever leaves the
+      // portal; the score/reasons stay in Supabase.
+      qualification.qualified
+        ? { meta: { customData: { qualification_status: "qualified" } } }
+        : {},
     );
 
     // Every prospect proceeds directly to scheduling — the qualification
@@ -133,6 +140,10 @@ export async function POST(
       success: true,
       qualified: qualification.qualified,
       nextUrl: `${base}/schedule`,
+      tracking: [
+        { eventId: submittedTracking.eventId, dataLayerPayload: submittedTracking.dataLayerPayload, metaPixelBrowser: submittedTracking.metaPixelBrowser },
+        { eventId: qualificationTracking.eventId, dataLayerPayload: qualificationTracking.dataLayerPayload, metaPixelBrowser: qualificationTracking.metaPixelBrowser },
+      ],
     });
   } catch (error) {
     console.error("[questionnaire] save failed:", error);
