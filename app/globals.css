@@ -309,3 +309,41 @@ wistia-player {
 main:has(.ti-workspace) + aside {
   display: none;
 }
+
+/* Ownership Profile: step transitions and the completion celebration. */
+@keyframes op-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes op-celebrate {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.ownership-profile-step {
+  animation: op-step-in 0.35s ease-out both;
+}
+
+.ownership-profile-celebrate {
+  animation: op-celebrate 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ownership-profile-step,
+  .ownership-profile-celebrate {
+    animation: none;
+  }
+}

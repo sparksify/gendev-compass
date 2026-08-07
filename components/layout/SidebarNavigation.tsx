@@ -12,6 +12,7 @@ import {
   Compass,
   Headphones,
   Lock,
+  Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { COMING_SOON } from "@/lib/config/content";
@@ -37,6 +38,7 @@ export function SidebarNavigation({
     { label: "Opportunity Overview", href: `${base}/opportunity`, icon: Building2 },
     { label: "Territory Intelligence", href: `${base}/territory-advisor`, icon: Compass },
     { label: "Investor FAQ", href: `${base}/faq`, icon: HelpCircle },
+    { label: "Ownership Profile", href: `${base}/ownership-profile`, icon: Target },
     { label: "Resources", href: `${base}/resources`, icon: FolderOpen },
     {
       label: "My Consultation",

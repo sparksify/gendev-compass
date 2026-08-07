@@ -5,6 +5,7 @@ export type PortalEventName =
   | "opportunity_overview_opened"
   | "faq_opened"
   | "resources_opened"
+  | "ownership_profile_opened"
   | "video_started"
   | "video_progress_25"
   | "video_progress_50"
