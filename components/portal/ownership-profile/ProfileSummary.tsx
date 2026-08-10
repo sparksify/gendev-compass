@@ -1,13 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Check, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { buildOwnershipIntelligenceReport } from "@/data/ownershipProfileInsights";
 import {
-  activityLabels,
-  environmentLabels,
-  experienceLabels,
   growthComfortLabel,
   motivationLabels,
   ownershipStyleLabel,
@@ -15,32 +13,49 @@ import {
   timelineLabel,
   type OwnershipProfileInput,
 } from "@/types/ownershipProfile";
-
-interface ProfileSummaryCard {
-  title: string;
-  items: string[];
-  emptyNote: string;
-}
+import {
+  DueDiligenceQuestions,
+  DueDiligenceTopics,
+  NextResearchStepCard,
+  ProfileInsightsNarrative,
+} from "@/components/portal/ownership-profile/ReportSections";
+import { ResponsesAccordion } from "@/components/portal/ownership-profile/ResponsesAccordion";
+import { ReportActions } from "@/components/portal/ownership-profile/ReportActions";
 
 interface ProfileSummaryProps {
   profile: OwnershipProfileInput;
   isSaved: boolean;
   onSave: () => void;
   onEdit: () => void;
+  /** Scopes saved due-diligence questions and builds CTA links. */
+  token: string;
+  /** The franchise brand under evaluation, from portal context (nullable). */
+  brandName: string | null;
 }
 
 /**
- * The Ownership Profile's closing screen. Deliberately not a "score" or a
- * recommendation — a consultative recap, framed as something the investor
- * made and can hand to their advisor, per the feature spec.
+ * The Ownership Profile's closing screen — an ownership intelligence
+ * report. Interprets the responses (deterministically — see
+ * data/ownershipProfileInsights.ts) into due-diligence guidance rather
+ * than repeating them; the raw answers move to a collapsed section.
+ * Still never a score, fit verdict, or recommendation.
  */
-export function ProfileSummary({ profile, isSaved, onSave, onEdit }: ProfileSummaryProps) {
+export function ProfileSummary({
+  profile,
+  isSaved,
+  onSave,
+  onEdit,
+  token,
+  brandName,
+}: ProfileSummaryProps) {
   const [justSaved, setJustSaved] = useState(false);
 
   const handleSave = () => {
     onSave();
     setJustSaved(true);
   };
+
+  const report = useMemo(() => buildOwnershipIntelligenceReport(profile), [profile]);
 
   const styleLabel = ownershipStyleLabel(profile.ownershipStyle);
   const growth = growthComfortLabel(profile) ?? "Not yet specified";
@@ -55,30 +70,6 @@ export function ProfileSummary({ profile, isSaved, onSave, onEdit }: ProfileSumm
     },
     { label: "Growth Ambition", value: growth },
     { label: "Timeline", value: timeline },
-  ];
-
-  const cards: ProfileSummaryCard[] = [
-    { title: "Your Goals", items: motivationLabels(profile), emptyNote: "No goals selected yet." },
-    {
-      title: "What You Enjoy",
-      items: activityLabels(profile),
-      emptyNote: "No preferred activities selected yet.",
-    },
-    {
-      title: "Your Ideal Operating Environment",
-      items: environmentLabels(profile),
-      emptyNote: "No industries selected yet.",
-    },
-    {
-      title: "Business Characteristics You Value",
-      items: priorityLabels(profile),
-      emptyNote: "No priorities selected yet.",
-    },
-    {
-      title: "Your Background",
-      items: experienceLabels(profile),
-      emptyNote: "No prior experience selected yet.",
-    },
   ];
 
   return (
@@ -119,31 +110,16 @@ export function ProfileSummary({ profile, isSaved, onSave, onEdit }: ProfileSumm
         </CardContent>
       </Card>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {cards.map((card) => (
-          <Card key={card.title}>
-            <CardContent className="p-5 sm:p-6">
-              <h3 className="text-[13px] font-bold text-foreground">{card.title}</h3>
-              {card.items.length > 0 ? (
-                <ul className="mt-3 flex flex-wrap gap-1.5">
-                  {card.items.map((item) => (
-                    <li
-                      key={item}
-                      className="rounded-full border border-border-soft bg-surface px-2.5 py-1 text-[12px] font-medium text-foreground"
-                    >
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-2 text-[12.5px] text-muted-foreground">{card.emptyNote}</p>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+      <div className="mt-10 space-y-10">
+        <ProfileInsightsNarrative paragraphs={report.narrative} />
+        <DueDiligenceTopics topics={report.topics} brandName={brandName} />
+        <DueDiligenceQuestions questions={report.questions} token={token} />
+        {report.nextStep && <NextResearchStepCard step={report.nextStep} token={token} />}
+        <ResponsesAccordion profile={profile} />
+        <ReportActions />
       </div>
 
-      <div className="mt-8 flex flex-col items-center gap-3">
+      <div className="mt-9 flex flex-col items-center gap-3 border-t border-border-soft pt-8">
         <Button
           type="button"
           size="lg"

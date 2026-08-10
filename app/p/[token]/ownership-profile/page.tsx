@@ -38,7 +38,7 @@ export default async function OwnershipProfilePage({
         </p>
       </div>
 
-      <OwnershipProfileAssessment token={token} />
+      <OwnershipProfileAssessment token={token} brandName={context.brand?.name ?? null} />
     </div>
   );
 }
