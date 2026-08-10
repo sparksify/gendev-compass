@@ -141,9 +141,11 @@ const STEPS: StepDefinition[] = [
 interface OwnershipProfileAssessmentProps {
   /** Scopes local persistence to this investor's portal link. */
   token: string;
+  /** The brand under evaluation, from portal context (null if unresolved). */
+  brandName: string | null;
 }
 
-export function OwnershipProfileAssessment({ token }: OwnershipProfileAssessmentProps) {
+export function OwnershipProfileAssessment({ token, brandName }: OwnershipProfileAssessmentProps) {
   const { profile, hydrated, updateProfile, setCurrentStep, markCompleted, beginEditing, isComplete } =
     useOwnershipProfileStorage(token);
 
@@ -185,6 +187,8 @@ export function OwnershipProfileAssessment({ token }: OwnershipProfileAssessment
             isSaved={isComplete}
             onSave={markCompleted}
             onEdit={() => beginEditing(0)}
+            token={token}
+            brandName={brandName}
           />
         </CardContent>
       </Card>
