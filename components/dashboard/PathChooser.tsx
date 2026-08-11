@@ -78,7 +78,7 @@ export function PathChooser({ token, videoStarted, videoPercent }: PathChooserPr
 
       <Card className="border-transparent bg-sidebar">
         <CardContent className="flex h-full flex-col p-6 sm:p-7">
-          <h2 className="font-serif text-2xl font-normal text-white">The Fast Lane</h2>
+          <h2 className="font-serif text-2xl font-normal text-white">The Fast Track</h2>
           <p className="mt-1 text-[13px] font-medium text-accent-gold">
             For experienced investors
           </p>
