@@ -7,6 +7,8 @@ import { ensureLeadDomainChain, type LeadDomainChain } from "@/lib/domain/chain"
 import { upsertMapping } from "@/lib/domain/mappings";
 import { getAdminTestPassword, getAppUrl, getInternalApiKey, isProduction } from "@/lib/config/env";
 import { clientIpFrom, rateLimit } from "@/lib/rateLimit";
+import { requireStaffApi } from "@/lib/advisor/auth";
+import { isAdmin } from "@/lib/advisor/access";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +37,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  if (!isAuthorized(request)) {
+  if (!(await isAuthorized(request))) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
@@ -194,7 +196,7 @@ async function registerExternalMappings(
   }
 }
 
-function isAuthorized(request: Request): boolean {
+async function isAuthorized(request: Request): Promise<boolean> {
   const apiKey = getInternalApiKey();
   const providedKey = request.headers.get("x-api-key");
   if (apiKey && providedKey && timingSafeEquals(providedKey, apiKey)) return true;
@@ -204,6 +206,12 @@ function isAuthorized(request: Request): boolean {
   if (adminPassword && providedPassword && timingSafeEquals(providedPassword, adminPassword)) {
     return true;
   }
+
+  // A logged-in staff ADMIN session — the unified admin dashboard's
+  // Test Leads page (/advisor/platform/test-leads) creates leads without
+  // the legacy header credentials.
+  const auth = await requireStaffApi();
+  if (!("response" in auth) && isAdmin(auth.user)) return true;
 
   // Development convenience: allow unauthenticated creation only when no
   // credentials are configured at all, and never in production.
