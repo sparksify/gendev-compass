@@ -128,11 +128,7 @@ export function AdminShell({
         >
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- admin-uploaded asset
-            <img
-              src={logoUrl}
-              alt={brandName}
-              className="h-9 w-auto max-w-[170px] rounded bg-white/90 object-contain px-1.5 py-1"
-            />
+            <img src={logoUrl} alt={brandName} className="h-10 w-auto max-w-[180px] object-contain" />
           ) : (
             <>
               <span className="flex size-9 items-center justify-center rounded-full border border-white/15 bg-white/5">
