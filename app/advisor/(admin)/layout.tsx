@@ -3,7 +3,7 @@ import { requireStaffUser } from "@/lib/advisor/auth";
 import { isAdmin } from "@/lib/advisor/access";
 import { getSiteLogoUrl } from "@/lib/assets";
 import { AdminShell } from "@/components/admin/AdminShell";
-import { brand } from "@/lib/config/brand";
+import { BrandBlock } from "@/components/layout/PortalShell";
 
 export const dynamic = "force-dynamic";
 
@@ -22,8 +22,7 @@ export default async function PlatformAdminLayout({ children }: { children: Reac
 
   return (
     <AdminShell
-      brandName={brand.productName}
-      logoUrl={logoUrl !== "/logo.svg" ? logoUrl : null}
+      brandBlock={<BrandBlock logoUrl={logoUrl} variant="sidebar" />}
       userName={user.first_name}
     >
       {children}
