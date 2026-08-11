@@ -33,9 +33,10 @@ interface NavGroup {
 }
 
 /**
- * Grouped by what an admin is working on. Items outside /advisor/platform
- * (Territory Data, Investors, Users & Roles) intentionally link out to the
- * existing advisor pages rather than duplicating them here.
+ * Grouped by what an admin is working on. Every destination renders inside
+ * this shell: Territory Data lives in the same (admin) route group, and
+ * Investors / Users & Roles have admin-hosted routes under /advisor/platform
+ * that reuse the advisor app's components.
  */
 const NAV_GROUPS: NavGroup[] = [
   {
@@ -62,12 +63,12 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/advisor/platform/test-leads", label: "Test Leads", icon: FlaskConical },
       { href: "/advisor/platform/fdd", label: "FDD Requests", icon: FileText },
-      { href: "/advisor/investors", label: "Investors", icon: Users },
+      { href: "/advisor/platform/investors", label: "Investors", icon: Users },
     ],
   },
   {
     label: "System",
-    items: [{ href: "/advisor/team", label: "Users & Roles", icon: UserCog }],
+    items: [{ href: "/advisor/platform/users", label: "Users & Roles", icon: UserCog }],
   },
 ];
 
@@ -105,10 +106,13 @@ function NavRow({ item, active }: { item: NavItem; active: boolean }) {
  */
 export function AdminShell({
   brandName,
+  logoUrl,
   userName,
   children,
 }: {
   brandName: string;
+  /** Admin-uploaded site logo; null falls back to the compass wordmark. */
+  logoUrl: string | null;
   userName: string;
   children: React.ReactNode;
 }) {
@@ -122,10 +126,21 @@ export function AdminShell({
           href="/advisor/platform"
           className="flex items-center gap-2.5 px-5 pb-5 pt-6 text-sidebar-foreground"
         >
-          <span className="flex size-9 items-center justify-center rounded-full border border-white/15 bg-white/5">
-            <Compass className="size-5" />
-          </span>
-          <span className="font-serif text-lg font-semibold tracking-tight">{brandName}</span>
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- admin-uploaded asset
+            <img
+              src={logoUrl}
+              alt={brandName}
+              className="h-9 w-auto max-w-[170px] rounded bg-white/90 object-contain px-1.5 py-1"
+            />
+          ) : (
+            <>
+              <span className="flex size-9 items-center justify-center rounded-full border border-white/15 bg-white/5">
+                <Compass className="size-5" />
+              </span>
+              <span className="font-serif text-lg font-semibold tracking-tight">{brandName}</span>
+            </>
+          )}
         </Link>
 
         <nav className="flex-1 space-y-5 px-3 pb-4" aria-label="Admin">
