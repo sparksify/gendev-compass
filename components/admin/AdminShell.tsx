@@ -85,10 +85,10 @@ function NavRow({ item, active }: { item: NavItem; active: boolean }) {
       href={item.href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "sidebar-row group relative flex items-center gap-2.5 whitespace-nowrap border border-transparent px-2.5 py-2.5 text-[12.5px]",
+        "sidebar-row group relative flex items-center gap-2.5 whitespace-nowrap border border-transparent px-2.5 py-2.5 text-[13px] font-medium",
         active
-          ? "sidebar-row-active font-medium text-sidebar-foreground"
-          : "text-sidebar-muted-foreground/72 hover:bg-white/[0.03] hover:text-sidebar-foreground/90",
+          ? "sidebar-row-active font-semibold text-white"
+          : "text-sidebar-muted-foreground hover:bg-white/[0.03] hover:text-sidebar-foreground",
       )}
     >
       {active && (

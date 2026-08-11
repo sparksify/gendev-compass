@@ -61,7 +61,7 @@ export function SidebarNavigation({
             return (
               <li key={item.label}>
                 <span
-                  className="sidebar-row flex cursor-not-allowed items-center gap-2.5 whitespace-nowrap border border-transparent px-2.5 py-2.5 text-[12.5px] text-sidebar-muted-foreground/55"
+                  className="sidebar-row flex cursor-not-allowed items-center gap-2.5 whitespace-nowrap border border-transparent px-2.5 py-2.5 text-[13px] font-medium text-sidebar-muted-foreground/55"
                   title={item.lockNote}
                 >
                   <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-sidebar-muted-foreground/45">
@@ -80,10 +80,10 @@ export function SidebarNavigation({
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "sidebar-row group relative flex items-center gap-2.5 whitespace-nowrap border border-transparent px-2.5 py-2.5 text-[12.5px]",
+                  "sidebar-row group relative flex items-center gap-2.5 whitespace-nowrap border border-transparent px-2.5 py-2.5 text-[13px] font-medium",
                   active
-                    ? "sidebar-row-active font-medium text-sidebar-foreground"
-                    : "text-sidebar-muted-foreground/72 hover:bg-white/[0.03] hover:text-sidebar-foreground/90",
+                    ? "sidebar-row-active font-semibold text-white"
+                    : "text-sidebar-muted-foreground hover:bg-white/[0.03] hover:text-sidebar-foreground",
                 )}
               >
                 {active && (
@@ -110,7 +110,7 @@ export function SidebarNavigation({
         <li>
           <a
             href={`mailto:${supportEmail}`}
-            className="sidebar-row group flex items-center gap-2.5 whitespace-nowrap border border-transparent px-2.5 py-2.5 text-[12.5px] text-sidebar-muted-foreground/72 hover:bg-white/[0.03] hover:text-sidebar-foreground/90"
+            className="sidebar-row group flex items-center gap-2.5 whitespace-nowrap border border-transparent px-2.5 py-2.5 text-[13px] font-medium text-sidebar-muted-foreground hover:bg-white/[0.03] hover:text-sidebar-foreground"
           >
             <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-sidebar-muted-foreground/60 transition-colors duration-200 group-hover:bg-white/[0.04] group-hover:text-sidebar-foreground/85">
               <Headphones className="size-[15px]" strokeWidth={1.7} />
