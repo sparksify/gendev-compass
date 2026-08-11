@@ -3,12 +3,14 @@ import { Card } from "@/components/ui/card";
 import { TerritoryAdvisorClient } from "@/components/territory/TerritoryAdvisorClient";
 import { InvalidPortal } from "@/components/portal/InvalidPortal";
 import { loadPortalContext } from "@/lib/portal/context";
+import { routeForState } from "@/lib/portal/getPortalState";
 import { trackEvent } from "@/lib/portal/events";
 import { getStore } from "@/lib/store";
 import { getCurrentBrand, fallbackBrandName } from "@/lib/territory/brand";
 import { brand } from "@/lib/config/brand";
 import { CMDT_PROFILE } from "@/lib/config/opportunity";
 import type { TerritoryEvaluationResult } from "@/types/territory";
+import type { PortalRoute } from "@/types/portal";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +19,21 @@ const HISTORY_LIMIT = 5;
 /** Compact brand context for the workspace header (replaces the rail card). */
 function snapshotValue(key: string): string | null {
   return CMDT_PROFILE.snapshot.entries.find((entry) => entry.key === key)?.value ?? null;
+}
+
+/**
+ * The step a review request should route a prospect to first, when they
+ * haven't completed their qualification profile yet — whichever of
+ * video/questionnaire resumeRoute says is next (lib/portal/getPortalState.ts
+ * already derives that from real progress). Only ever read when
+ * !questionnaireCompleted, where resumeRoute is guaranteed to be "overview"
+ * or "questionnaire"; the fallback exists only to keep this total.
+ */
+function nextStepFor(token: string, resumeRoute: PortalRoute) {
+  if (resumeRoute === "questionnaire") {
+    return { label: "the Qualification Questionnaire", href: routeForState(token, "questionnaire") };
+  }
+  return { label: "the Investor Overview video", href: routeForState(token, "overview") };
 }
 
 /**
@@ -29,7 +46,8 @@ export default async function TerritoryAdvisorPage({ params }: { params: Promise
   const { token } = await params;
   const context = await loadPortalContext(token);
   if (!context) return <InvalidPortal />;
-  const { lead } = context;
+  const { lead, state } = context;
+  const nextStep = nextStepFor(token, state.resumeRoute);
 
   await trackEvent(lead, "territory_advisor_viewed", null, "territory-advisor");
 
@@ -81,6 +99,9 @@ export default async function TerritoryAdvisorPage({ params }: { params: Promise
         }}
         defaultRadiusMiles={franchiseBrand.default_radius_miles}
         initialResults={initialResults}
+        questionnaireCompleted={state.questionnaireCompleted}
+        nextStepLabel={nextStep.label}
+        nextStepHref={nextStep.href}
       />
     </div>
   );

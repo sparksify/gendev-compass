@@ -14,6 +14,7 @@ import { TerritoryAssessment } from "./TerritoryAssessment";
 import { WhyThisMarket } from "./WhyThisMarket";
 import { ChatMessage } from "./ChatMessage";
 import { ReviewRequestModal } from "./ReviewRequestModal";
+import { CompleteJourneyModal } from "./CompleteJourneyModal";
 import { Disclaimer } from "./Disclaimer";
 import { STATUS_META } from "./statusMeta";
 import { cn } from "@/lib/utils";
@@ -57,6 +58,15 @@ interface TerritoryAdvisorClientProps {
   brandContext: { industry: string | null; investmentRange: string | null };
   defaultRadiusMiles: number;
   initialResults: TerritoryEvaluationResult[];
+  /** Whether the prospect has completed their qualification questionnaire —
+   *  gates the review-request flow (see openReviewRequest below). */
+  questionnaireCompleted: boolean;
+  /** Whichever of the video/questionnaire steps comes next for this
+   *  prospect, resolved server-side from real progress
+   *  (lib/portal/getPortalState.ts's resumeRoute). Only used when
+   *  questionnaireCompleted is false. */
+  nextStepLabel: string;
+  nextStepHref: string;
 }
 
 /**
@@ -77,6 +87,9 @@ export function TerritoryAdvisorClient({
   brandContext,
   defaultRadiusMiles,
   initialResults,
+  questionnaireCompleted,
+  nextStepLabel,
+  nextStepHref,
 }: TerritoryAdvisorClientProps) {
   const base = `/p/${token}`;
   const mostRecent = initialResults[0] ?? null;
@@ -97,6 +110,9 @@ export function TerritoryAdvisorClient({
   const [submitting, setSubmitting] = useState(false);
   const [reviewModal, setReviewModal] = useState<{ open: boolean; searchId: string | null; location: string | null }>(
     { open: false, searchId: null, location: null },
+  );
+  const [journeyModal, setJourneyModal] = useState<{ open: boolean; location: string | null }>(
+    { open: false, location: null },
   );
   const [geoBusy, setGeoBusy] = useState(false);
   // Mobile: conversation first, map expandable. Tablet/desktop: map always on.
@@ -206,10 +222,24 @@ export function TerritoryAdvisorClient({
     void runSearch({ query: anchor, radiusMiles: next, origin: "chip" }, `Check ${next} miles around ${lastResult.location.displayName ?? anchor}`);
   }
 
+  /**
+   * The review-request flow is a fast track toward the qualification
+   * questionnaire, not just a message drop — so it only opens the actual
+   * request form once that questionnaire is done. Until then it prompts
+   * whichever step (video or questionnaire) comes next for this prospect.
+   */
+  function openReviewRequest(result: TerritoryEvaluationResult) {
+    if (!questionnaireCompleted) {
+      setJourneyModal({ open: true, location: result.location.displayName });
+      return;
+    }
+    setReviewModal({ open: true, searchId: result.searchId, location: result.location.displayName });
+  }
+
   function handleAction(action: CtaAction, result: TerritoryEvaluationResult) {
     switch (action) {
       case "requestReview":
-        setReviewModal({ open: true, searchId: result.searchId, location: result.location.displayName });
+        openReviewRequest(result);
         return;
       case "checkAnother":
         setInputValue("");
@@ -503,13 +533,7 @@ export function TerritoryAdvisorClient({
                   size="sm"
                   className="mt-2.5"
                   disabled={submitting}
-                  onClick={() =>
-                    setReviewModal({
-                      open: true,
-                      searchId: lastResult.searchId,
-                      location: lastResult.location.displayName,
-                    })
-                  }
+                  onClick={() => openReviewRequest(lastResult)}
                 >
                   Schedule Territory Review <ArrowRight className="size-3.5" />
                 </Button>
@@ -619,6 +643,13 @@ export function TerritoryAdvisorClient({
         brandName={brandName}
         locationLabel={reviewModal.location}
         territorySearchId={reviewModal.searchId}
+      />
+      <CompleteJourneyModal
+        open={journeyModal.open}
+        onOpenChange={(open) => setJourneyModal((prev) => ({ ...prev, open }))}
+        locationLabel={journeyModal.location}
+        nextStepLabel={nextStepLabel}
+        nextStepHref={nextStepHref}
       />
     </div>
   );
