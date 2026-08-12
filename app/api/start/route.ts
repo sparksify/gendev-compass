@@ -47,10 +47,17 @@ export async function GET(request: Request): Promise<NextResponse> {
     return NextResponse.json({ found: false, error: "rate_limited" }, { status: 429 });
   }
 
+  // Leads this visitor already rejected with "That's not me" — skipped so the
+  // page can keep polling for the visitor's own (possibly still in-flight)
+  // lead instead of re-offering the same wrong one.
+  const excluded = new Set(
+    (new URL(request.url).searchParams.get("exclude") ?? "").split(",").filter(Boolean),
+  );
+
   try {
     const now = Date.now();
     const candidates = (await getStore().listLeads())
-      .filter((lead) => isCandidate(lead, now))
+      .filter((lead) => isCandidate(lead, now) && !excluded.has(lead.id))
       .sort((a, b) => b.created_at.localeCompare(a.created_at));
 
     for (const lead of candidates) {
