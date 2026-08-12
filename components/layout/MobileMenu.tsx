@@ -46,7 +46,7 @@ export function MobileMenu({ token, supportEmail, consultationAvailable }: Mobil
         onClick={() => setOpen(true)}
         aria-expanded={open}
         aria-label="Open menu"
-        className="flex size-10 items-center justify-center rounded-control text-secondary-foreground transition-colors hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+        className="flex size-10 items-center justify-center rounded-control text-sidebar-foreground transition-colors hover:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
       >
         <Menu className="size-[22px]" strokeWidth={1.8} />
       </button>

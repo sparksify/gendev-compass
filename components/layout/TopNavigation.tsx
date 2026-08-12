@@ -26,9 +26,9 @@ export function TopNavigation({
   const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || "IN";
 
   return (
-    <header className="sticky top-0 z-40 flex h-[59px] shrink-0 items-center justify-between border-b border-border bg-card px-4 sm:px-7">
+    <header className="sticky top-0 z-40 flex h-[59px] shrink-0 items-center justify-between border-b border-sidebar-border bg-sidebar px-4 sm:px-7 lg:border-border lg:bg-card">
       <div className="lg:hidden">
-        <BrandBlock logoUrl={siteLogoUrl} />
+        <BrandBlock logoUrl={siteLogoUrl} variant="sidebar" />
       </div>
       <p className="hidden text-[15px] font-medium text-secondary-foreground lg:block">
         {brand.portalLabel}
