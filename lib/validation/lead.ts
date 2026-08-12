@@ -13,7 +13,8 @@ export const createLeadSchema = z.object({
   campaign: z.string().trim().max(200).optional(),
   adSet: z.string().trim().max(200).optional(),
   ad: z.string().trim().max(200).optional(),
-  facebookLeadId: z.string().trim().max(100).optional(),
+  // Coerced: Facebook/Pabbly deliver the numeric leadgen ID as a JSON number.
+  facebookLeadId: z.coerce.string().trim().max(100).optional(),
   // Future-ready platform fields — all optional; existing callers that send
   // only the fields above keep working unchanged. Slugs are resolved (never
   // trusted as IDs) and unknown values fall back to the deployment default.
