@@ -27,6 +27,9 @@ export function StartFlow({ supportEmail }: { supportEmail: string }) {
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Candidates this visitor rejected ("That's not me") — excluded from
+  // subsequent polls so their own lead can surface once it arrives.
+  const excludedRef = useRef<string[]>([]);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
 
@@ -42,7 +45,10 @@ export function StartFlow({ supportEmail }: { supportEmail: string }) {
         return;
       }
       try {
-        const response = await fetch("/api/start", { cache: "no-store" });
+        const exclude = excludedRef.current.length
+          ? `?exclude=${excludedRef.current.join(",")}`
+          : "";
+        const response = await fetch(`/api/start${exclude}`, { cache: "no-store" });
         if (response.ok) {
           const data = (await response.json()) as Partial<Candidate> & { found?: boolean };
           if (!cancelled && data.found && data.candidateId && data.firstName) {
@@ -134,6 +140,11 @@ export function StartFlow({ supportEmail }: { supportEmail: string }) {
             ? "Setting up your private portal… this takes just a moment."
             : "Opening your portal…"}
         </p>
+        {phase === "searching" ? (
+          <Button variant="ghost" size="sm" onClick={() => setPhase("email")}>
+            Skip the wait — I&apos;ll enter my email
+          </Button>
+        ) : null}
       </div>
     );
   }
@@ -148,7 +159,15 @@ export function StartFlow({ supportEmail }: { supportEmail: string }) {
           <Button onClick={confirmCandidate} disabled={submitting} size="lg">
             {submitting ? "Opening…" : "Yes, open my portal"}
           </Button>
-          <Button variant="ghost" onClick={() => setPhase("email")} disabled={submitting}>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              excludedRef.current.push(candidate.candidateId);
+              setCandidate(null);
+              setPhase("searching");
+            }}
+            disabled={submitting}
+          >
             That&apos;s not me
           </Button>
         </div>
