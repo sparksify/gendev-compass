@@ -20,6 +20,12 @@ export interface PortalContext {
   questionnaire: QuestionnaireRecord | null;
   state: PortalState;
   /**
+   * True during the prospect's first session: the first-open timestamp was
+   * stamped by this request or within the last 30 minutes. Lets pages greet
+   * with "Welcome" instead of "Welcome back" without flipping mid-session.
+   */
+  firstVisit: boolean;
+  /**
    * Platform domain context. Resolved (and repaired if missing) from the
    * lead on every load; null only if chain resolution failed entirely — the
    * legacy portal experience keeps working from the lead alone in that case.
@@ -69,6 +75,11 @@ export async function loadPortalContext(
     console.error(`[portal] domain chain resolution failed for lead ${lead.id}:`, error);
   }
 
+  const FIRST_VISIT_WINDOW_MS = 30 * 60_000;
+  const firstVisit =
+    !lead.portal_first_opened_at ||
+    Date.now() - Date.parse(lead.portal_first_opened_at) < FIRST_VISIT_WINDOW_MS;
+
   if (options.trackOpen !== false && !lead.portal_first_opened_at) {
     lead = await store.updateLead(lead.id, {
       portal_first_opened_at: new Date().toISOString(),
@@ -89,6 +100,7 @@ export async function loadPortalContext(
     videoProgress,
     questionnaire,
     state: getPortalState(lead, videoProgress, questionnaire),
+    firstVisit,
     organization,
     client,
     opportunity,
