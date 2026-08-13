@@ -1,8 +1,11 @@
 import type { LeadRecord, QualificationResultValue } from "@/types/lead";
 import type { QuestionnaireInput } from "@/types/questionnaire";
 import {
+  CASH_CONTRIBUTION_WEIGHTS,
+  CREDIT_PROFILE_WEIGHTS,
   DETAILED_ANSWER_MIN_LENGTH,
   DISQUALIFYING_TIMELINES,
+  LENDER_STATUS_WEIGHTS,
   LIQUID_CAPITAL_ORDER,
   MIN_QUALIFYING_LIQUID_CAPITAL,
   SCORE_WEIGHTS,
@@ -75,6 +78,19 @@ export function evaluateQualification(
   // Video completion still contributes to the informational score above.
   const qualified = capitalMeetsMinimum && timelineAcceptable;
 
+  // Informational readiness scores (v1.1) — advisor context only, never a
+  // gate. Self-reported credit and financing need do not disqualify anyone.
+  const readiness = fundingReadinessProfile(questionnaire);
+  if (readiness.creditProfileScore !== null) {
+    reasons.push(`Credit profile score ${readiness.creditProfileScore} (self-reported, unverified)`);
+  }
+  if (readiness.fundingReadinessScore !== null) {
+    reasons.push(`Funding readiness score ${readiness.fundingReadinessScore}`);
+  }
+  if (readiness.capitalReadinessScore !== null) {
+    reasons.push(`Capital readiness score ${readiness.capitalReadinessScore}`);
+  }
+
   reasons.push(`Score ${score} (threshold ${getScoreThreshold()})`);
 
   return {
@@ -83,4 +99,40 @@ export function evaluateQualification(
     score,
     reasons,
   };
+}
+
+export interface FundingReadinessProfile {
+  creditProfileScore: number | null;
+  fundingReadinessScore: number | null;
+  capitalReadinessScore: number | null;
+}
+
+/**
+ * Future-ready scoring hooks (spec §10): pure, brand-neutral readiness
+ * signals derived from the credit & funding answers. Currently surfaced to
+ * advisors via qualification reasons; brand-specific rule sets may consume
+ * them later. Null when the underlying answer wasn't collected (pre-v1.1
+ * records or conditionally hidden questions).
+ */
+export function fundingReadinessProfile(
+  questionnaire: Pick<
+    QuestionnaireInput,
+    "estimatedCreditScoreRange" | "financingNeed" | "lenderStatus" | "availableCashContribution"
+  >,
+): FundingReadinessProfile {
+  const creditProfileScore =
+    CREDIT_PROFILE_WEIGHTS[questionnaire.estimatedCreditScoreRange] ?? null;
+
+  // Candidates funding without financing are fully funding-ready by definition.
+  const fundingReadinessScore =
+    questionnaire.financingNeed === "no"
+      ? 100
+      : questionnaire.lenderStatus
+        ? (LENDER_STATUS_WEIGHTS[questionnaire.lenderStatus] ?? null)
+        : null;
+
+  const capitalReadinessScore =
+    CASH_CONTRIBUTION_WEIGHTS[questionnaire.availableCashContribution] ?? null;
+
+  return { creditProfileScore, fundingReadinessScore, capitalReadinessScore };
 }
