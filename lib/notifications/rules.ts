@@ -44,7 +44,12 @@ export interface NotificationRule {
   dedupeScope?: (eventData: Record<string, unknown> | null) => string | null;
 }
 
-export type EmailTemplateKey = "questionnaire_completed" | "consultation_scheduled" | "strategist_review_requested" | "video_completed";
+export type EmailTemplateKey =
+  | "questionnaire_completed"
+  | "consultation_scheduled"
+  | "strategist_review_requested"
+  | "video_completed"
+  | "ownership_profile_completed";
 
 /** Events recorded for the dashboard/timeline but deliberately silent. */
 const DASHBOARD_ONLY: readonly string[] = [
@@ -56,6 +61,8 @@ const DASHBOARD_ONLY: readonly string[] = [
   "questionnaire_started",
   "client_questionnaire_started",
   "territory_search_submitted",
+  // Opening the assessment says nothing; finishing it does (see IMMEDIATE).
+  "ownership_profile_opened",
 ];
 
 const IMMEDIATE: Partial<Record<PortalEventName, NotificationRule>> = {
@@ -66,6 +73,15 @@ const IMMEDIATE: Partial<Record<PortalEventName, NotificationRule>> = {
     templateKey: "questionnaire_completed",
     dedupeGroup: "questionnaire_completed",
     dedupeScope: (data) => asString(data?.questionnaireVersion),
+  },
+
+  // Rich pre-call context: what the investor wants from ownership, in their
+  // own selections. The route only emits this on the first real completion.
+  ownership_profile_completed: {
+    action: "immediate_email",
+    channel: "email",
+    templateKey: "ownership_profile_completed",
+    dedupeGroup: "ownership_profile_completed",
   },
 
   // One booking, two possible sources — same group, so one email.

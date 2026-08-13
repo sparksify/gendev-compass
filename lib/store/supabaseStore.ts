@@ -49,6 +49,7 @@ import type {
   ZipGeographyRecord,
 } from "@/types/territory";
 import type { NotificationDeliveryRecord } from "@/types/notifications";
+import type { OwnershipProfileDbRecord } from "@/types/ownershipProfile";
 import type {
   ActivityEventRecord,
   ClientRecord,
@@ -164,6 +165,53 @@ export function createSupabaseStore(): PortalStore {
         .single();
       if (error) throw new Error(`Failed to save questionnaire: ${error.message}`);
       return data as QuestionnaireRecord;
+    },
+
+    async getOwnershipProfile(leadId) {
+      const { data, error } = await db
+        .from("ownership_profiles")
+        .select()
+        .eq("lead_id", leadId)
+        .maybeSingle();
+      if (error) throw new Error(`Failed to load ownership profile: ${error.message}`);
+      return (data as OwnershipProfileDbRecord | null) ?? null;
+    },
+
+    async upsertOwnershipProfile(input) {
+      // Completion is sticky: an autosave after finishing must not clear it,
+      // so completed_at is only written when this call sets it.
+      const row: Record<string, unknown> = {
+        lead_id: input.lead_id,
+        motivations: input.motivations,
+        activities: input.activities,
+        ownership_style: input.ownership_style,
+        growth_comfort: input.growth_comfort,
+        environments: input.environments,
+        priorities: input.priorities,
+        experience: input.experience,
+        timeline: input.timeline,
+        current_step: input.current_step,
+        answered_sections: input.answered_sections,
+        organization_id: input.organization_id ?? null,
+        client_id: input.client_id ?? null,
+        opportunity_id: input.opportunity_id ?? null,
+        updated_at: nowIso(),
+      };
+      if (input.completed_at) row.completed_at = input.completed_at;
+
+      const { data, error } = await db
+        .from("ownership_profiles")
+        .upsert(row, { onConflict: "lead_id" })
+        .select()
+        .single();
+      if (error) throw new Error(`Failed to save ownership profile: ${error.message}`);
+      return data as OwnershipProfileDbRecord;
+    },
+
+    async listOwnershipProfiles() {
+      const { data, error } = await db.from("ownership_profiles").select();
+      if (error) throw new Error(`Failed to list ownership profiles: ${error.message}`);
+      return (data ?? []) as OwnershipProfileDbRecord[];
     },
 
     async insertEvent(leadId, eventName, eventData, pageUrl, options?: InsertEventOptions): Promise<void> {
