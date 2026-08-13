@@ -2,6 +2,7 @@ import type { LeadRecord, LeadStatus } from "@/types/lead";
 import type { QuestionnaireRecord } from "@/types/questionnaire";
 import type { VideoProgressRecord } from "@/types/portal";
 import type { PortalEventRecord } from "@/types/analytics";
+import type { OwnershipProfileDbRecord } from "@/types/ownershipProfile";
 import type {
   CreateNotificationDeliveryInput,
   NotificationDeliveryPatch,
@@ -233,6 +234,25 @@ export type VideoProgressPatch = Partial<
   >
 >;
 
+export interface UpsertOwnershipProfileInput {
+  lead_id: string;
+  motivations: string[];
+  activities: string[];
+  ownership_style: number;
+  growth_comfort: string | null;
+  environments: string[];
+  priorities: string[];
+  experience: string[];
+  timeline: string | null;
+  current_step: number;
+  answered_sections: number;
+  /** Set once, on genuine completion; never cleared by a later autosave. */
+  completed_at?: string | null;
+  organization_id?: string | null;
+  client_id?: string | null;
+  opportunity_id?: string | null;
+}
+
 export interface InsertEventOptions {
   source?: string;
   staffUserId?: string | null;
@@ -405,6 +425,16 @@ export interface PortalStore {
 
   getQuestionnaire(leadId: string): Promise<QuestionnaireRecord | null>;
   createQuestionnaire(input: CreateQuestionnaireInput): Promise<QuestionnaireRecord>;
+
+  /**
+   * Ownership Profile (migration 0014). Saved progressively as the investor
+   * answers, so the upsert is called many times per profile.
+   */
+  getOwnershipProfile(leadId: string): Promise<OwnershipProfileDbRecord | null>;
+  upsertOwnershipProfile(
+    input: UpsertOwnershipProfileInput,
+  ): Promise<OwnershipProfileDbRecord>;
+  listOwnershipProfiles(): Promise<OwnershipProfileDbRecord[]>;
 
   insertEvent(
     leadId: string,

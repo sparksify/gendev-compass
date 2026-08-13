@@ -1,6 +1,17 @@
 import { getStore } from "@/lib/store";
 import { brand } from "@/lib/config/brand";
 import { labelForValue } from "@/lib/advisor/questionnaireCatalog";
+import {
+  activityLabels,
+  environmentLabels,
+  experienceLabels,
+  growthComfortLabel,
+  motivationLabels,
+  ownershipStyleLabel,
+  priorityLabels,
+  timelineLabel,
+  toOwnershipProfileInput,
+} from "@/types/ownershipProfile";
 import type { LeadRecord } from "@/types/lead";
 import type { EmailTemplateKey } from "@/lib/notifications/rules";
 import {
@@ -37,6 +48,8 @@ export async function buildEmailBody(
       return strategistReviewRequested(context);
     case "video_completed":
       return videoCompleted(context);
+    case "ownership_profile_completed":
+      return ownershipProfileCompleted(context);
     default:
       return null;
   }
@@ -169,6 +182,51 @@ async function strategistReviewRequested(context: TemplateContext): Promise<Emai
   });
 
   return { subject: `Territory Review Requested — ${name}`, html, text };
+}
+
+/**
+ * The pre-call brief: what this investor says they want out of ownership.
+ * Every row is their own selection, rendered as labels rather than the
+ * stored option keys.
+ */
+async function ownershipProfileCompleted(context: TemplateContext): Promise<EmailBody> {
+  const { lead } = context;
+  const name = investorName(lead);
+  const row = await getStore()
+    .getOwnershipProfile(lead.id)
+    .catch(() => null);
+
+  const rows: DetailRow[] = [...contactRows(lead)];
+
+  if (row) {
+    const profile = toOwnershipProfileInput(row);
+    rows.push(
+      { label: "Ownership style", value: ownershipStyleLabel(profile.ownershipStyle) },
+      { label: "Timeline", value: timelineLabel(profile) },
+      { label: "Growth comfort", value: growthComfortLabel(profile) },
+      { label: "Motivations", value: joinLabels(motivationLabels(profile)), block: true },
+      { label: "Priorities", value: joinLabels(priorityLabels(profile)), block: true },
+      { label: "Enjoys doing", value: joinLabels(activityLabels(profile)), block: true },
+      { label: "Industries of interest", value: joinLabels(environmentLabels(profile)), block: true },
+      { label: "Background", value: joinLabels(experienceLabels(profile)), block: true },
+    );
+  }
+
+  const { html, text } = renderEmail({
+    eyebrow: "Ownership Profile",
+    headline: `${name} completed their Ownership Profile.`,
+    intro: "What they say they want from ownership — useful context before the call.",
+    rows,
+    cta: cta(lead),
+    footnote: "This is a self-assessment, not a qualification score.",
+  });
+
+  return { subject: `Ownership Profile Completed — ${name}`, html, text };
+}
+
+/** Multi-select answers read better as a list than a run-on sentence. */
+function joinLabels(labels: string[]): string | null {
+  return labels.length > 0 ? labels.join(" · ") : null;
 }
 
 async function videoCompleted(context: TemplateContext): Promise<EmailBody> {

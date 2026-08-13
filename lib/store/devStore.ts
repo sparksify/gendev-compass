@@ -46,6 +46,7 @@ import type {
   StaffUserRecord,
 } from "@/types/advisor";
 import type { NotificationDeliveryRecord } from "@/types/notifications";
+import type { OwnershipProfileDbRecord } from "@/types/ownershipProfile";
 import type {
   ActivityEventRecord,
   ClientRecord,
@@ -85,6 +86,7 @@ interface DevData {
   leads: LeadRecord[];
   video_progress: VideoProgressRecord[];
   questionnaire_responses: QuestionnaireRecord[];
+  ownership_profiles: OwnershipProfileDbRecord[];
   portal_events: PortalEventRecord[];
   staff_users: StaffUserRecord[];
   staff_sessions: StaffSessionRecord[];
@@ -126,6 +128,7 @@ const EMPTY: DevData = {
   leads: [],
   video_progress: [],
   questionnaire_responses: [],
+  ownership_profiles: [],
   portal_events: [],
   staff_users: [],
   staff_sessions: [],
@@ -422,6 +425,57 @@ export function createDevStore(): PortalStore {
         await writeData(data);
         return record;
       });
+    },
+
+    async getOwnershipProfile(leadId) {
+      return (await readData()).ownership_profiles.find((p) => p.lead_id === leadId) ?? null;
+    },
+
+    async upsertOwnershipProfile(input) {
+      return withLock(async () => {
+        const data = await readData();
+        const existing = data.ownership_profiles.find((p) => p.lead_id === input.lead_id);
+        const now = nowIso();
+
+        if (existing) {
+          Object.assign(existing, input, {
+            // Completion is sticky: an autosave after finishing (e.g. the
+            // investor reopening the summary) must not clear it.
+            completed_at: input.completed_at ?? existing.completed_at,
+            updated_at: now,
+          });
+          await writeData(data);
+          return existing;
+        }
+
+        const record: OwnershipProfileDbRecord = {
+          id: randomUUID(),
+          lead_id: input.lead_id,
+          motivations: input.motivations,
+          activities: input.activities,
+          ownership_style: input.ownership_style,
+          growth_comfort: input.growth_comfort,
+          environments: input.environments,
+          priorities: input.priorities,
+          experience: input.experience,
+          timeline: input.timeline,
+          current_step: input.current_step,
+          answered_sections: input.answered_sections,
+          completed_at: input.completed_at ?? null,
+          organization_id: input.organization_id ?? null,
+          client_id: input.client_id ?? null,
+          opportunity_id: input.opportunity_id ?? null,
+          created_at: now,
+          updated_at: now,
+        };
+        data.ownership_profiles.push(record);
+        await writeData(data);
+        return record;
+      });
+    },
+
+    async listOwnershipProfiles() {
+      return (await readData()).ownership_profiles;
     },
 
     async insertEvent(leadId, eventName, eventData, pageUrl, options?: InsertEventOptions): Promise<void> {
