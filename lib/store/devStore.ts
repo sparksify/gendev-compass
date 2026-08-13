@@ -17,6 +17,7 @@ import type {
   CreateTerritorySearchInput,
   InsertEventOptions,
   LeadPatch,
+  ListTrackingDeliveriesFilter,
   PortalStore,
   StaffUserPatch,
   TerritoryDefinitionPatch,
@@ -24,6 +25,15 @@ import type {
   UpsertStateEligibilityInput,
   VideoProgressPatch,
 } from "./types";
+import type {
+  ConsentRecord,
+  CreateConsentInput,
+  CreateTrackingDeliveryInput,
+  TrackingDeliveryPatch,
+  TrackingDeliveryRecord,
+  TrackingSettingsPatch,
+  TrackingSettingsRecord,
+} from "@/types/tracking";
 import type { PortalEventRecord } from "@/types/analytics";
 import type { FddAuditInsert, FddAuditRecord } from "@/types/fdd";
 import type {
@@ -106,6 +116,9 @@ interface DevData {
   territory_review_requests: TerritoryReviewRequestRecord[];
   census_import_jobs: CensusImportJobRecord[];
   census_acs_raw: CensusAcsRawRecord[];
+  tracking_settings: TrackingSettingsRecord[];
+  tracking_deliveries: TrackingDeliveryRecord[];
+  portal_consent: ConsentRecord[];
 }
 
 const DATA_DIR = path.join(process.cwd(), ".dev-data");
@@ -145,6 +158,9 @@ const EMPTY: DevData = {
   territory_review_requests: [],
   census_import_jobs: [],
   census_acs_raw: [],
+  tracking_settings: [],
+  tracking_deliveries: [],
+  portal_consent: [],
 };
 
 /**
@@ -269,6 +285,24 @@ export function createDevStore(): PortalStore {
         const lead: LeadRecord = {
           id: randomUUID(),
           state: null,
+          first_utm_source: null,
+          first_utm_medium: null,
+          first_utm_campaign: null,
+          first_utm_content: null,
+          first_utm_term: null,
+          first_fbclid: null,
+          first_gclid: null,
+          first_msclkid: null,
+          first_fbp: null,
+          first_fbc: null,
+          first_referrer: null,
+          first_landing_page: null,
+          first_touch_at: null,
+          facebook_campaign_id: null,
+          facebook_adset_id: null,
+          facebook_ad_id: null,
+          facebook_form_id: null,
+          facebook_page_id: null,
           ...input,
           status: "created",
           current_stage: "NEW_LEAD",
@@ -291,6 +325,19 @@ export function createDevStore(): PortalStore {
           appointment_start_at: null,
           ...FDD_DEFAULTS,
           ...LEAD_LINK_DEFAULTS,
+          last_utm_source: null,
+          last_utm_medium: null,
+          last_utm_campaign: null,
+          last_utm_content: null,
+          last_utm_term: null,
+          last_fbclid: null,
+          last_referrer: null,
+          last_landing_page: null,
+          last_touch_at: null,
+          advisor_presented: null,
+          advisor_selected: null,
+          advisor_booked: null,
+          overflow_used: false,
         };
         data.leads.push(lead);
         await writeData(data);
@@ -1771,6 +1818,144 @@ export function createDevStore(): PortalStore {
 
     async countCensusAcsRaw(): Promise<number> {
       return (await readData()).census_acs_raw.length;
+    },
+
+    // -------------------------------------------------------------------
+    // Tracking & Attribution
+    // -------------------------------------------------------------------
+    async getTrackingSettings(): Promise<TrackingSettingsRecord> {
+      return withLock(async () => {
+        const data = await readData();
+        let settings = data.tracking_settings.find((s) => s.brand_id === null);
+        if (!settings) {
+          settings = {
+            id: randomUUID(),
+            brand_id: null,
+            gtm_enabled: false,
+            gtm_container_id: null,
+            meta_enabled: false,
+            meta_browser_mode: "gtm",
+            meta_pixel_id: null,
+            meta_capi_enabled: false,
+            meta_capi_access_token_ciphertext: null,
+            meta_test_event_code: null,
+            consent_required: false,
+            marketing_tracking_default: "denied",
+            event_overrides: {},
+            last_gtm_test_at: null,
+            last_meta_browser_test_at: null,
+            last_meta_capi_success_at: null,
+            last_meta_capi_failure_at: null,
+            last_meta_capi_error: null,
+            created_at: nowIso(),
+            updated_at: nowIso(),
+          };
+          data.tracking_settings.push(settings);
+          await writeData(data);
+        }
+        return settings;
+      });
+    },
+
+    async updateTrackingSettings(id: string, patch: TrackingSettingsPatch): Promise<TrackingSettingsRecord> {
+      return withLock(async () => {
+        const data = await readData();
+        const settings = data.tracking_settings.find((s) => s.id === id);
+        if (!settings) throw new Error(`Tracking settings not found: ${id}`);
+        Object.assign(settings, patch, { updated_at: nowIso() });
+        await writeData(data);
+        return settings;
+      });
+    },
+
+    async insertTrackingDelivery(input: CreateTrackingDeliveryInput): Promise<TrackingDeliveryRecord> {
+      return withLock(async () => {
+        const data = await readData();
+        const record: TrackingDeliveryRecord = {
+          id: randomUUID(),
+          portal_event_id: input.portal_event_id ?? null,
+          lead_id: input.lead_id ?? null,
+          provider: input.provider,
+          event_name: input.event_name,
+          external_event_name: input.external_event_name ?? null,
+          event_id: input.event_id,
+          delivery_mode: input.delivery_mode,
+          status: input.status,
+          attempt_count: input.attempt_count ?? 0,
+          next_attempt_at: input.next_attempt_at ?? null,
+          response_code: input.response_code ?? null,
+          provider_response: input.provider_response ?? null,
+          sent_at: input.sent_at ?? null,
+          failed_at: input.failed_at ?? null,
+          created_at: nowIso(),
+        };
+        data.tracking_deliveries.push(record);
+        await writeData(data);
+        return record;
+      });
+    },
+
+    async updateTrackingDelivery(id: string, patch: TrackingDeliveryPatch): Promise<TrackingDeliveryRecord> {
+      return withLock(async () => {
+        const data = await readData();
+        const record = data.tracking_deliveries.find((d) => d.id === id);
+        if (!record) throw new Error(`Tracking delivery not found: ${id}`);
+        Object.assign(record, patch);
+        await writeData(data);
+        return record;
+      });
+    },
+
+    async listTrackingDeliveries(filter: ListTrackingDeliveriesFilter = {}): Promise<TrackingDeliveryRecord[]> {
+      const data = await readData();
+      let rows = data.tracking_deliveries.slice().sort((a, b) => b.created_at.localeCompare(a.created_at));
+      if (filter.leadId) rows = rows.filter((d) => d.lead_id === filter.leadId);
+      if (filter.status) rows = rows.filter((d) => d.status === filter.status);
+      if (filter.provider) rows = rows.filter((d) => d.provider === filter.provider);
+      return rows.slice(0, filter.limit ?? 200);
+    },
+
+    async listDueTrackingDeliveries(nowIsoValue: string): Promise<TrackingDeliveryRecord[]> {
+      const data = await readData();
+      return data.tracking_deliveries
+        .filter(
+          (d) =>
+            d.status === "failed" &&
+            d.attempt_count < 3 &&
+            d.next_attempt_at !== null &&
+            d.next_attempt_at <= nowIsoValue,
+        )
+        .sort((a, b) => (a.next_attempt_at ?? "").localeCompare(b.next_attempt_at ?? ""))
+        .slice(0, 100);
+    },
+
+    async insertConsent(input: CreateConsentInput): Promise<ConsentRecord> {
+      return withLock(async () => {
+        const data = await readData();
+        const record: ConsentRecord = {
+          id: randomUUID(),
+          lead_id: input.lead_id ?? null,
+          portal_token: input.portal_token ?? null,
+          necessary: input.necessary ?? true,
+          analytics: input.analytics,
+          marketing: input.marketing,
+          consent_version: input.consent_version,
+          ip_address: input.ip_address ?? null,
+          user_agent: input.user_agent ?? null,
+          created_at: nowIso(),
+        };
+        data.portal_consent.push(record);
+        await writeData(data);
+        return record;
+      });
+    },
+
+    async getLatestConsent(args: { leadId?: string; portalToken?: string }): Promise<ConsentRecord | null> {
+      const data = await readData();
+      const rows = data.portal_consent
+        .filter((c) => (args.leadId ? c.lead_id === args.leadId : c.portal_token === args.portalToken))
+        .sort((a, b) => b.created_at.localeCompare(a.created_at));
+      return rows[0] ?? null;
     },
   };
 }

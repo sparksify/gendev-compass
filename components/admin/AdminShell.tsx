@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Activity,
   LayoutDashboard,
   Palette,
   FolderOpen,
@@ -55,6 +56,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/advisor/territories", label: "Territory Data", icon: MapIcon },
       { href: "/advisor/platform/zip-data", label: "ZIP & Geo Data", icon: MapPin },
       { href: "/advisor/platform/census-health", label: "Census Data Health", icon: Database },
+      { href: "/advisor/platform/tracking", label: "Tracking & Pixels", icon: Activity },
     ],
   },
   {

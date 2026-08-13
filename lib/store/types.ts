@@ -46,6 +46,16 @@ import type {
   UpsertExternalMappingInput,
 } from "@/types/domain";
 import type {
+  ConsentRecord,
+  CreateConsentInput,
+  CreateTrackingDeliveryInput,
+  TrackingDeliveryRecord,
+  TrackingDeliveryPatch,
+  TrackingDeliveryStatus,
+  TrackingSettingsPatch,
+  TrackingSettingsRecord,
+} from "@/types/tracking";
+import type {
   BrandStateEligibilityRecord,
   CensusImportJobPatch,
   CensusImportJobRecord,
@@ -80,6 +90,27 @@ export interface CreateLeadRecordInput {
   initial_liquid_capital: string | null;
   initial_net_worth: string | null;
   initial_business_owner: boolean | null;
+
+  // Attribution — first touch, optional so every existing caller keeps
+  // working unchanged. See types/lead.ts for field semantics.
+  first_utm_source?: string | null;
+  first_utm_medium?: string | null;
+  first_utm_campaign?: string | null;
+  first_utm_content?: string | null;
+  first_utm_term?: string | null;
+  first_fbclid?: string | null;
+  first_gclid?: string | null;
+  first_msclkid?: string | null;
+  first_fbp?: string | null;
+  first_fbc?: string | null;
+  first_referrer?: string | null;
+  first_landing_page?: string | null;
+  first_touch_at?: string | null;
+  facebook_campaign_id?: string | null;
+  facebook_adset_id?: string | null;
+  facebook_ad_id?: string | null;
+  facebook_form_id?: string | null;
+  facebook_page_id?: string | null;
 }
 
 export interface CreateQuestionnaireInput {
@@ -95,6 +126,24 @@ export interface CreateQuestionnaireInput {
   accuracy_confirmed: boolean;
   /** Platform domain link (optional during the transition). */
   opportunity_id?: string | null;
+  // Location (v1.1)
+  address_line_1: string | null;
+  address_line_2: string | null;
+  city: string | null;
+  state: string | null;
+  postal_code: string | null;
+  country: string | null;
+  // Credit & funding (v1.1)
+  estimated_credit_score_range: string | null;
+  anticipated_funding_sources: string[] | null;
+  financing_need: string | null;
+  preferred_financing_percentage: string | null;
+  available_cash_contribution: string | null;
+  lender_status: string | null;
+  funding_assistance_requested: string | null;
+  funding_followup_requested: boolean;
+  existing_business_entity: string | null;
+  prior_business_financing_experience: string | null;
 }
 
 export type LeadPatch = Partial<
@@ -132,6 +181,37 @@ export type LeadPatch = Partial<
     | "client_id"
     | "primary_opportunity_id"
     | "brand_id"
+    | "first_utm_source"
+    | "first_utm_medium"
+    | "first_utm_campaign"
+    | "first_utm_content"
+    | "first_utm_term"
+    | "first_fbclid"
+    | "first_gclid"
+    | "first_msclkid"
+    | "first_fbp"
+    | "first_fbc"
+    | "first_referrer"
+    | "first_landing_page"
+    | "first_touch_at"
+    | "last_utm_source"
+    | "last_utm_medium"
+    | "last_utm_campaign"
+    | "last_utm_content"
+    | "last_utm_term"
+    | "last_fbclid"
+    | "last_referrer"
+    | "last_landing_page"
+    | "last_touch_at"
+    | "facebook_campaign_id"
+    | "facebook_adset_id"
+    | "facebook_ad_id"
+    | "facebook_form_id"
+    | "facebook_page_id"
+    | "advisor_presented"
+    | "advisor_selected"
+    | "advisor_booked"
+    | "overflow_used"
   >
 >;
 
@@ -326,6 +406,13 @@ export interface CreateTerritoryReviewRequestInput {
 export type TerritoryReviewRequestPatch = Partial<
   Pick<TerritoryReviewRequestRecord, "status" | "assigned_to" | "reviewed_at" | "internal_notes">
 >;
+
+export interface ListTrackingDeliveriesFilter {
+  leadId?: string;
+  status?: TrackingDeliveryStatus;
+  provider?: TrackingDeliveryRecord["provider"];
+  limit?: number;
+}
 
 export interface PortalStore {
   createLead(input: CreateLeadRecordInput): Promise<LeadRecord>;
@@ -572,6 +659,24 @@ export interface PortalStore {
   recordCensusRawImport(input: RecordCensusRawImportInput): Promise<void>;
   /** Total distinct (vintage, state) raw captures on file — used by the admin health view. */
   countCensusAcsRaw(): Promise<number>;
+
+  // -------------------------------------------------------------------------
+  // Tracking & Attribution (Phase 11). Single-brand MVP: getTrackingSettings
+  // returns (creating if needed) the one global row (brand_id null).
+  // -------------------------------------------------------------------------
+  getTrackingSettings(): Promise<TrackingSettingsRecord>;
+  updateTrackingSettings(id: string, patch: TrackingSettingsPatch): Promise<TrackingSettingsRecord>;
+
+  insertTrackingDelivery(input: CreateTrackingDeliveryInput): Promise<TrackingDeliveryRecord>;
+  updateTrackingDelivery(id: string, patch: TrackingDeliveryPatch): Promise<TrackingDeliveryRecord>;
+  /** Newest first; diagnostics view + retry worker both read through here. */
+  listTrackingDeliveries(filter?: ListTrackingDeliveriesFilter): Promise<TrackingDeliveryRecord[]>;
+  /** Failed deliveries whose next_attempt_at is due — the bounded-retry queue. */
+  listDueTrackingDeliveries(nowIso: string): Promise<TrackingDeliveryRecord[]>;
+
+  insertConsent(input: CreateConsentInput): Promise<ConsentRecord>;
+  /** Most recent consent decision for this lead/token, or null if none recorded. */
+  getLatestConsent(args: { leadId?: string; portalToken?: string }): Promise<ConsentRecord | null>;
 }
 
 /** Forward-only ordering used to avoid regressing a lead's status. */

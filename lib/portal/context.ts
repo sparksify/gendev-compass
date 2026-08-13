@@ -1,7 +1,7 @@
 import { getStore } from "@/lib/store";
 import { getPortalState } from "@/lib/portal/getPortalState";
 import { statusRank } from "@/lib/store/types";
-import { trackEvent } from "@/lib/portal/events";
+import { trackEvent, type TrackEventResult } from "@/lib/portal/events";
 import { ensureLeadDomainChain } from "@/lib/domain/chain";
 import type { LeadRecord } from "@/types/lead";
 import type { QuestionnaireRecord } from "@/types/questionnaire";
@@ -35,6 +35,8 @@ export interface PortalContext {
   opportunity: OpportunityRecord | null;
   brand: BrandRecord | null;
   advisor: ProfileRecord | null;
+  /** Only set on the load that actually fires portal_opened — the browser-side tracking payload to push (spec §9: same event_id server+browser). */
+  openEventTracking: TrackEventResult | null;
 }
 
 /**
@@ -80,6 +82,7 @@ export async function loadPortalContext(
     !lead.portal_first_opened_at ||
     Date.now() - Date.parse(lead.portal_first_opened_at) < FIRST_VISIT_WINDOW_MS;
 
+  let openEventTracking: TrackEventResult | null = null;
   if (options.trackOpen !== false && !lead.portal_first_opened_at) {
     lead = await store.updateLead(lead.id, {
       portal_first_opened_at: new Date().toISOString(),
@@ -87,7 +90,7 @@ export async function loadPortalContext(
         ? { status: "portal_opened" as const }
         : {}),
     });
-    await trackEvent(lead, "portal_opened", null);
+    openEventTracking = await trackEvent(lead, "portal_opened", null);
   }
 
   const [videoProgress, questionnaire] = await Promise.all([
@@ -106,5 +109,6 @@ export async function loadPortalContext(
     opportunity,
     brand,
     advisor,
+    openEventTracking,
   };
 }

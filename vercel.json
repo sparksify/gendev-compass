@@ -2,6 +2,7 @@
   "crons": [
     { "path": "/api/cron/refresh-zip-data", "schedule": "0 8 * * *" },
     { "path": "/api/cron/backfill-polygons", "schedule": "30 8 * * *" },
-    { "path": "/api/cron/refresh-demographics", "schedule": "0 9 * * *" }
+    { "path": "/api/cron/refresh-demographics", "schedule": "0 9 * * *" },
+    { "path": "/api/cron/tracking-retry", "schedule": "0 * * * *" }
   ]
 }

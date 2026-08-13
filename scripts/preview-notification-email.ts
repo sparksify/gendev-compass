@@ -66,7 +66,24 @@ async function main(): Promise<void> {
       "Protected territory, a realistic path to $1M in revenue within 24 months, and a franchisor that has already solved the hiring problem.",
     decision_participants: "spouse",
     accuracy_confirmed: true,
-  });
+      // Questionnaire v1.1 fields — representative preview values.
+    address_line_1: "4821 Maple Grove Lane",
+    address_line_2: null,
+    city: "Plano",
+    state: "TX",
+    postal_code: "75024",
+    country: "United States",
+    estimated_credit_score_range: "720-759",
+    anticipated_funding_sources: ["cash", "sba-financing"],
+    financing_need: "possibly",
+    preferred_financing_percentage: "25-49",
+    available_cash_contribution: "150k-249k",
+    lender_status: "initial-conversation",
+    funding_assistance_requested: "possibly",
+    funding_followup_requested: false,
+    existing_business_entity: "no",
+    prior_business_financing_experience: "no",
+});
 
   await store.upsertVideoProgress(lead.id, {
     highest_percent_watched: 94,

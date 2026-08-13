@@ -16,6 +16,7 @@ export type PortalEventName =
   | "questionnaire_opened"
   | "questionnaire_started"
   | "questionnaire_submitted"
+  | "funding_assistance_requested"
   | "lead_qualified"
   | "lead_sent_to_review"
   | "calendar_opened"
@@ -48,7 +49,24 @@ export type PortalEventName =
   | "territory_result_unavailable"
   | "territory_result_state_restricted"
   | "territory_review_requested"
-  | "territory_alternative_selected";
+  | "territory_alternative_selected"
+  // Tracking & Attribution taxonomy additions (Phase 11). Existing events
+  // above already cover most of the canonical list in
+  // docs/tracking-attribution.md; these fill the remaining gaps so the type
+  // system enforces the full taxonomy even where UI wiring is incremental.
+  | "portal_returned"
+  | "questionnaire_viewed"
+  | "resource_viewed"
+  | "resource_downloaded"
+  | "advisor_overflow_presented"
+  | "advisor_presented"
+  | "advisor_selected"
+  | "advisor_booked"
+  | "appointment_booked"
+  | "precall_questions_submitted"
+  | "territory_check_started"
+  | "territory_check_completed"
+  | "lead_review_required";
 
 export interface PortalEventRecord {
   id: string;
