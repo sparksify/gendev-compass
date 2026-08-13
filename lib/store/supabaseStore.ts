@@ -48,6 +48,7 @@ import type {
   UpsertZipCodeReferenceInput,
   ZipGeographyRecord,
 } from "@/types/territory";
+import type { NotificationDeliveryRecord } from "@/types/notifications";
 import type {
   ActivityEventRecord,
   ClientRecord,
@@ -862,6 +863,60 @@ export function createSupabaseStore(): PortalStore {
         .limit(1);
       if (error) throw new Error(`Failed to check activity event: ${error.message}`);
       return Boolean(data && data.length > 0);
+    },
+
+    async createNotificationDelivery(input) {
+      const row = {
+        organization_id: input.organization_id ?? null,
+        lead_id: input.lead_id ?? null,
+        activity_event_id: input.activity_event_id ?? null,
+        event_type: input.event_type,
+        channel: input.channel,
+        template_key: input.template_key,
+        recipient: input.recipient ?? null,
+        status: input.status ?? "pending",
+        dedupe_key: input.dedupe_key,
+      };
+      const { data, error } = await db
+        .from("notification_deliveries")
+        .insert(row)
+        .select()
+        .single();
+      if (error) {
+        // 23505 = the dedupe key is already claimed, i.e. this notification
+        // has been handled. That is the idempotency guarantee working, not a
+        // failure, so it is not logged as one.
+        if (error.code === "23505") return null;
+        console.error(
+          `Failed to create notification delivery for ${input.event_type}: ${error.message}`,
+        );
+        return null;
+      }
+      return data as NotificationDeliveryRecord;
+    },
+
+    async updateNotificationDelivery(id, patch) {
+      const { data, error } = await db
+        .from("notification_deliveries")
+        .update({ ...patch, updated_at: nowIso() })
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) {
+        console.error(`Failed to update notification delivery ${id}: ${error.message}`);
+        return null;
+      }
+      return data as NotificationDeliveryRecord;
+    },
+
+    async listNotificationDeliveriesForLead(leadId) {
+      const { data, error } = await db
+        .from("notification_deliveries")
+        .select()
+        .eq("lead_id", leadId)
+        .order("created_at", { ascending: false });
+      if (error) throw new Error(`Failed to list notification deliveries: ${error.message}`);
+      return (data ?? []) as NotificationDeliveryRecord[];
     },
 
     async createFddWorkflow(input) {

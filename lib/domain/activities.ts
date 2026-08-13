@@ -1,4 +1,5 @@
 import { getStore } from "@/lib/store";
+import { dispatchNotificationsForEvent } from "@/lib/notifications/dispatch";
 import type { LeadRecord } from "@/types/lead";
 import type { ActivityEventRecord } from "@/types/domain";
 
@@ -47,27 +48,43 @@ export async function recordLeadEvent(
     occurredAt: options.occurredAt ?? null,
   });
 
-  if (!lead.organization_id) return;
+  let activityEventId: string | null = null;
 
-  let actorProfileId = options.actorProfileId ?? null;
-  if (!actorProfileId && options.staffUserId) {
-    const profile = await store.getProfileByLegacyStaffUserId(options.staffUserId);
-    actorProfileId = profile?.id ?? null;
+  if (lead.organization_id) {
+    let actorProfileId = options.actorProfileId ?? null;
+    if (!actorProfileId && options.staffUserId) {
+      const profile = await store.getProfileByLegacyStaffUserId(options.staffUserId);
+      actorProfileId = profile?.id ?? null;
+    }
+
+    const activityEvent = await store.insertActivityEvent({
+      organization_id: lead.organization_id,
+      client_id: lead.client_id,
+      lead_id: lead.id,
+      opportunity_id: lead.primary_opportunity_id,
+      actor_profile_id: actorProfileId,
+      event_type: eventName,
+      event_source: source,
+      event_data: eventData ?? {},
+      page_url: pageUrl,
+      external_event_id: options.externalEventId ?? null,
+      occurred_at: options.occurredAt ?? undefined,
+    });
+
+    // A provider-supplied event that inserts nothing was dropped by the
+    // replay guard: it is a redelivery of something already handled, and
+    // notifying on it would defeat that guard.
+    if (!activityEvent && options.externalEventId) return;
+
+    activityEventId = activityEvent?.id ?? null;
   }
 
-  await store.insertActivityEvent({
-    organization_id: lead.organization_id,
-    client_id: lead.client_id,
-    lead_id: lead.id,
-    opportunity_id: lead.primary_opportunity_id,
-    actor_profile_id: actorProfileId,
-    event_type: eventName,
-    event_source: source,
-    event_data: eventData ?? {},
-    page_url: pageUrl,
-    external_event_id: options.externalEventId ?? null,
-    occurred_at: options.occurredAt ?? undefined,
-  });
+  // Stage three of the pipeline, deliberately outside the organization_id
+  // check above: a lead whose domain chain has not been backfilled yet still
+  // has a real advisor who needs to hear about a completed questionnaire.
+  // Policy lives entirely in lib/notifications/rules.ts — almost every event
+  // is dashboard-only and returns immediately. This never throws.
+  await dispatchNotificationsForEvent({ lead, eventName, eventData, activityEventId });
 }
 
 /** Opportunity timeline, newest first (occurred_at ordering). */

@@ -188,7 +188,8 @@ button to exercise the waiting-period flow locally.
 See [.env.example](.env.example) for the full annotated list. Key rules:
 
 - Secrets (`SUPABASE_SERVICE_ROLE_KEY`, `INTERNAL_API_KEY`,
-  `ADMIN_TEST_PASSWORD`, `POSTHOG_KEY`) are server-only — never `NEXT_PUBLIC_`.
+  `ADMIN_TEST_PASSWORD`, `POSTHOG_KEY`, `RESEND_API_KEY`) are server-only —
+  never `NEXT_PUBLIC_`.
 - `NEXT_PUBLIC_APP_URL` is used to build portal links returned by the API.
 - In production, `INTERNAL_API_KEY` and/or `ADMIN_TEST_PASSWORD` **must** be
   set — without them every `POST /api/leads` request is rejected. (Only in
@@ -248,6 +249,26 @@ originated events are stored with a `client_` prefix and cannot spoof funnel
 events. If `POSTHOG_KEY` is set, events are mirrored to PostHog with a hashed
 token as the distinct ID; analytics failures never affect the prospect flow,
 and detailed financial answers never leave Supabase.
+
+## Advisor notifications
+
+Recorded activity is evaluated against central notification rules, and the
+few events that warrant immediate advisor attention are emailed through
+Resend. Everything else is recorded for the dashboard and stays silent — the
+layer is designed to avoid notification overload, not to maximize alerts.
+
+Emails today: **questionnaire completed**, **consultation scheduled**, and
+**territory review requested**. Video completion is recorded and can be
+switched on with `NOTIFY_ON_VIDEO_COMPLETED=true`.
+
+Set `RESEND_API_KEY`, `NOTIFICATION_FROM_EMAIL`, and
+`DEFAULT_ADVISOR_NOTIFICATION_EMAIL` to enable sending; with them unset the
+portal records all activity and sends nothing. Every attempt — including
+failures — is recorded in `notification_deliveries`, and email delivery can
+never fail an investor's submission.
+
+Architecture, the full event/policy table, duplicate protection, and how to
+add an event or a channel: [docs/notifications.md](docs/notifications.md).
 
 ## Deploying to Vercel
 

@@ -52,12 +52,44 @@ export function getAdminTestPassword(): string | null {
 }
 
 /** The investor overview media. The hashed ID is public (it ships to the browser). */
-const DEFAULT_WISTIA_MEDIA_ID = "c5afogjpob";
+const DEFAULT_WISTIA_MEDIA_ID = "vss96un19q";
 
 export function getWistiaMediaId(): string | null {
   return (
     process.env.NEXT_PUBLIC_WISTIA_MEDIA_ID ?? process.env.WISTIA_MEDIA_ID ?? DEFAULT_WISTIA_MEDIA_ID
   );
+}
+
+// ---------------------------------------------------------------------------
+// Advisor notifications (server-only — the API key must never ship to the
+// browser, so none of these are NEXT_PUBLIC_).
+// ---------------------------------------------------------------------------
+
+export function getResendApiKey(): string | null {
+  return process.env.RESEND_API_KEY?.trim() || null;
+}
+
+/**
+ * Verified sender for advisor notifications, e.g.
+ * "GenDev Compass <compass@notifications.example.com>". Resend rejects
+ * addresses on unverified domains, so there is no safe default.
+ */
+export function getNotificationFromAddress(): string | null {
+  return process.env.NOTIFICATION_FROM_EMAIL?.trim() || null;
+}
+
+/** Fallback recipient when the investor has no assigned advisor on file. */
+export function getDefaultAdvisorNotificationEmail(): string | null {
+  return process.env.DEFAULT_ADVISOR_NOTIFICATION_EMAIL?.trim() || null;
+}
+
+/**
+ * Whether notifications may actually be dispatched. Unconfigured
+ * environments (local development, CI) record events and delivery rows but
+ * send nothing — no accidental mail from a test run.
+ */
+export function notificationsConfigured(): boolean {
+  return Boolean(getResendApiKey() && getNotificationFromAddress());
 }
 
 /** The advisor's GoHighLevel booking widget (public URL; ships to the browser). */
