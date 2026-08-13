@@ -127,19 +127,33 @@ describe("questionnaire persistence", () => {
       decisionCriteria: "Unit economics",
       decisionParticipants: "spouse",
       accuracyConfirmed: true,
+      addressLine1: "4821 Maple Grove Lane",
+      city: "Plano",
+      state: "TX",
+      postalCode: "75024",
+      country: "United States",
+      estimatedCreditScoreRange: "720-759",
+      anticipatedFundingSources: ["cash", "sba-financing"],
+      financingNeed: "possibly",
+      preferredFinancingPercentage: "25-49",
+      lenderStatus: "initial-conversation",
+      fundingAssistanceRequested: "yes",
+      availableCashContribution: "150k-249k",
+      existingBusinessEntity: "no",
+      priorBusinessFinancingExperience: "no",
     });
 
     await store.createSubmission({
       lead_id: lead.id,
-      questionnaire_version: "1.0",
+      questionnaire_version: "1.1",
       submitted_at: new Date().toISOString(),
       answers,
     });
 
     const submissions = await store.getSubmissionsForLead(lead.id);
     expect(submissions).toHaveLength(1);
-    expect(submissions[0].questionnaire_version).toBe("1.0");
-    expect(submissions[0].answers).toHaveLength(9);
+    expect(submissions[0].questionnaire_version).toBe("1.1");
+    expect(submissions[0].answers).toHaveLength(19);
 
     const liquid = submissions[0].answers.find((a) => a.question_key === "liquidCapital");
     expect(liquid?.question_text).toMatch(/liquid capital/i);

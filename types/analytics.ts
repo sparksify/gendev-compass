@@ -15,6 +15,7 @@ export type PortalEventName =
   | "questionnaire_opened"
   | "questionnaire_started"
   | "questionnaire_submitted"
+  | "funding_assistance_requested"
   | "lead_qualified"
   | "lead_sent_to_review"
   | "calendar_opened"

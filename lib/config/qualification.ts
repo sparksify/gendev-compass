@@ -68,3 +68,45 @@ export function getVideoCompletionThreshold(): number {
   const value = intFromEnv("VIDEO_COMPLETION_THRESHOLD", 85);
   return Math.min(100, Math.max(1, value));
 }
+
+// ---------------------------------------------------------------------------
+// Future-ready funding/credit scoring hooks (questionnaire v1.1).
+//
+// These weights are informational defaults shared by all brands. They feed
+// advisor-facing readiness scores only — they do NOT gate qualification, and
+// a self-reported credit range or financing need must never automatically
+// disqualify a candidate. Brand-specific rules, when they arrive, belong in
+// per-brand qualification configuration, not in reusable form logic.
+// ---------------------------------------------------------------------------
+
+/** 0–100-ish credit readiness from the self-reported (unverified) range. */
+export const CREDIT_PROFILE_WEIGHTS: Record<string, number> = {
+  "760-plus": 100,
+  "720-759": 90,
+  "680-719": 75,
+  "640-679": 55,
+  "600-639": 35,
+  "below-600": 15,
+  // Unknown answers are neutral, not negative.
+  "not-sure": 50,
+  "prefer-not-to-say": 50,
+};
+
+/** Funding readiness by lender status (only asked when financing may apply). */
+export const LENDER_STATUS_WEIGHTS: Record<string, number> = {
+  prequalified: 100,
+  "initial-conversation": 70,
+  "want-introduction": 50,
+  no: 40,
+};
+
+/** Capital readiness from the comfortable-cash-contribution range. */
+export const CASH_CONTRIBUTION_WEIGHTS: Record<string, number> = {
+  "500k-plus": 100,
+  "250k-499k": 90,
+  "150k-249k": 75,
+  "100k-149k": 60,
+  "50k-99k": 40,
+  "lt-50k": 20,
+  "prefer-not-to-say": 50,
+};

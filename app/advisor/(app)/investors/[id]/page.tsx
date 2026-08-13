@@ -5,7 +5,7 @@ import { canAccessLead, isAdmin } from "@/lib/advisor/access";
 import { getStore } from "@/lib/store";
 import { evaluateFollowUp } from "@/lib/advisor/followUp";
 import { suggestNextAction } from "@/lib/advisor/nextAction";
-import { labelForValue } from "@/lib/advisor/questionnaireCatalog";
+import { labelForValue, labelIn } from "@/lib/advisor/questionnaireCatalog";
 import {
   eventLabel,
   eventSourceLabel,
@@ -23,6 +23,17 @@ import { StageSelect } from "@/components/advisor/StageSelect";
 import { AssignAdvisorSelect } from "@/components/advisor/AssignAdvisorSelect";
 import { NoteForm } from "@/components/advisor/NoteForm";
 import { Badge } from "@/components/ui/badge";
+import {
+  CASH_CONTRIBUTION_RANGES,
+  CREDIT_SCORE_RANGES,
+  EXISTING_ENTITY_OPTIONS,
+  FINANCING_NEED_OPTIONS,
+  FINANCING_PERCENTAGE_OPTIONS,
+  FUNDING_ASSISTANCE_OPTIONS,
+  FUNDING_SOURCE_OPTIONS,
+  LENDER_STATUS_OPTIONS,
+  PRIOR_FINANCING_EXPERIENCE_OPTIONS,
+} from "@/types/questionnaire";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata: Metadata = { title: "Client" };
@@ -108,6 +119,9 @@ export default async function InvestorDetailPage({
                 <StageBadge stage={lead.current_stage} />
                 {followUp.needed && (
                   <Badge className="bg-[#fef3c7] text-[#92400e]">Needs follow-up</Badge>
+                )}
+                {questionnaire?.funding_followup_requested && (
+                  <Badge className="bg-primary-soft text-primary">Funding Assistance Requested</Badge>
                 )}
               </div>
               <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-secondary-foreground">
@@ -247,6 +261,123 @@ export default async function InvestorDetailPage({
                     </p>
                   </div>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Location (questionnaire v1.1) */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Location</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <Field
+                    label="Street address"
+                    value={
+                      questionnaire?.address_line_1
+                        ? [questionnaire.address_line_1, questionnaire.address_line_2]
+                            .filter(Boolean)
+                            .join(", ")
+                        : "Not Provided"
+                    }
+                  />
+                </div>
+                <Field label="City" value={questionnaire?.city ?? "Not Provided"} />
+                <Field label="State" value={questionnaire?.state ?? lead.state ?? "Not Provided"} />
+                <Field label="ZIP" value={questionnaire?.postal_code ?? "Not Provided"} />
+                <Field label="Country" value={questionnaire?.country ?? "Not Provided"} />
+              </div>
+              {/* Future-ready actions; territory tooling ships separately. */}
+              <div className="mt-4 flex flex-wrap gap-2 border-t border-border-soft pt-4">
+                {["View on Map", "Check Territory", "Run Market Analysis"].map((action) => (
+                  <span
+                    key={action}
+                    title="Coming soon"
+                    className="cursor-not-allowed rounded-control border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted-foreground opacity-70"
+                  >
+                    {action}
+                  </span>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Funding profile (questionnaire v1.1) */}
+          <Card>
+            <CardHeader className="flex-row items-center justify-between">
+              <CardTitle>Funding Profile</CardTitle>
+              {questionnaire?.funding_followup_requested && (
+                <Badge className="bg-primary-soft text-primary">Funding Assistance Requested</Badge>
+              )}
+            </CardHeader>
+            <CardContent>
+              {questionnaire ? (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field
+                    label="Estimated credit range (self-reported)"
+                    value={labelIn(CREDIT_SCORE_RANGES, questionnaire.estimated_credit_score_range)}
+                  />
+                  <Field label="Liquid capital" value={labelForValue(questionnaire.liquid_capital)} />
+                  <Field
+                    label="Available cash contribution"
+                    value={labelIn(CASH_CONTRIBUTION_RANGES, questionnaire.available_cash_contribution)}
+                  />
+                  <Field
+                    label="Needs financing"
+                    value={labelIn(FINANCING_NEED_OPTIONS, questionnaire.financing_need)}
+                  />
+                  <Field
+                    label="Preferred financing percentage"
+                    value={
+                      questionnaire.financing_need === "no"
+                        ? "N/A — no financing expected"
+                        : labelIn(FINANCING_PERCENTAGE_OPTIONS, questionnaire.preferred_financing_percentage)
+                    }
+                  />
+                  <Field
+                    label="Lender status"
+                    value={
+                      questionnaire.financing_need === "no"
+                        ? "N/A — no financing expected"
+                        : labelIn(LENDER_STATUS_OPTIONS, questionnaire.lender_status)
+                    }
+                  />
+                  <Field
+                    label="Funding assistance requested"
+                    value={
+                      questionnaire.financing_need === "no"
+                        ? "N/A — no financing expected"
+                        : labelIn(FUNDING_ASSISTANCE_OPTIONS, questionnaire.funding_assistance_requested)
+                    }
+                  />
+                  <Field
+                    label="Existing business entity"
+                    value={labelIn(EXISTING_ENTITY_OPTIONS, questionnaire.existing_business_entity)}
+                  />
+                  <Field
+                    label="Prior SBA / commercial financing"
+                    value={labelIn(
+                      PRIOR_FINANCING_EXPERIENCE_OPTIONS,
+                      questionnaire.prior_business_financing_experience,
+                    )}
+                  />
+                  <div className="sm:col-span-2">
+                    <Field
+                      label="Expected funding sources"
+                      value={
+                        questionnaire.anticipated_funding_sources?.length
+                          ? questionnaire.anticipated_funding_sources
+                              .map((source) => labelIn(FUNDING_SOURCE_OPTIONS, source))
+                              .join(" · ")
+                          : "Not Provided"
+                      }
+                    />
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Questionnaire not completed yet.</p>
               )}
             </CardContent>
           </Card>

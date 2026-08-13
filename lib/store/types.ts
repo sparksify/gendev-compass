@@ -125,6 +125,24 @@ export interface CreateQuestionnaireInput {
   accuracy_confirmed: boolean;
   /** Platform domain link (optional during the transition). */
   opportunity_id?: string | null;
+  // Location (v1.1)
+  address_line_1: string | null;
+  address_line_2: string | null;
+  city: string | null;
+  state: string | null;
+  postal_code: string | null;
+  country: string | null;
+  // Credit & funding (v1.1)
+  estimated_credit_score_range: string | null;
+  anticipated_funding_sources: string[] | null;
+  financing_need: string | null;
+  preferred_financing_percentage: string | null;
+  available_cash_contribution: string | null;
+  lender_status: string | null;
+  funding_assistance_requested: string | null;
+  funding_followup_requested: boolean;
+  existing_business_entity: string | null;
+  prior_business_financing_experience: string | null;
 }
 
 export type LeadPatch = Partial<

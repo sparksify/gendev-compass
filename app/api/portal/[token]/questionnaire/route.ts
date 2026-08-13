@@ -4,7 +4,7 @@ import { getStore } from "@/lib/store";
 import { statusRank } from "@/lib/store/types";
 import { trackEvent } from "@/lib/portal/events";
 import { evaluateQualification } from "@/lib/portal/qualification";
-import { questionnaireSchema } from "@/lib/validation/questionnaire";
+import { financingDetailsApply, questionnaireSchema } from "@/lib/validation/questionnaire";
 import { autoAdvanceStage } from "@/lib/advisor/stages";
 import { buildAnswerSnapshot, QUESTIONNAIRE_VERSION } from "@/lib/advisor/questionnaireCatalog";
 import { ensureLeadDomainChain, type LeadDomainChain } from "@/lib/domain/chain";
@@ -75,6 +75,12 @@ export async function POST(
   }
 
   try {
+    // Financing-dependent answers only exist when financing may be in play;
+    // funding_followup_requested is the internal workflow flag (spec §5).
+    const financingDetails = financingDetailsApply(answers.financingNeed);
+    const fundingFollowupRequested =
+      financingDetails && answers.fundingAssistanceRequested === "yes";
+
     await store.createQuestionnaire({
       lead_id: lead.id,
       investment_timeline: answers.investmentTimeline,
@@ -87,6 +93,26 @@ export async function POST(
       decision_participants: answers.decisionParticipants,
       accuracy_confirmed: answers.accuracyConfirmed,
       opportunity_id: chain?.opportunity.id ?? null,
+      address_line_1: answers.addressLine1,
+      address_line_2: answers.addressLine2 ?? null,
+      city: answers.city,
+      state: answers.state,
+      postal_code: answers.postalCode,
+      country: answers.country,
+      estimated_credit_score_range: answers.estimatedCreditScoreRange,
+      anticipated_funding_sources: answers.anticipatedFundingSources,
+      financing_need: answers.financingNeed,
+      preferred_financing_percentage: financingDetails
+        ? (answers.preferredFinancingPercentage ?? null)
+        : null,
+      available_cash_contribution: answers.availableCashContribution,
+      lender_status: financingDetails ? (answers.lenderStatus ?? null) : null,
+      funding_assistance_requested: financingDetails
+        ? (answers.fundingAssistanceRequested ?? null)
+        : null,
+      funding_followup_requested: fundingFollowupRequested,
+      existing_business_entity: answers.existingBusinessEntity,
+      prior_business_financing_experience: answers.priorBusinessFinancingExperience,
     });
 
     const qualification = evaluateQualification(lead, answers, videoCompleted);
@@ -141,6 +167,10 @@ export async function POST(
         ? { meta: { customData: { qualification_status: "qualified" } } }
         : {},
     );
+    // Workflow signal only — never the underlying financial answers.
+    if (fundingFollowupRequested) {
+      await trackEvent(lead, "funding_assistance_requested", null);
+    }
 
     // Every prospect proceeds directly to scheduling — the qualification
     // result is internal context for the advisor, not an approval gate.
