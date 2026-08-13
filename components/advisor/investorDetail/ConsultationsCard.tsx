@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CompactCardIcon } from "./CompactCardIcon";
+import { Disclosure } from "./Disclosure";
 import { formatDateTime } from "@/lib/advisor/format";
 import type { AppointmentRecord } from "@/types/advisor";
 import type { LeadRecord } from "@/types/lead";
@@ -23,7 +24,7 @@ export function ConsultationsCard({
   const hasAny = appointments.length > 0 || Boolean(lead.booked_at);
 
   return (
-    <Card>
+    <Card className="rounded-2xl">
       <CardContent className="flex items-start justify-between gap-4 p-5">
         <div className="flex min-w-0 items-start gap-3">
           <CompactCardIcon icon={CalendarDays} />
@@ -43,14 +44,11 @@ export function ConsultationsCard({
                 {formatDateTime(lead.appointment_start_at)}
               </p>
             ) : (
-              <p className="mt-1 text-xs text-muted-foreground">No consultation booked yet.</p>
+              <p className="mt-1 text-xs text-muted-foreground">Not scheduled</p>
             )}
             {appointments.length > 0 && (
-              <details className="mt-2">
-                <summary className="cursor-pointer text-xs font-medium text-primary hover:underline">
-                  All consultations ({appointments.length})
-                </summary>
-                <ul className="mt-2 space-y-2">
+              <Disclosure summary={`All consultations (${appointments.length})`} className="mt-2">
+                <ul className="space-y-2">
                   {appointments.map((appointment) => (
                     <li key={appointment.id} className="text-xs">
                       <Badge variant={appointment.status === "COMPLETED" ? "success" : "primary"}>
@@ -64,7 +62,7 @@ export function ConsultationsCard({
                     </li>
                   ))}
                 </ul>
-              </details>
+              </Disclosure>
             )}
           </div>
         </div>

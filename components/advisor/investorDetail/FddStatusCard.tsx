@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CompactCardIcon } from "./CompactCardIcon";
+import { Disclosure } from "./Disclosure";
 import { formatDateTime } from "@/lib/advisor/format";
 import { effectiveFddStatus, FDD_STATUS_LABELS } from "@/lib/fdd/status";
 import type { LeadRecord } from "@/types/lead";
@@ -59,7 +60,7 @@ export function FddStatusCard({
           : "primary";
 
   return (
-    <Card>
+    <Card className="rounded-2xl">
       <CardContent className="flex items-start justify-between gap-4 p-5">
         <div className="min-w-0">
           <div className="flex items-start gap-3">
@@ -72,11 +73,8 @@ export function FddStatusCard({
             </div>
           </div>
           {status !== "not_requested" && (
-            <details className="mt-2">
-              <summary className="cursor-pointer text-xs font-medium text-primary hover:underline">
-                Timeline
-              </summary>
-              <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+            <Disclosure summary="Timeline" className="mt-2 pl-12">
+              <div className="space-y-1 text-xs text-muted-foreground">
                 <p>Requested {formatDateTime(lead.fdd_requested_at)}</p>
                 <p>Sent {formatDateTime(lead.fdd_sent_at)}</p>
                 <p>Received {formatDateTime(lead.fdd_received_at)}</p>
@@ -91,7 +89,7 @@ export function FddStatusCard({
                   </ol>
                 )}
               </div>
-            </details>
+            </Disclosure>
           )}
           {message && <p className="mt-2 text-xs text-destructive">{message}</p>}
         </div>
