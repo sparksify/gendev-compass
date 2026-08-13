@@ -2,6 +2,11 @@ import type { LeadRecord, LeadStatus } from "@/types/lead";
 import type { QuestionnaireRecord } from "@/types/questionnaire";
 import type { VideoProgressRecord } from "@/types/portal";
 import type { PortalEventRecord } from "@/types/analytics";
+import type {
+  CreateNotificationDeliveryInput,
+  NotificationDeliveryPatch,
+  NotificationDeliveryRecord,
+} from "@/types/notifications";
 import type { FddAuditInsert, FddAuditRecord, FddStatus } from "@/types/fdd";
 import type {
   AdvisorNoteRecord,
@@ -445,6 +450,21 @@ export interface PortalStore {
     eventSource: string,
     externalEventId: string,
   ): Promise<boolean>;
+
+  /**
+   * Advisor notification deliveries. `createNotificationDelivery` doubles as
+   * the idempotency gate: it returns null when `dedupe_key` is already
+   * claimed, which is what stops a retry from emailing twice. Implementations
+   * must treat a unique-violation as "already claimed", not as an error.
+   */
+  createNotificationDelivery(
+    input: CreateNotificationDeliveryInput,
+  ): Promise<NotificationDeliveryRecord | null>;
+  updateNotificationDelivery(
+    id: string,
+    patch: NotificationDeliveryPatch,
+  ): Promise<NotificationDeliveryRecord | null>;
+  listNotificationDeliveriesForLead(leadId: string): Promise<NotificationDeliveryRecord[]>;
 
   createFddWorkflow(input: CreateFddWorkflowInput): Promise<OpportunityFddWorkflowRecord>;
   getFddWorkflowByOpportunityId(opportunityId: string): Promise<OpportunityFddWorkflowRecord | null>;

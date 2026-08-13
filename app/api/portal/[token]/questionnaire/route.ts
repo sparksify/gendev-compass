@@ -120,9 +120,15 @@ export async function POST(
 
     await autoAdvanceStage(lead, "QUESTIONNAIRE_COMPLETED", "portal");
 
-    await trackEvent(lead, "questionnaire_submitted", null);
+    // `updatedLead` rather than `lead`: the advisor notification renders the
+    // qualification result and score, which only exist after the update
+    // above. The version scopes the notification's idempotency key, so a
+    // genuinely new questionnaire version can notify again.
+    await trackEvent(updatedLead, "questionnaire_submitted", {
+      questionnaireVersion: QUESTIONNAIRE_VERSION,
+    });
     await trackEvent(
-      lead,
+      updatedLead,
       qualification.qualified ? "lead_qualified" : "lead_sent_to_review",
       { score: qualification.score },
     );

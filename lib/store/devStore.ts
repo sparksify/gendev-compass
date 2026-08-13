@@ -35,6 +35,7 @@ import type {
   StaffSessionRecord,
   StaffUserRecord,
 } from "@/types/advisor";
+import type { NotificationDeliveryRecord } from "@/types/notifications";
 import type {
   ActivityEventRecord,
   ClientRecord,
@@ -91,6 +92,7 @@ interface DevData {
   external_record_mappings: ExternalRecordMappingRecord[];
   integration_connections: IntegrationConnectionRecord[];
   activity_events: ActivityEventRecord[];
+  notification_deliveries: NotificationDeliveryRecord[];
   opportunity_fdd_workflows: OpportunityFddWorkflowRecord[];
   franchise_brands: FranchiseBrandRecord[];
   brand_state_eligibility: BrandStateEligibilityRecord[];
@@ -128,6 +130,7 @@ const EMPTY: DevData = {
   external_record_mappings: [],
   integration_connections: [],
   activity_events: [],
+  notification_deliveries: [],
   opportunity_fdd_workflows: [],
   franchise_brands: [],
   brand_state_eligibility: [],
@@ -1169,6 +1172,56 @@ export function createDevStore(): PortalStore {
           e.event_source === eventSource &&
           e.external_event_id === externalEventId,
       );
+    },
+
+    async createNotificationDelivery(input) {
+      return withLock(async () => {
+        const data = await readData();
+        // Emulates the unique index on dedupe_key: a claimed key means the
+        // notification has already been handled.
+        if (data.notification_deliveries.some((d) => d.dedupe_key === input.dedupe_key)) {
+          return null;
+        }
+        const now = nowIso();
+        const record: NotificationDeliveryRecord = {
+          id: randomUUID(),
+          organization_id: input.organization_id ?? null,
+          lead_id: input.lead_id ?? null,
+          activity_event_id: input.activity_event_id ?? null,
+          event_type: input.event_type,
+          channel: input.channel,
+          template_key: input.template_key,
+          recipient: input.recipient ?? null,
+          status: input.status ?? "pending",
+          provider: null,
+          provider_message_id: null,
+          error_message: null,
+          dedupe_key: input.dedupe_key,
+          sent_at: null,
+          created_at: now,
+          updated_at: now,
+        };
+        data.notification_deliveries.push(record);
+        await writeData(data);
+        return record;
+      });
+    },
+
+    async updateNotificationDelivery(id, patch) {
+      return withLock(async () => {
+        const data = await readData();
+        const record = data.notification_deliveries.find((d) => d.id === id);
+        if (!record) return null;
+        Object.assign(record, patch, { updated_at: nowIso() });
+        await writeData(data);
+        return record;
+      });
+    },
+
+    async listNotificationDeliveriesForLead(leadId) {
+      return (await readData()).notification_deliveries
+        .filter((d) => d.lead_id === leadId)
+        .sort((a, b) => b.created_at.localeCompare(a.created_at));
     },
 
     async createFddWorkflow(input) {
