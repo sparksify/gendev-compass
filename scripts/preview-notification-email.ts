@@ -2,7 +2,9 @@
  * Renders an advisor notification email to an HTML file so the copy and
  * layout can be reviewed in a browser without sending anything.
  *
- *   npx tsx scripts/preview-notification-email.ts <output-dir>
+ *   npx tsx scripts/preview-notification-email.ts <output-dir> [template]
+ *
+ * template: questionnaire_completed (default) | ownership_profile_completed
  *
  * Runs against a throwaway dev store in a temp directory and never loads
  * .env.local, so it cannot touch Supabase or send mail.
@@ -13,6 +15,9 @@ import { mkdtempSync, writeFileSync } from "fs";
 
 async function main(): Promise<void> {
   const outDir = process.argv[2] ?? process.cwd();
+  const templateKey = (process.argv[3] ?? "questionnaire_completed") as
+    | "questionnaire_completed"
+    | "ownership_profile_completed";
 
   // Isolate: no Supabase env loaded => file-backed dev store, in a temp dir.
   delete process.env.SUPABASE_URL;
@@ -68,13 +73,28 @@ async function main(): Promise<void> {
     completed: true,
   });
 
-  const body = await buildEmailBody("questionnaire_completed", {
+  await store.upsertOwnershipProfile({
+    lead_id: lead.id,
+    motivations: ["long-term-wealth", "leave-corporate", "freedom"],
+    activities: ["leading-team", "building-systems", "strategic-planning"],
+    ownership_style: 72,
+    growth_comfort: "regional-expansion",
+    environments: ["healthcare", "b2b-services"],
+    priorities: ["recurring-revenue", "scalability", "predictable-demand"],
+    experience: ["business-owner", "operations", "military"],
+    timeline: "actively-evaluating",
+    current_step: 8,
+    answered_sections: 8,
+    completed_at: new Date().toISOString(),
+  });
+
+  const body = await buildEmailBody(templateKey, {
     lead,
     eventData: { questionnaireVersion: "1.0" },
   });
   if (!body) throw new Error("Template returned nothing");
 
-  const htmlPath = path.join(outDir, "questionnaire-completed-preview.html");
+  const htmlPath = path.join(outDir, `${templateKey.replace(/_/g, "-")}-preview.html`);
   writeFileSync(htmlPath, body.html, "utf8");
 
   console.log(`Subject: ${body.subject}`);
