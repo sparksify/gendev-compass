@@ -5,7 +5,7 @@ import { canAccessLead, isAdmin } from "@/lib/advisor/access";
 import { getStore } from "@/lib/store";
 import { evaluateFollowUp } from "@/lib/advisor/followUp";
 import { deriveNextBestAction } from "@/lib/advisor/nextBestAction";
-import { formatDateTime } from "@/lib/advisor/format";
+import { eventLabel, formatDateTime } from "@/lib/advisor/format";
 import { resolveClientFromLead } from "@/lib/domain/clients";
 import { listOpportunitiesForClient } from "@/lib/domain/opportunities";
 import { getAppUrl } from "@/lib/config/env";
@@ -100,9 +100,17 @@ export default async function InvestorDetailPage({
   );
   const advisor = lead.assigned_advisor_id ? staffById.get(lead.assigned_advisor_id) : null;
   const followUp = evaluateFollowUp({ lead, appointments, video });
-  const nextBestAction = deriveNextBestAction(lead, questionnaire, video, appointments);
+  const nextBestAction = deriveNextBestAction(
+    lead,
+    questionnaire,
+    video,
+    appointments,
+    events,
+    notes.length,
+  );
   const latestSubmission = submissions[0] ?? null;
   const portalUrl = `${getAppUrl()}/p/${lead.portal_token}`;
+  const lastActivityLabel = events[0] ? eventLabel(events[0].event_name) : null;
 
   return (
     <div className="space-y-5">
@@ -118,36 +126,48 @@ export default async function InvestorDetailPage({
         isAdminUser={isAdminUser}
         staff={staff}
         portalUrl={portalUrl}
+        needsFollowUp={followUp.needed}
+        lastActivityLabel={lastActivityLabel}
       />
 
-      {followUp.needed && (
-        <div className="rounded-card border border-[#fde68a] bg-[#fffbeb] px-4 py-3">
-          <p className="text-sm font-semibold text-[#92400e]">Needs follow-up</p>
-          <ul className="mt-1 space-y-0.5 text-sm text-[#92400e]">
-            {followUp.reasons.map((reason) => (
-              <li key={reason}>• {reason}</li>
-            ))}
-          </ul>
+      {/* Primary action area: Next Best Action carries the same "why" that
+          used to live in a full-width follow-up banner — never said twice. */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+        <div className="lg:col-span-4">
+          <NextBestActionCard action={nextBestAction} email={lead.email} />
         </div>
-      )}
-
-      <div className="grid gap-5 lg:grid-cols-2">
-        <NextBestActionCard action={nextBestAction} email={lead.email} />
-        <AdvisorNotesCard
-          investorId={lead.id}
-          notes={notes}
-          staffNameById={staffNameById}
-          currentStaffId={user.id}
-        />
+        <div className="lg:col-span-8">
+          <AdvisorNotesCard
+            investorId={lead.id}
+            notes={notes}
+            staffNameById={staffNameById}
+            currentStaffId={user.id}
+          />
+        </div>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-        <VideoEngagementCard video={video} />
-        <ActivityTimelineCard events={events} />
-        <QualificationOverviewCard lead={lead} questionnaire={questionnaire} />
-        <LocationTerritoryCard lead={lead} questionnaire={questionnaire} isAdminUser={isAdminUser} />
+      {/* Deal intelligence: weighted, not four equally-sized boxes. */}
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-12">
+        <div className="xl:col-span-3">
+          <VideoEngagementCard video={video} />
+        </div>
+        <div className="xl:col-span-4">
+          <ActivityTimelineCard events={events} />
+        </div>
+        <div className="xl:col-span-3">
+          <QualificationOverviewCard
+            lead={lead}
+            questionnaire={questionnaire}
+            hasFullProfile={Boolean(latestSubmission)}
+          />
+        </div>
+        <div className="xl:col-span-2">
+          <LocationTerritoryCard lead={lead} questionnaire={questionnaire} isAdminUser={isAdminUser} />
+        </div>
       </div>
 
+      {/* Secondary deal information: compact, expandable, not competing for
+          attention with the sections above. */}
       <div className="grid gap-5 lg:grid-cols-3">
         <ConsultationsCard lead={lead} appointments={appointments} staffById={staffById} portalUrl={portalUrl} />
         <FddStatusCard investorId={lead.id} lead={lead} fddAudit={fddAudit} />
@@ -156,7 +176,7 @@ export default async function InvestorDetailPage({
 
       {/* Full questionnaire responses — kept for the record beneath the summary cards above. */}
       {latestSubmission && (
-        <Card>
+        <Card id="questionnaire-responses" className="scroll-mt-6 rounded-2xl">
           <CardHeader>
             <CardTitle>Questionnaire Responses</CardTitle>
             <p className="text-sm text-muted-foreground">
@@ -180,7 +200,7 @@ export default async function InvestorDetailPage({
       )}
 
       {/* Attribution — first/last touch marketing data, kept for the record. */}
-      <Card>
+      <Card className="rounded-2xl">
         <CardHeader>
           <CardTitle>Attribution</CardTitle>
         </CardHeader>

@@ -48,6 +48,12 @@ function applyMark(
   };
 }
 
+/**
+ * The operationally critical card on the page — prior conversations,
+ * objections, financing/timeline context. Deliberately given a large
+ * writing surface and equal visual weight to Next Best Action, not treated
+ * as a small sidebar utility.
+ */
 export function AdvisorNotesCard({
   investorId,
   notes,
@@ -105,18 +111,20 @@ export function AdvisorNotesCard({
   }
 
   return (
-    <Card>
-      <CardContent className="p-5">
+    <Card className="h-full rounded-2xl">
+      <CardContent className="flex h-full flex-col p-6">
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold text-foreground">Advisor Notes</p>
           {latest && (
             <p className="text-xs text-muted-foreground">
               Last updated {formatRelative(latest.updated_at)}
+              {staffNameById[latest.staff_user_id] &&
+                ` · ${staffNameById[latest.staff_user_id]}`}
             </p>
           )}
         </div>
 
-        <form onSubmit={onSubmit} className="mt-3 space-y-2">
+        <form onSubmit={onSubmit} className="mt-3 flex flex-1 flex-col space-y-2">
           <div className="flex items-center gap-1 rounded-t-control border border-b-0 border-border bg-surface px-2 py-1.5">
             {[
               { icon: Bold, label: "Bold", onClick: () => mark("wrap", "**") },
@@ -140,14 +148,14 @@ export function AdvisorNotesCard({
             ref={textareaRef}
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Add a note about this client…"
+            placeholder="Add a note about this client — prior conversations, objections, financing, timeline, family considerations…"
             maxLength={10_000}
             aria-label="New note"
-            rows={4}
-            className="block w-full rounded-b-control border border-border bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            rows={8}
+            className="block w-full flex-1 rounded-b-control border border-border bg-card px-3 py-2.5 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
           <FieldError message={error ?? undefined} />
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between pt-1">
             <Button type="submit" size="sm" disabled={submitting || !note.trim()}>
               {submitting ? "Saving…" : "Save Note"}
             </Button>

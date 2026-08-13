@@ -2,7 +2,9 @@ import { Badge } from "@/components/ui/badge";
 import { STAGE_LABELS, type InvestorStage } from "@/types/advisor";
 import { cn } from "@/lib/utils";
 
-const STAGE_STYLES: Partial<Record<InvestorStage, string>> = {
+/** Exported so other stage-aware controls (e.g. the client-detail status
+ * dropdown) render with identical colors instead of a second color map. */
+export const STAGE_STYLES: Partial<Record<InvestorStage, string>> = {
   NEW_LEAD: "bg-surface text-muted-foreground",
   PORTAL_ACTIVE: "bg-primary-soft text-primary",
   ENGAGED: "bg-primary-soft text-primary",

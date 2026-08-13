@@ -1,6 +1,7 @@
 import { Clock, Play, PlayCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Disclosure } from "./Disclosure";
 import { formatDateTime, formatWatchTime } from "@/lib/advisor/format";
 import type { VideoProgressRecord } from "@/types/portal";
 
@@ -47,10 +48,15 @@ function Stat({ icon: Icon, label, value }: { icon: React.ComponentType<{ classN
   );
 }
 
+/**
+ * The one visualization kept front and center per the redesign brief — a
+ * donut of percent watched, with the supporting numbers as plain stats
+ * rather than a second chart or an engagement score.
+ */
 export function VideoEngagementCard({ video }: { video: VideoProgressRecord | null }) {
   return (
-    <Card className="h-full">
-      <CardContent className="p-5">
+    <Card className="h-full rounded-2xl">
+      <CardContent className="p-6">
         <p className="text-sm font-semibold text-foreground">Video Engagement</p>
         {video ? (
           <div className="mt-4 flex flex-col items-center gap-4">
@@ -60,18 +66,15 @@ export function VideoEngagementCard({ video }: { video: VideoProgressRecord | nu
               <Stat icon={Play} label="Play Count" value={String(video.play_count)} />
               <Stat icon={PlayCircle} label="Last Played" value={formatDateTime(video.last_event_at)} />
             </div>
-            <details className="w-full">
-              <summary className="cursor-pointer rounded-control border border-border py-1.5 text-center text-xs font-medium text-secondary-foreground hover:bg-surface">
-                View Video Activity
-              </summary>
-              <div className="mt-2.5 space-y-2">
+            <Disclosure summary="View Video Activity" className="w-full" defaultOpen={false}>
+              <div className="space-y-2">
                 <Stat icon={Clock} label="First Played" value={formatDateTime(video.first_played_at)} />
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] text-muted-foreground">Completed</span>
                   <Badge variant={video.completed ? "success" : "neutral"}>{video.completed ? "Yes" : "No"}</Badge>
                 </div>
               </div>
-            </details>
+            </Disclosure>
           </div>
         ) : (
           <p className="mt-4 text-sm text-muted-foreground">No video activity yet.</p>

@@ -2,6 +2,7 @@ import { Landmark } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CompactCardIcon } from "./CompactCardIcon";
+import { Disclosure } from "./Disclosure";
 import { labelForValue, labelIn } from "@/lib/advisor/questionnaireCatalog";
 import {
   CASH_CONTRIBUTION_RANGES,
@@ -25,22 +26,24 @@ function DetailField({ label, value }: { label: string; value: React.ReactNode }
   );
 }
 
+/** Collapsed by default — a one-line summary plus a chevron into the full
+ * financing breakdown, never the whole thing shown up front. */
 export function FundingProfileCard({ questionnaire }: { questionnaire: QuestionnaireRecord | null }) {
+  const summary = !questionnaire
+    ? "Questionnaire not completed"
+    : questionnaire.funding_followup_requested
+      ? "Funding assistance requested"
+      : labelIn(FINANCING_NEED_OPTIONS, questionnaire.financing_need);
+
   return (
-    <Card>
+    <Card className="rounded-2xl">
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 items-start gap-3">
             <CompactCardIcon icon={Landmark} />
             <div className="min-w-0">
               <p className="text-sm font-semibold text-foreground">Funding Profile</p>
-              {questionnaire ? (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {labelIn(FINANCING_NEED_OPTIONS, questionnaire.financing_need)}
-                </p>
-              ) : (
-                <p className="mt-1 text-xs text-muted-foreground">Questionnaire not completed yet.</p>
-              )}
+              <p className="mt-1 text-xs text-muted-foreground">{summary}</p>
             </div>
           </div>
           {questionnaire?.funding_followup_requested && (
@@ -49,11 +52,8 @@ export function FundingProfileCard({ questionnaire }: { questionnaire: Questionn
         </div>
 
         {questionnaire && (
-          <details className="mt-2 pl-12">
-            <summary className="cursor-pointer text-xs font-medium text-primary hover:underline">
-              Full breakdown
-            </summary>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <Disclosure summary="Full breakdown" className="mt-2 pl-12">
+            <div className="grid gap-3 sm:grid-cols-2">
               <DetailField
                 label="Estimated credit range (self-reported)"
                 value={labelIn(CREDIT_SCORE_RANGES, questionnaire.estimated_credit_score_range)}
@@ -108,7 +108,7 @@ export function FundingProfileCard({ questionnaire }: { questionnaire: Questionn
                 />
               </div>
             </div>
-          </details>
+          </Disclosure>
         )}
       </CardContent>
     </Card>
