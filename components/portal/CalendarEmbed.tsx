@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { firePortalTrackingResults, type PortalTrackingResult } from "@/lib/tracking/client";
 
 interface CalendarEmbedProps {
   embedUrl: string | null;
@@ -63,8 +64,13 @@ export function CalendarEmbed({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        const data = (await response.json()) as { success: boolean; nextUrl?: string };
+        const data = (await response.json()) as {
+          success: boolean;
+          nextUrl?: string;
+          tracking?: PortalTrackingResult[];
+        };
         if (data.success && data.nextUrl) {
+          firePortalTrackingResults(data.tracking ?? []);
           router.push(data.nextUrl);
           router.refresh();
         }
@@ -119,8 +125,14 @@ export function CalendarEmbed({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ detectedVia: "manual-confirm" }),
       });
-      const data = (await response.json()) as { success: boolean; nextUrl?: string; error?: string };
+      const data = (await response.json()) as {
+        success: boolean;
+        nextUrl?: string;
+        error?: string;
+        tracking?: PortalTrackingResult[];
+      };
       if (data.success && data.nextUrl) {
+        firePortalTrackingResults(data.tracking ?? []);
         router.push(data.nextUrl);
         router.refresh();
         return;

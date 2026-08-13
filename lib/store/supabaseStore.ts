@@ -26,6 +26,7 @@ import type {
   CreateTerritorySearchInput,
   InsertEventOptions,
   LeadPatch,
+  ListTrackingDeliveriesFilter,
   PortalStore,
   StaffUserPatch,
   TerritoryDefinitionPatch,
@@ -33,6 +34,15 @@ import type {
   UpsertStateEligibilityInput,
   VideoProgressPatch,
 } from "./types";
+import type {
+  ConsentRecord,
+  CreateConsentInput,
+  CreateTrackingDeliveryInput,
+  TrackingDeliveryPatch,
+  TrackingDeliveryRecord,
+  TrackingSettingsPatch,
+  TrackingSettingsRecord,
+} from "@/types/tracking";
 import type {
   BrandStateEligibilityRecord,
   CensusImportJobPatch,
@@ -1399,6 +1409,127 @@ export function createSupabaseStore(): PortalStore {
         .select("*", { count: "exact", head: true });
       if (error) throw new Error(`Failed to count raw Census imports: ${error.message}`);
       return count ?? 0;
+    },
+
+    // -------------------------------------------------------------------
+    // Tracking & Attribution
+    // -------------------------------------------------------------------
+    async getTrackingSettings(): Promise<TrackingSettingsRecord> {
+      const { data, error } = await db
+        .from("tracking_settings")
+        .select()
+        .is("brand_id", null)
+        .maybeSingle();
+      if (error) throw new Error(`Failed to load tracking settings: ${error.message}`);
+      if (data) return data as TrackingSettingsRecord;
+
+      const { data: created, error: createError } = await db
+        .from("tracking_settings")
+        .insert({})
+        .select()
+        .single();
+      if (createError) throw new Error(`Failed to create tracking settings: ${createError.message}`);
+      return created as TrackingSettingsRecord;
+    },
+
+    async updateTrackingSettings(id: string, patch: TrackingSettingsPatch): Promise<TrackingSettingsRecord> {
+      const { data, error } = await db
+        .from("tracking_settings")
+        .update({ ...patch, updated_at: nowIso() })
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw new Error(`Failed to update tracking settings: ${error.message}`);
+      return data as TrackingSettingsRecord;
+    },
+
+    async insertTrackingDelivery(input: CreateTrackingDeliveryInput): Promise<TrackingDeliveryRecord> {
+      const { data, error } = await db
+        .from("tracking_deliveries")
+        .insert({
+          portal_event_id: input.portal_event_id ?? null,
+          lead_id: input.lead_id ?? null,
+          provider: input.provider,
+          event_name: input.event_name,
+          external_event_name: input.external_event_name ?? null,
+          event_id: input.event_id,
+          delivery_mode: input.delivery_mode,
+          status: input.status,
+          attempt_count: input.attempt_count ?? 0,
+          next_attempt_at: input.next_attempt_at ?? null,
+          response_code: input.response_code ?? null,
+          provider_response: input.provider_response ?? null,
+          sent_at: input.sent_at ?? null,
+          failed_at: input.failed_at ?? null,
+        })
+        .select()
+        .single();
+      if (error) throw new Error(`Failed to insert tracking delivery: ${error.message}`);
+      return data as TrackingDeliveryRecord;
+    },
+
+    async updateTrackingDelivery(id: string, patch: TrackingDeliveryPatch): Promise<TrackingDeliveryRecord> {
+      const { data, error } = await db
+        .from("tracking_deliveries")
+        .update(patch)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw new Error(`Failed to update tracking delivery: ${error.message}`);
+      return data as TrackingDeliveryRecord;
+    },
+
+    async listTrackingDeliveries(filter: ListTrackingDeliveriesFilter = {}): Promise<TrackingDeliveryRecord[]> {
+      let query = db.from("tracking_deliveries").select().order("created_at", { ascending: false });
+      if (filter.leadId) query = query.eq("lead_id", filter.leadId);
+      if (filter.status) query = query.eq("status", filter.status);
+      if (filter.provider) query = query.eq("provider", filter.provider);
+      query = query.limit(filter.limit ?? 200);
+      const { data, error } = await query;
+      if (error) throw new Error(`Failed to list tracking deliveries: ${error.message}`);
+      return (data as TrackingDeliveryRecord[]) ?? [];
+    },
+
+    async listDueTrackingDeliveries(nowIsoValue: string): Promise<TrackingDeliveryRecord[]> {
+      const { data, error } = await db
+        .from("tracking_deliveries")
+        .select()
+        .eq("status", "failed")
+        .lt("attempt_count", 3)
+        .lte("next_attempt_at", nowIsoValue)
+        .order("next_attempt_at", { ascending: true })
+        .limit(100);
+      if (error) throw new Error(`Failed to list due tracking deliveries: ${error.message}`);
+      return (data as TrackingDeliveryRecord[]) ?? [];
+    },
+
+    async insertConsent(input: CreateConsentInput): Promise<ConsentRecord> {
+      const { data, error } = await db
+        .from("portal_consent")
+        .insert({
+          lead_id: input.lead_id ?? null,
+          portal_token: input.portal_token ?? null,
+          necessary: input.necessary ?? true,
+          analytics: input.analytics,
+          marketing: input.marketing,
+          consent_version: input.consent_version,
+          ip_address: input.ip_address ?? null,
+          user_agent: input.user_agent ?? null,
+        })
+        .select()
+        .single();
+      if (error) throw new Error(`Failed to record consent: ${error.message}`);
+      return data as ConsentRecord;
+    },
+
+    async getLatestConsent(args: { leadId?: string; portalToken?: string }): Promise<ConsentRecord | null> {
+      let query = db.from("portal_consent").select().order("created_at", { ascending: false }).limit(1);
+      if (args.leadId) query = query.eq("lead_id", args.leadId);
+      else if (args.portalToken) query = query.eq("portal_token", args.portalToken);
+      else return null;
+      const { data, error } = await query.maybeSingle();
+      if (error) throw new Error(`Failed to load consent: ${error.message}`);
+      return (data as ConsentRecord | null) ?? null;
     },
   };
 }

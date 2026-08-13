@@ -85,6 +85,19 @@ export function eventLabel(eventName: string): string {
     stage_changed: "Stage changed",
     advisor_assigned: "Advisor assigned",
     portal_completed: "Portal journey completed",
+    portal_returned: "Portal returned",
+    questionnaire_viewed: "Questionnaire viewed",
+    resource_viewed: "Resource viewed",
+    resource_downloaded: "Resource downloaded",
+    advisor_overflow_presented: "Advisor overflow presented",
+    advisor_presented: "Advisor presented",
+    advisor_selected: "Advisor selected",
+    advisor_booked: "Advisor booked",
+    appointment_booked: "Consultation booked",
+    precall_questions_submitted: "Pre-call questions submitted",
+    territory_check_started: "Territory check started",
+    territory_check_completed: "Territory check completed",
+    lead_review_required: "Flagged for review",
   };
   if (labels[eventName]) return labels[eventName];
   if (eventName.startsWith("client_")) {

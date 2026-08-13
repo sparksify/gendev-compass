@@ -16,6 +16,7 @@ import {
   questionnaireSchema,
   type QuestionnairePayload,
 } from "@/lib/validation/questionnaire";
+import { firePortalTrackingResults, type PortalTrackingResult } from "@/lib/tracking/client";
 import {
   BUSINESS_OWNERSHIP_OPTIONS,
   CASH_CONTRIBUTION_RANGES,
@@ -167,8 +168,10 @@ export function QuestionnaireForm({ token, advisorName, defaults }: Questionnair
         success: boolean;
         nextUrl?: string;
         error?: string;
+        tracking?: PortalTrackingResult[];
       };
       if (data.success && data.nextUrl) {
+        firePortalTrackingResults(data.tracking ?? []);
         router.push(data.nextUrl);
         router.refresh();
         return;
