@@ -257,8 +257,8 @@ few events that warrant immediate advisor attention are emailed through
 Resend. Everything else is recorded for the dashboard and stays silent — the
 layer is designed to avoid notification overload, not to maximize alerts.
 
-Emails today: **questionnaire completed**, **consultation scheduled**, and
-**territory review requested**. Video completion is recorded and can be
+Emails today: **questionnaire completed**, **ownership profile completed**,
+**consultation scheduled**, and **territory review requested**. Video completion is recorded and can be
 switched on with `NOTIFY_ON_VIDEO_COMPLETED=true`.
 
 Set `RESEND_API_KEY`, `NOTIFICATION_FROM_EMAIL`, and
@@ -270,6 +270,18 @@ never fail an investor's submission.
 Architecture, the full event/policy table, duplicate protection, and how to
 add an event or a channel: [docs/notifications.md](docs/notifications.md).
 
+## Ownership Profile
+
+An eight-section assessment where an investor describes what they want from
+ownership — motivations, hands-on vs. executive style, growth appetite,
+industries, priorities, background, timeline. It is consultative context for
+the advisor, not a qualification signal, and nothing about it gates the
+funnel.
+
+Answers save progressively to `ownership_profiles` as the investor works
+through it, so a partial profile is still captured. Completion notifies the
+advisor once and the profile appears on their investor detail page. See
+[docs/ownership-profile.md](docs/ownership-profile.md).
 ## Tracking & Attribution (GTM / Meta Pixel / Meta CAPI)
 
 Every portal event above also routes through a centralized tracking layer:

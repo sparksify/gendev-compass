@@ -55,6 +55,8 @@ not a parallel vocabulary. The product-level names map onto them as follows.
 | `OVERVIEW_VIDEO_COMPLETED` | `video_completion_threshold_reached` | dashboard only; email behind a flag |
 | `QUESTIONNAIRE_STARTED` | `client_questionnaire_started` | dashboard only |
 | `QUESTIONNAIRE_COMPLETED` | `questionnaire_submitted` | **immediate email** |
+| Ownership Profile opened | `ownership_profile_opened` | dashboard only |
+| Ownership Profile completed | `ownership_profile_completed` | **immediate email** |
 | `CONSULTATION_SCHEDULED` | `calendar_booking_completed`, `consultation_booked` | **immediate email** |
 | `STRATEGIST_REVIEW_REQUESTED` | `territory_review_requested` | **immediate email** |
 | `TERRITORY_CHECKED` | `territory_search_submitted` | dashboard only |
@@ -90,6 +92,13 @@ The key is `leadId:dedupeGroup:channel[:scope]`:
 
 The questionnaire route independently refuses second submissions, so this is
 defence in depth rather than the only guard.
+
+The Ownership Profile is guarded a level earlier as well. It autosaves
+continuously, so its route emits `ownership_profile_completed` only on the
+transition from unfinished to finished — the client sends a `completed`
+boolean, never a timestamp, and the server compares it against the stored
+`completed_at`. Re-saving a finished profile, or reopening it to edit, never
+notifies again.
 
 ## Recipients
 

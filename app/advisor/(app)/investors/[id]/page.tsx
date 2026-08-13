@@ -10,6 +10,7 @@ import { resolveClientFromLead } from "@/lib/domain/clients";
 import { listOpportunitiesForClient } from "@/lib/domain/opportunities";
 import { getAppUrl } from "@/lib/config/env";
 import type { BrandRecord, ClientRecord, OpportunityRecord } from "@/types/domain";
+import { OwnershipProfileCard } from "@/components/advisor/OwnershipProfileCard";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClientHeaderCard } from "@/components/advisor/investorDetail/ClientHeaderCard";
@@ -49,7 +50,17 @@ export default async function InvestorDetailPage({
   // 404 for both missing and unauthorized — never confirm existence.
   if (!lead || !canAccessLead(user, lead)) notFound();
 
-  const [questionnaire, submissions, video, appointments, fddAudit, notes, events, staff] =
+  const [
+    questionnaire,
+    submissions,
+    video,
+    appointments,
+    fddAudit,
+    notes,
+    events,
+    staff,
+    ownershipProfile,
+  ] =
     await Promise.all([
       store.getQuestionnaire(lead.id),
       store.getSubmissionsForLead(lead.id),
@@ -59,6 +70,7 @@ export default async function InvestorDetailPage({
       store.getNotesForLead(lead.id),
       store.getEventsForLead(lead.id),
       store.listStaffUsers(),
+      store.getOwnershipProfile(lead.id),
     ]);
 
   // Platform domain: the client record and ALL of their opportunities (a
@@ -238,6 +250,10 @@ export default async function InvestorDetailPage({
           </div>
         </CardContent>
       </Card>
+
+      {/* What the investor says they want from ownership (self-reported,
+          not a qualification signal). */}
+      <OwnershipProfileCard profile={ownershipProfile} />
     </div>
   );
 }
