@@ -3,9 +3,10 @@ import { REGION_PIN_POSITION, type UsRegion } from "@/lib/advisor/regions";
 import { cn } from "@/lib/utils";
 
 /**
- * Decorative, stylized continental-US silhouette with a pin over the lead's
- * region. Schematic, not geographically precise — a quiet visual anchor for
- * the Location & Territory card, not a navigation tool (see
+ * A recognizable, hand-plotted continental-US silhouette (Florida peninsula,
+ * Texas Gulf bulge, Cape Cod/Maine point, Great Lakes notches) with a pin
+ * over the lead's region. Schematic, not survey-accurate — a quiet visual
+ * anchor for the Location & Territory card, not a navigation tool (see
  * components/territory for the real interactive map).
  */
 export function UsRegionMap({ region, className }: { region: UsRegion | null; className?: string }) {
@@ -13,19 +14,17 @@ export function UsRegionMap({ region, className }: { region: UsRegion | null; cl
 
   return (
     <div className={cn("relative aspect-[5/3] w-full overflow-hidden", className)}>
-      <svg
-        viewBox="0 0 300 180"
-        className="absolute inset-0 size-full text-border-strong"
-        fill="none"
-        aria-hidden
-      >
+      <svg viewBox="0 0 960 600" className="absolute inset-0 size-full" fill="none" aria-hidden>
         <path
-          d="M40 60 L70 42 L100 40 L120 28 L150 22 L185 26 L215 22 L245 32 L265 46 L278 62 L272 82 L280 96 L268 112 L272 128 L250 140 L238 156 L212 152 L198 164 L170 158 L150 168 L128 158 L104 162 L86 148 L62 150 L48 134 L54 116 L38 104 L44 86 Z"
-          fill="currentColor"
-          fillOpacity="0.12"
-          stroke="currentColor"
-          strokeOpacity="0.35"
-          strokeWidth="1.5"
+          d="M110,70 L140,45 L300,40 L460,45 L520,70 L560,55 L600,90 L640,60 L660,110
+             L700,85 L760,95 L790,70 L840,55 L870,90 L830,140 L860,160 L810,170 L830,190
+             L790,200 L805,230 L770,245 L790,270 L760,290 L800,310 L770,330 L800,360
+             L770,390 L800,430 L830,460 L810,500 L770,470 L720,430 L650,440 L600,450
+             L560,460 L520,470 L490,510 L450,550 L400,520 L360,480 L320,440 L280,450
+             L220,440 L170,460 L130,420 L100,370 L85,300 L75,230 L90,160 L110,100 Z"
+          className="fill-[#dbe4f0] stroke-[#94a8c9]"
+          strokeWidth="3"
+          strokeLinejoin="round"
         />
       </svg>
       {pin && (
@@ -33,7 +32,7 @@ export function UsRegionMap({ region, className }: { region: UsRegion | null; cl
           className="absolute -translate-x-1/2 -translate-y-full"
           style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
         >
-          <MapPin className="size-6 fill-primary text-primary drop-shadow-sm" strokeWidth={1.5} />
+          <MapPin className="size-7 fill-primary text-primary drop-shadow-md" strokeWidth={1.5} />
         </span>
       )}
     </div>
