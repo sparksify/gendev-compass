@@ -4,37 +4,24 @@ import { requireStaffUser } from "@/lib/advisor/auth";
 import { canAccessLead, isAdmin } from "@/lib/advisor/access";
 import { getStore } from "@/lib/store";
 import { evaluateFollowUp } from "@/lib/advisor/followUp";
-import { suggestNextAction } from "@/lib/advisor/nextAction";
-import { labelForValue, labelIn } from "@/lib/advisor/questionnaireCatalog";
-import {
-  eventLabel,
-  eventSourceLabel,
-  formatDateTime,
-  formatRelative,
-  formatWatchTime,
-} from "@/lib/advisor/format";
-import { effectiveFddStatus, FDD_STATUS_LABELS } from "@/lib/fdd/status";
+import { deriveNextBestAction } from "@/lib/advisor/nextBestAction";
+import { formatDateTime } from "@/lib/advisor/format";
 import { resolveClientFromLead } from "@/lib/domain/clients";
 import { listOpportunitiesForClient } from "@/lib/domain/opportunities";
 import { getAppUrl } from "@/lib/config/env";
 import type { BrandRecord, ClientRecord, OpportunityRecord } from "@/types/domain";
-import { StageBadge } from "@/components/advisor/StageBadge";
-import { StageSelect } from "@/components/advisor/StageSelect";
-import { AssignAdvisorSelect } from "@/components/advisor/AssignAdvisorSelect";
-import { NoteForm } from "@/components/advisor/NoteForm";
 import { Badge } from "@/components/ui/badge";
-import {
-  CASH_CONTRIBUTION_RANGES,
-  CREDIT_SCORE_RANGES,
-  EXISTING_ENTITY_OPTIONS,
-  FINANCING_NEED_OPTIONS,
-  FINANCING_PERCENTAGE_OPTIONS,
-  FUNDING_ASSISTANCE_OPTIONS,
-  FUNDING_SOURCE_OPTIONS,
-  LENDER_STATUS_OPTIONS,
-  PRIOR_FINANCING_EXPERIENCE_OPTIONS,
-} from "@/types/questionnaire";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ClientHeaderCard } from "@/components/advisor/investorDetail/ClientHeaderCard";
+import { NextBestActionCard } from "@/components/advisor/investorDetail/NextBestActionCard";
+import { AdvisorNotesCard } from "@/components/advisor/investorDetail/AdvisorNotesCard";
+import { VideoEngagementCard } from "@/components/advisor/investorDetail/VideoEngagementCard";
+import { ActivityTimelineCard } from "@/components/advisor/investorDetail/ActivityTimelineCard";
+import { QualificationOverviewCard } from "@/components/advisor/investorDetail/QualificationOverviewCard";
+import { LocationTerritoryCard } from "@/components/advisor/investorDetail/LocationTerritoryCard";
+import { ConsultationsCard } from "@/components/advisor/investorDetail/ConsultationsCard";
+import { FddStatusCard } from "@/components/advisor/investorDetail/FddStatusCard";
+import { FundingProfileCard } from "@/components/advisor/investorDetail/FundingProfileCard";
 
 export const metadata: Metadata = { title: "Client" };
 export const dynamic = "force-dynamic";
@@ -55,6 +42,7 @@ export default async function InvestorDetailPage({
 }) {
   const user = await requireStaffUser();
   const { id } = await params;
+  const isAdminUser = isAdmin(user);
 
   const store = getStore();
   const lead = await store.getLeadById(id);
@@ -95,615 +83,161 @@ export default async function InvestorDetailPage({
   const primaryBrand = primaryOpportunity ? brandById.get(primaryOpportunity.brand_id) : null;
 
   const staffById = new Map(staff.map((s) => [s.id, s]));
+  const staffNameById = Object.fromEntries(
+    staff.map((s) => [s.id, `${s.first_name} ${s.last_name}`]),
+  );
   const advisor = lead.assigned_advisor_id ? staffById.get(lead.assigned_advisor_id) : null;
   const followUp = evaluateFollowUp({ lead, appointments, video });
-  const nextAction = suggestNextAction(lead, appointments, video);
-  const fddStatus = effectiveFddStatus(lead);
-  const activeAppointment = appointments.find(
-    (a) => a.status === "SCHEDULED" || a.status === "RESCHEDULED",
-  );
+  const nextBestAction = deriveNextBestAction(lead, questionnaire, video, appointments);
   const latestSubmission = submissions[0] ?? null;
   const portalUrl = `${getAppUrl()}/p/${lead.portal_token}`;
 
   return (
     <div className="space-y-5">
-      {/* Header */}
+      <ClientHeaderCard
+        lead={lead}
+        advisor={advisor ?? null}
+        brandName={
+          primaryBrand?.name ??
+          (clientOpportunities.length > 1
+            ? clientOpportunities.map((o) => brandById.get(o.brand_id)?.name ?? "Unknown brand").join(", ")
+            : null)
+        }
+        isAdminUser={isAdminUser}
+        staff={staff}
+        portalUrl={portalUrl}
+      />
+
+      {followUp.needed && (
+        <div className="rounded-card border border-[#fde68a] bg-[#fffbeb] px-4 py-3">
+          <p className="text-sm font-semibold text-[#92400e]">Needs follow-up</p>
+          <ul className="mt-1 space-y-0.5 text-sm text-[#92400e]">
+            {followUp.reasons.map((reason) => (
+              <li key={reason}>• {reason}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <NextBestActionCard action={nextBestAction} email={lead.email} />
+        <AdvisorNotesCard
+          investorId={lead.id}
+          notes={notes}
+          staffNameById={staffNameById}
+          currentStaffId={user.id}
+        />
+      </div>
+
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        <VideoEngagementCard video={video} />
+        <ActivityTimelineCard events={events} />
+        <QualificationOverviewCard lead={lead} questionnaire={questionnaire} />
+        <LocationTerritoryCard lead={lead} questionnaire={questionnaire} isAdminUser={isAdminUser} />
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-3">
+        <ConsultationsCard lead={lead} appointments={appointments} staffById={staffById} portalUrl={portalUrl} />
+        <FddStatusCard investorId={lead.id} lead={lead} fddAudit={fddAudit} />
+        <FundingProfileCard questionnaire={questionnaire} />
+      </div>
+
+      {/* Full questionnaire responses — kept for the record beneath the summary cards above. */}
+      {latestSubmission && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Questionnaire Responses</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Submitted {formatDateTime(latestSubmission.submitted_at)} · Version{" "}
+              {latestSubmission.questionnaire_version}
+            </p>
+          </CardHeader>
+          <CardContent>
+            <dl className="space-y-4">
+              {latestSubmission.answers.map((answer) => (
+                <div key={answer.id}>
+                  <dt className="text-sm font-medium text-secondary-foreground">
+                    {answer.question_text}
+                  </dt>
+                  <dd className="mt-0.5 text-sm text-foreground">{answer.answer_display_value}</dd>
+                </div>
+              ))}
+            </dl>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Attribution — first/last touch marketing data, kept for the record. */}
       <Card>
-        <CardContent className="p-5">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="font-serif text-2xl font-semibold text-foreground">
-                  {lead.first_name} {lead.last_name}
-                </h1>
-                <StageBadge stage={lead.current_stage} />
-                {followUp.needed && (
-                  <Badge className="bg-[#fef3c7] text-[#92400e]">Needs follow-up</Badge>
-                )}
-                {questionnaire?.funding_followup_requested && (
-                  <Badge className="bg-primary-soft text-primary">Funding Assistance Requested</Badge>
-                )}
-              </div>
-              <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-secondary-foreground">
-                <a href={`mailto:${lead.email}`} className="hover:text-primary">
-                  {lead.email}
-                </a>
-                {lead.phone && (
-                  <a href={`tel:${lead.phone}`} className="hover:text-primary">
-                    {lead.phone}
-                  </a>
-                )}
-                {lead.state && <span>{lead.state}</span>}
-                <span className="text-muted-foreground">
-                  Source: {lead.source ?? "—"}
-                  {lead.campaign ? ` / ${lead.campaign}` : ""}
-                </span>
-              </div>
-              {followUp.needed && (
-                <ul className="mt-2 space-y-0.5 text-sm text-[#92400e]">
-                  {followUp.reasons.map((reason) => (
-                    <li key={reason}>• {reason}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            <div className="grid gap-3 text-sm sm:grid-cols-2">
-              <Field label="Assigned advisor" value={advisor ? `${advisor.first_name} ${advisor.last_name}` : "Unassigned"} />
-              {primaryBrand && <Field label="Brand" value={primaryBrand.name} />}
-              {clientOpportunities.length > 1 && (
-                <Field
-                  label="Opportunities"
-                  value={clientOpportunities
-                    .map((o) => brandById.get(o.brand_id)?.name ?? "Unknown brand")
-                    .join(", ")}
-                />
-              )}
-              <Field label="Last activity" value={formatRelative(lead.last_activity_at ?? lead.created_at)} />
-              <Field
-                label="Next consultation"
-                value={
-                  activeAppointment?.scheduled_start
-                    ? formatDateTime(activeAppointment.scheduled_start, activeAppointment.time_zone)
-                    : lead.appointment_start_at
-                      ? formatDateTime(lead.appointment_start_at)
-                      : "None scheduled"
-                }
-              />
-              <Field label="Suggested next action" value={nextAction} />
+        <CardHeader>
+          <CardTitle>Attribution</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-faint-foreground">
+              First Touch
+            </p>
+            <div className="mt-2 grid gap-3 sm:grid-cols-2">
+              <Field label="Source" value={lead.source} />
+              <Field label="Campaign" value={lead.campaign} />
+              <Field label="Ad Set" value={lead.ad_set} />
+              <Field label="Ad" value={lead.ad} />
+              <Field label="UTM Source" value={lead.first_utm_source} />
+              <Field label="UTM Campaign" value={lead.first_utm_campaign} />
+              <Field label="UTM Medium" value={lead.first_utm_medium} />
+              <Field label="UTM Content" value={lead.first_utm_content} />
+              <Field label="Facebook Lead ID" value={lead.facebook_lead_id} />
+              <Field label="Facebook Click ID" value={lead.first_fbclid} />
+              <Field label="Google Click ID" value={lead.first_gclid} />
+              <Field label="Landing Page" value={lead.first_landing_page} />
+              <Field label="Referrer" value={lead.first_referrer} />
+              <Field label="Portal First Opened" value={formatDateTime(lead.portal_first_opened_at)} />
             </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-border-soft pt-4">
-            <div className="w-56">
-              <p className="mb-1 text-xs font-medium text-muted-foreground">Stage</p>
-              <StageSelect investorId={lead.id} currentStage={lead.current_stage} />
-            </div>
-            {isAdmin(user) && (
-              <div className="w-56">
-                <p className="mb-1 text-xs font-medium text-muted-foreground">Assigned advisor</p>
-                <AssignAdvisorSelect
-                  investorId={lead.id}
-                  currentAdvisorId={lead.assigned_advisor_id}
-                  advisors={staff
-                    .filter((s) => s.active)
-                    .map((s) => ({ id: s.id, name: `${s.first_name} ${s.last_name}` }))}
-                />
-              </div>
-            )}
-            <div className="min-w-64 flex-1">
-              <p className="mb-1 text-xs font-medium text-muted-foreground">Portal link</p>
-              <p className="truncate rounded-control border border-border bg-surface px-3 py-2 text-xs text-muted-foreground">
-                {portalUrl}
+          {(lead.facebook_campaign_id || lead.facebook_adset_id || lead.facebook_ad_id || lead.facebook_form_id) && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-faint-foreground">
+                Facebook Lead Ads
               </p>
+              <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                <Field label="Campaign ID" value={lead.facebook_campaign_id} />
+                <Field label="Ad Set ID" value={lead.facebook_adset_id} />
+                <Field label="Ad ID" value={lead.facebook_ad_id} />
+                <Field label="Form ID" value={lead.facebook_form_id} />
+              </div>
+            </div>
+          )}
+
+          {lead.last_touch_at && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-faint-foreground">
+                Last Touch
+              </p>
+              <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                <Field label="Source" value={lead.last_utm_source} />
+                <Field label="Campaign" value={lead.last_utm_campaign} />
+                <Field label="Referrer" value={lead.last_referrer} />
+                <Field label="Last Touch At" value={formatDateTime(lead.last_touch_at)} />
+              </div>
+            </div>
+          )}
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-faint-foreground">
+              Conversion
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {lead.qualification_result === "qualified" && <Badge variant="success">Qualified Lead</Badge>}
+              {lead.qualification_result === "review_required" && <Badge variant="outline">Review Required</Badge>}
+              {lead.booked_at && <Badge variant="primary">Booked Consultation</Badge>}
+              {!lead.qualification_result && !lead.booked_at && (
+                <span className="text-sm text-muted-foreground">No conversion yet</span>
+              )}
             </div>
           </div>
         </CardContent>
       </Card>
-
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="space-y-5 lg:col-span-2">
-          {/* Qualification overview */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Qualification Overview</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {questionnaire ? (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Liquid capital" value={labelForValue(questionnaire.liquid_capital)} />
-                  <Field label="Estimated net worth" value={labelForValue(questionnaire.net_worth)} />
-                  <Field
-                    label="Investment timeline"
-                    value={labelForValue(questionnaire.investment_timeline)}
-                  />
-                  <Field
-                    label="Business ownership"
-                    value={labelForValue(questionnaire.business_ownership)}
-                  />
-                  <Field
-                    label="Decision participants"
-                    value={labelForValue(questionnaire.decision_participants)}
-                  />
-                  <Field
-                    label="Qualification score"
-                    value={
-                      lead.qualification_score !== null
-                        ? `${lead.qualification_score} (${lead.qualification_result === "qualified" ? "qualified" : "review required"})`
-                        : "—"
-                    }
-                  />
-                  <div className="sm:col-span-2">
-                    <Field label="What interested them" value={questionnaire.primary_interest} />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <Field
-                      label="Questions for the consultation"
-                      value={questionnaire.remaining_questions}
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <Field label="Decision criteria" value={questionnaire.decision_criteria} />
-                  </div>
-                </div>
-              ) : (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field
-                    label="Liquid capital (from lead form)"
-                    value={labelForValue(lead.initial_liquid_capital)}
-                  />
-                  <Field
-                    label="Net worth (from lead form)"
-                    value={labelForValue(lead.initial_net_worth)}
-                  />
-                  <div className="sm:col-span-2">
-                    <p className="text-sm text-muted-foreground">
-                      Questionnaire not completed yet.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Location (questionnaire v1.1) */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Location</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="sm:col-span-2">
-                  <Field
-                    label="Street address"
-                    value={
-                      questionnaire?.address_line_1
-                        ? [questionnaire.address_line_1, questionnaire.address_line_2]
-                            .filter(Boolean)
-                            .join(", ")
-                        : "Not Provided"
-                    }
-                  />
-                </div>
-                <Field label="City" value={questionnaire?.city ?? "Not Provided"} />
-                <Field label="State" value={questionnaire?.state ?? lead.state ?? "Not Provided"} />
-                <Field label="ZIP" value={questionnaire?.postal_code ?? "Not Provided"} />
-                <Field label="Country" value={questionnaire?.country ?? "Not Provided"} />
-              </div>
-              {/* Future-ready actions; territory tooling ships separately. */}
-              <div className="mt-4 flex flex-wrap gap-2 border-t border-border-soft pt-4">
-                {["View on Map", "Check Territory", "Run Market Analysis"].map((action) => (
-                  <span
-                    key={action}
-                    title="Coming soon"
-                    className="cursor-not-allowed rounded-control border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted-foreground opacity-70"
-                  >
-                    {action}
-                  </span>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Funding profile (questionnaire v1.1) */}
-          <Card>
-            <CardHeader className="flex-row items-center justify-between">
-              <CardTitle>Funding Profile</CardTitle>
-              {questionnaire?.funding_followup_requested && (
-                <Badge className="bg-primary-soft text-primary">Funding Assistance Requested</Badge>
-              )}
-            </CardHeader>
-            <CardContent>
-              {questionnaire ? (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field
-                    label="Estimated credit range (self-reported)"
-                    value={labelIn(CREDIT_SCORE_RANGES, questionnaire.estimated_credit_score_range)}
-                  />
-                  <Field label="Liquid capital" value={labelForValue(questionnaire.liquid_capital)} />
-                  <Field
-                    label="Available cash contribution"
-                    value={labelIn(CASH_CONTRIBUTION_RANGES, questionnaire.available_cash_contribution)}
-                  />
-                  <Field
-                    label="Needs financing"
-                    value={labelIn(FINANCING_NEED_OPTIONS, questionnaire.financing_need)}
-                  />
-                  <Field
-                    label="Preferred financing percentage"
-                    value={
-                      questionnaire.financing_need === "no"
-                        ? "N/A — no financing expected"
-                        : labelIn(FINANCING_PERCENTAGE_OPTIONS, questionnaire.preferred_financing_percentage)
-                    }
-                  />
-                  <Field
-                    label="Lender status"
-                    value={
-                      questionnaire.financing_need === "no"
-                        ? "N/A — no financing expected"
-                        : labelIn(LENDER_STATUS_OPTIONS, questionnaire.lender_status)
-                    }
-                  />
-                  <Field
-                    label="Funding assistance requested"
-                    value={
-                      questionnaire.financing_need === "no"
-                        ? "N/A — no financing expected"
-                        : labelIn(FUNDING_ASSISTANCE_OPTIONS, questionnaire.funding_assistance_requested)
-                    }
-                  />
-                  <Field
-                    label="Existing business entity"
-                    value={labelIn(EXISTING_ENTITY_OPTIONS, questionnaire.existing_business_entity)}
-                  />
-                  <Field
-                    label="Prior SBA / commercial financing"
-                    value={labelIn(
-                      PRIOR_FINANCING_EXPERIENCE_OPTIONS,
-                      questionnaire.prior_business_financing_experience,
-                    )}
-                  />
-                  <div className="sm:col-span-2">
-                    <Field
-                      label="Expected funding sources"
-                      value={
-                        questionnaire.anticipated_funding_sources?.length
-                          ? questionnaire.anticipated_funding_sources
-                              .map((source) => labelIn(FUNDING_SOURCE_OPTIONS, source))
-                              .join(" · ")
-                          : "Not Provided"
-                      }
-                    />
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">Questionnaire not completed yet.</p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Questionnaire snapshot */}
-          {latestSubmission && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Questionnaire Responses</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Submitted {formatDateTime(latestSubmission.submitted_at)} · Version{" "}
-                  {latestSubmission.questionnaire_version}
-                </p>
-              </CardHeader>
-              <CardContent>
-                <dl className="space-y-4">
-                  {latestSubmission.answers.map((answer) => (
-                    <div key={answer.id}>
-                      <dt className="text-sm font-medium text-secondary-foreground">
-                        {answer.question_text}
-                      </dt>
-                      <dd className="mt-0.5 text-sm text-foreground">
-                        {answer.answer_display_value}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Activity timeline */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Activity Timeline</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {events.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No activity recorded yet.</p>
-              ) : (
-                <ol className="space-y-3">
-                  {events.map((event) => {
-                    const author = event.created_by_staff_user_id
-                      ? staffById.get(event.created_by_staff_user_id)
-                      : null;
-                    const detail =
-                      event.event_name === "stage_changed" && event.event_data
-                        ? `${String(event.event_data.oldStage ?? "")} → ${String(event.event_data.newStage ?? "")}`
-                        : event.event_name.startsWith("video_progress") && event.event_data?.percent
-                          ? `${String(event.event_data.percent)}% watched`
-                          : null;
-                    return (
-                      <li key={event.id} className="flex gap-3 text-sm">
-                        <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" aria-hidden />
-                        <div className="min-w-0">
-                          <p className="font-medium text-foreground">
-                            {eventLabel(event.event_name)}
-                            {detail && (
-                              <span className="ml-2 font-normal text-muted-foreground">{detail}</span>
-                            )}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDateTime(event.occurred_at ?? event.created_at)} ·{" "}
-                            {eventSourceLabel(event.event_source)}
-                            {author ? ` · ${author.first_name} ${author.last_name}` : ""}
-                          </p>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ol>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-5">
-          {/* Video engagement */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Video Engagement</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {video ? (
-                <div className="space-y-3">
-                  <Field label="Percent watched" value={`${Math.round(video.highest_percent_watched)}%`} />
-                  <Field
-                    label="Total watch time"
-                    value={formatWatchTime(video.accumulated_seconds_watched)}
-                  />
-                  <Field label="Play count" value={String(video.play_count)} />
-                  <Field label="First played" value={formatDateTime(video.first_played_at)} />
-                  <Field label="Last played" value={formatDateTime(video.last_event_at)} />
-                  <Field
-                    label="Completed"
-                    value={
-                      video.completed ? (
-                        <Badge variant="success">Yes</Badge>
-                      ) : (
-                        <Badge variant="neutral">No</Badge>
-                      )
-                    }
-                  />
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No video activity yet.</p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Appointments */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Consultations</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {appointments.length === 0 && !lead.booked_at ? (
-                <p className="text-sm text-muted-foreground">No consultation booked yet.</p>
-              ) : appointments.length === 0 ? (
-                <div className="space-y-3">
-                  <Field label="Status" value={<Badge variant="primary">Scheduled</Badge>} />
-                  <Field label="Date" value={formatDateTime(lead.appointment_start_at)} />
-                  <Field label="External ID" value={lead.appointment_id ?? "—"} />
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {appointments.map((appointment) => (
-                    <div key={appointment.id} className="space-y-3 border-b border-border-soft pb-3 last:border-0 last:pb-0">
-                      <Field
-                        label="Status"
-                        value={
-                          <Badge variant={appointment.status === "COMPLETED" ? "success" : "primary"}>
-                            {appointment.status}
-                          </Badge>
-                        }
-                      />
-                      <Field
-                        label="Date & time"
-                        value={formatDateTime(appointment.scheduled_start, appointment.time_zone)}
-                      />
-                      <Field label="Time zone" value={appointment.time_zone ?? "—"} />
-                      <Field
-                        label="Advisor"
-                        value={
-                          appointment.advisor_id
-                            ? `${staffById.get(appointment.advisor_id)?.first_name ?? ""} ${staffById.get(appointment.advisor_id)?.last_name ?? ""}`.trim() || "—"
-                            : "—"
-                        }
-                      />
-                      <Field label="External ID" value={appointment.external_appointment_id ?? "—"} />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Attribution */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Attribution</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-faint-foreground">
-                  First Touch
-                </p>
-                <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                  <Field label="Source" value={lead.source} />
-                  <Field label="Campaign" value={lead.campaign} />
-                  <Field label="Ad Set" value={lead.ad_set} />
-                  <Field label="Ad" value={lead.ad} />
-                  <Field label="UTM Source" value={lead.first_utm_source} />
-                  <Field label="UTM Campaign" value={lead.first_utm_campaign} />
-                  <Field label="UTM Medium" value={lead.first_utm_medium} />
-                  <Field label="UTM Content" value={lead.first_utm_content} />
-                  <Field label="Facebook Lead ID" value={lead.facebook_lead_id} />
-                  <Field label="Facebook Click ID" value={lead.first_fbclid} />
-                  <Field label="Google Click ID" value={lead.first_gclid} />
-                  <Field label="Landing Page" value={lead.first_landing_page} />
-                  <Field label="Referrer" value={lead.first_referrer} />
-                  <Field label="Portal First Opened" value={formatDateTime(lead.portal_first_opened_at)} />
-                </div>
-              </div>
-
-              {(lead.facebook_campaign_id || lead.facebook_adset_id || lead.facebook_ad_id || lead.facebook_form_id) && (
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-faint-foreground">
-                    Facebook Lead Ads
-                  </p>
-                  <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                    <Field label="Campaign ID" value={lead.facebook_campaign_id} />
-                    <Field label="Ad Set ID" value={lead.facebook_adset_id} />
-                    <Field label="Ad ID" value={lead.facebook_ad_id} />
-                    <Field label="Form ID" value={lead.facebook_form_id} />
-                  </div>
-                </div>
-              )}
-
-              {lead.last_touch_at && (
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-faint-foreground">
-                    Last Touch
-                  </p>
-                  <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                    <Field label="Source" value={lead.last_utm_source} />
-                    <Field label="Campaign" value={lead.last_utm_campaign} />
-                    <Field label="Referrer" value={lead.last_referrer} />
-                    <Field label="Last Touch At" value={formatDateTime(lead.last_touch_at)} />
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-faint-foreground">
-                  Conversion
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {lead.qualification_result === "qualified" && <Badge variant="success">Qualified Lead</Badge>}
-                  {lead.qualification_result === "review_required" && <Badge variant="outline">Review Required</Badge>}
-                  {lead.booked_at && <Badge variant="primary">Booked Consultation</Badge>}
-                  {!lead.qualification_result && !lead.booked_at && (
-                    <span className="text-sm text-muted-foreground">No conversion yet</span>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* FDD */}
-          <Card>
-            <CardHeader>
-              <CardTitle>FDD Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {fddStatus === "not_requested" ? (
-                <p className="text-sm text-muted-foreground">FDD not requested yet.</p>
-              ) : (
-                <div className="space-y-3">
-                  <Field
-                    label="Status"
-                    value={
-                      <Badge
-                        variant={
-                          fddStatus === "fdd_received" ||
-                          fddStatus === "waiting_period_active" ||
-                          fddStatus === "eligible_for_agreement"
-                            ? "success"
-                            : fddStatus === "error_manual_review"
-                              ? "outline"
-                              : "neutral"
-                        }
-                      >
-                        {FDD_STATUS_LABELS[fddStatus]}
-                      </Badge>
-                    }
-                  />
-                  <Field label="Requested" value={formatDateTime(lead.fdd_requested_at)} />
-                  <Field label="Sent" value={formatDateTime(lead.fdd_sent_at)} />
-                  <Field label="Delivered" value={formatDateTime(lead.fdd_delivered_at)} />
-                  <Field label="Received (acknowledged)" value={formatDateTime(lead.fdd_received_at)} />
-                  <Field
-                    label="Eligible for franchise agreement"
-                    value={formatDateTime(lead.fdd_eligible_at)}
-                  />
-                  {lead.fdd_last_error && (
-                    <Field
-                      label="Last error"
-                      value={<span className="text-destructive">{lead.fdd_last_error}</span>}
-                    />
-                  )}
-                  {fddAudit.length > 0 && (
-                    <details className="pt-1">
-                      <summary className="cursor-pointer text-sm text-primary">
-                        Audit trail ({fddAudit.length})
-                      </summary>
-                      <ol className="mt-2 space-y-2 border-l border-border-soft pl-3">
-                        {fddAudit.map((entry) => (
-                          <li key={entry.id} className="text-xs">
-                            <p className="font-medium text-foreground">{entry.event.replace(/_/g, " ")}</p>
-                            <p className="text-muted-foreground">
-                              {formatDateTime(entry.created_at)} · {entry.source}
-                              {entry.error ? ` · ${entry.error}` : ""}
-                            </p>
-                          </li>
-                        ))}
-                      </ol>
-                    </details>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Notes */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Advisor Notes</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <NoteForm investorId={lead.id} />
-              {notes.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No notes yet.</p>
-              ) : (
-                <ul className="space-y-3">
-                  {notes.map((note) => {
-                    const author = staffById.get(note.staff_user_id);
-                    return (
-                      <li key={note.id} className="rounded-control border border-border-soft bg-surface p-3">
-                        <p className="whitespace-pre-wrap text-sm text-foreground">{note.note}</p>
-                        <p className="mt-1.5 text-xs text-muted-foreground">
-                          {author ? `${author.first_name} ${author.last_name}` : "Unknown"} ·{" "}
-                          {formatDateTime(note.created_at)}
-                          {note.updated_at !== note.created_at
-                            ? ` · edited ${formatDateTime(note.updated_at)}`
-                            : ""}
-                        </p>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
     </div>
   );
 }
