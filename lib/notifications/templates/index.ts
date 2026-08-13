@@ -99,7 +99,10 @@ async function questionnaireCompleted(context: TemplateContext): Promise<EmailBo
       { label: "Liquid capital", value: labelForValue(questionnaire.liquid_capital) },
       { label: "Net worth", value: labelForValue(questionnaire.net_worth) },
       { label: "Owned a business", value: labelForValue(questionnaire.business_ownership) },
-      { label: "Decision participants", value: questionnaire.decision_participants },
+      {
+        label: "Decision participants",
+        value: labelForValue(questionnaire.decision_participants),
+      },
       { label: "What interested them most", value: questionnaire.primary_interest, block: true },
       {
         label: "Questions for the consultation",
