@@ -404,6 +404,78 @@ export default async function InvestorDetailPage({
             </CardContent>
           </Card>
 
+          {/* Attribution */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Attribution</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-faint-foreground">
+                  First Touch
+                </p>
+                <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                  <Field label="Source" value={lead.source} />
+                  <Field label="Campaign" value={lead.campaign} />
+                  <Field label="Ad Set" value={lead.ad_set} />
+                  <Field label="Ad" value={lead.ad} />
+                  <Field label="UTM Source" value={lead.first_utm_source} />
+                  <Field label="UTM Campaign" value={lead.first_utm_campaign} />
+                  <Field label="UTM Medium" value={lead.first_utm_medium} />
+                  <Field label="UTM Content" value={lead.first_utm_content} />
+                  <Field label="Facebook Lead ID" value={lead.facebook_lead_id} />
+                  <Field label="Facebook Click ID" value={lead.first_fbclid} />
+                  <Field label="Google Click ID" value={lead.first_gclid} />
+                  <Field label="Landing Page" value={lead.first_landing_page} />
+                  <Field label="Referrer" value={lead.first_referrer} />
+                  <Field label="Portal First Opened" value={formatDateTime(lead.portal_first_opened_at)} />
+                </div>
+              </div>
+
+              {(lead.facebook_campaign_id || lead.facebook_adset_id || lead.facebook_ad_id || lead.facebook_form_id) && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-faint-foreground">
+                    Facebook Lead Ads
+                  </p>
+                  <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                    <Field label="Campaign ID" value={lead.facebook_campaign_id} />
+                    <Field label="Ad Set ID" value={lead.facebook_adset_id} />
+                    <Field label="Ad ID" value={lead.facebook_ad_id} />
+                    <Field label="Form ID" value={lead.facebook_form_id} />
+                  </div>
+                </div>
+              )}
+
+              {lead.last_touch_at && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-faint-foreground">
+                    Last Touch
+                  </p>
+                  <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                    <Field label="Source" value={lead.last_utm_source} />
+                    <Field label="Campaign" value={lead.last_utm_campaign} />
+                    <Field label="Referrer" value={lead.last_referrer} />
+                    <Field label="Last Touch At" value={formatDateTime(lead.last_touch_at)} />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-faint-foreground">
+                  Conversion
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {lead.qualification_result === "qualified" && <Badge variant="success">Qualified Lead</Badge>}
+                  {lead.qualification_result === "review_required" && <Badge variant="outline">Review Required</Badge>}
+                  {lead.booked_at && <Badge variant="primary">Booked Consultation</Badge>}
+                  {!lead.qualification_result && !lead.booked_at && (
+                    <span className="text-sm text-muted-foreground">No conversion yet</span>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* FDD */}
           <Card>
             <CardHeader>

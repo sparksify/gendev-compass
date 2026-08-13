@@ -123,14 +123,23 @@ export async function POST(
     // `updatedLead` rather than `lead`: the advisor notification renders the
     // qualification result and score, which only exist after the update
     // above. The version scopes the notification's idempotency key, so a
-    // genuinely new questionnaire version can notify again.
-    await trackEvent(updatedLead, "questionnaire_submitted", {
+    // genuinely new questionnaire version can notify again. The returned
+    // tracking payloads are threaded to the client so the browser fires
+    // dataLayer/Pixel with the same dedup event IDs.
+    const submittedTracking = await trackEvent(updatedLead, "questionnaire_submitted", {
       questionnaireVersion: QUESTIONNAIRE_VERSION,
     });
-    await trackEvent(
+    const qualificationTracking = await trackEvent(
       updatedLead,
       qualification.qualified ? "lead_qualified" : "lead_sent_to_review",
       { score: qualification.score },
+      null,
+      // Tier 2 conversion (spec §8) — the business cares about qualified
+      // volume, not raw submissions. Only a coarse boolean ever leaves the
+      // portal; the score/reasons stay in Supabase.
+      qualification.qualified
+        ? { meta: { customData: { qualification_status: "qualified" } } }
+        : {},
     );
 
     // Every prospect proceeds directly to scheduling — the qualification
@@ -139,6 +148,10 @@ export async function POST(
       success: true,
       qualified: qualification.qualified,
       nextUrl: `${base}/schedule`,
+      tracking: [
+        { eventId: submittedTracking.eventId, dataLayerPayload: submittedTracking.dataLayerPayload, metaPixelBrowser: submittedTracking.metaPixelBrowser },
+        { eventId: qualificationTracking.eventId, dataLayerPayload: qualificationTracking.dataLayerPayload, metaPixelBrowser: qualificationTracking.metaPixelBrowser },
+      ],
     });
   } catch (error) {
     console.error("[questionnaire] save failed:", error);

@@ -1,6 +1,7 @@
 import { loadPortalContext } from "@/lib/portal/context";
 import { PortalShell } from "@/components/layout/PortalShell";
 import { InvalidPortal } from "@/components/portal/InvalidPortal";
+import { AttributionCapture } from "@/components/tracking/AttributionCapture";
 
 /**
  * Portal chrome: validates the token and wraps every portal page in the
@@ -27,6 +28,7 @@ export default async function PortalLayout({
 
   return (
     <PortalShell context={context} token={token}>
+      <AttributionCapture token={token} />
       {children}
     </PortalShell>
   );

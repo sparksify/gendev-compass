@@ -4,6 +4,7 @@ import { HeroBackdrop } from "@/components/dashboard/HeroBackdrop";
 import { VideoCard } from "@/components/dashboard/VideoCard";
 import { InvestorFAQ } from "@/components/dashboard/InvestorFAQ";
 import { InvalidPortal } from "@/components/portal/InvalidPortal";
+import { PortalEventFirer } from "@/components/tracking/PortalEventFirer";
 import { loadPortalContext } from "@/lib/portal/context";
 import { deriveJourney } from "@/lib/portal/journey";
 import { resolveOpportunityProfile } from "@/lib/assets";
@@ -28,6 +29,7 @@ export default async function PortalDashboardPage({
 
   return (
     <div className="space-y-3.5">
+      <PortalEventFirer result={context.openEventTracking} />
       <div className="relative overflow-hidden pb-3 pt-5">
         <HeroBackdrop />
         <div className="relative">
