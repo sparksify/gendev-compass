@@ -24,11 +24,12 @@ export function regionForState(stateToken: string | null | undefined): UsRegion 
   return REGION_BY_STATE[code] ?? null;
 }
 
-/** Approximate pin position (percent of the map's width/height) per region — a
- * schematic reference, not precise geography. */
+/** Approximate pin position (percent of the map's width/height) per region,
+ * plotted against UsRegionMap's viewBox (960x600) — a schematic reference,
+ * not precise geography. */
 export const REGION_PIN_POSITION: Record<UsRegion, { x: number; y: number }> = {
-  Northeast: { x: 84, y: 26 },
-  Midwest: { x: 58, y: 38 },
-  South: { x: 58, y: 68 },
-  West: { x: 24, y: 44 },
+  Northeast: { x: 83, y: 25 },
+  Midwest: { x: 62, y: 30 },
+  South: { x: 62, y: 67 },
+  West: { x: 26, y: 50 },
 };
