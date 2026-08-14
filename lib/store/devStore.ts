@@ -1499,6 +1499,9 @@ export function createDevStore(): PortalStore {
           internal_notes: input.internal_notes ?? null,
           awarded_at: input.awarded_at ?? null,
           reserved_until: input.reserved_until ?? null,
+          source_document_url: input.source_document_url ?? null,
+          source_document_filename: input.source_document_filename ?? null,
+          source_document_uploaded_at: input.source_document_uploaded_at ?? null,
           created_at: nowIso(),
           updated_at: nowIso(),
         };
