@@ -98,6 +98,12 @@ export function InvestorTable({
   }
 
   const appUrl = getAppUrl();
+  // The Next Action / row-menu columns are pinned to the right edge of the
+  // scroll container (rather than scrolling away with the rest of the wide
+  // table) so they stay reachable without a horizontal scroll on narrower
+  // screens. Widths are fixed so the sticky offsets below stay accurate.
+  const rowActionsColWidth = 48;
+  const nextActionColWidth = 192;
 
   return (
     <div className="overflow-x-auto">
@@ -107,8 +113,17 @@ export function InvestorTable({
             {COLUMNS.map((column) => (
               <ColumnHeader key={column.label} column={column} sort={sort} />
             ))}
-            {showNextAction && <th className="px-3.5 py-2.5 font-medium">Next Action</th>}
-            {showRowActions && <th className="w-10 px-2 py-2.5" />}
+            {showNextAction && (
+              <th
+                className="sticky right-0 z-10 border-l border-border-soft bg-card px-3.5 py-2.5 font-medium"
+                style={{ right: showRowActions ? rowActionsColWidth : 0, width: nextActionColWidth }}
+              >
+                Next Action
+              </th>
+            )}
+            {showRowActions && (
+              <th className="sticky right-0 z-10 border-l border-border-soft bg-card px-2 py-2.5" style={{ width: rowActionsColWidth }} />
+            )}
           </tr>
         </thead>
         <tbody>
@@ -118,7 +133,7 @@ export function InvestorTable({
             return (
               <tr
                 key={row.lead.id}
-                className="border-b border-border-soft transition-colors hover:bg-surface"
+                className="group border-b border-border-soft transition-colors hover:bg-surface"
               >
                 <td className="px-4 py-2.5">
                   <div className="flex items-center gap-2.5">
@@ -169,12 +184,18 @@ export function InvestorTable({
                 <td className="px-3.5 py-2.5 text-secondary-foreground">{fddLabel(row)}</td>
                 <td className="px-3.5 py-2.5 text-muted-foreground">{formatRelative(row.lastActivityAt)}</td>
                 {showNextAction && (
-                  <td className="px-3.5 py-2.5">
+                  <td
+                    className="sticky right-0 z-10 border-l border-border-soft bg-card px-3.5 py-2.5 group-hover:bg-surface"
+                    style={{ right: showRowActions ? rowActionsColWidth : 0, width: nextActionColWidth }}
+                  >
                     <NextActionPill action={row.nextAction} />
                   </td>
                 )}
                 {showRowActions && (
-                  <td className="px-2 py-2.5 text-right">
+                  <td
+                    className="sticky right-0 z-10 border-l border-border-soft bg-card px-2 py-2.5 text-right group-hover:bg-surface"
+                    style={{ width: rowActionsColWidth }}
+                  >
                     <RowActionsMenu
                       investorId={row.lead.id}
                       portalUrl={`${appUrl}/p/${row.lead.portal_token}`}
