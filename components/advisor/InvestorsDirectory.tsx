@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarCheck2, Clock, FileText, PlayCircle, Search, SlidersHorizontal, Users } from "lucide-react";
+import { CalendarCheck2, Clock, Download, FileText, PlayCircle, Search, SlidersHorizontal, Users } from "lucide-react";
 import { requireStaffUser } from "@/lib/advisor/auth";
 import { isAdmin } from "@/lib/advisor/access";
 import {
@@ -43,15 +43,17 @@ function SummaryCard({
   sublabel: string;
 }) {
   return (
-    <Card>
-      <CardContent className="flex items-center gap-3.5 p-4">
-        <span className={cn("flex size-11 shrink-0 items-center justify-center rounded-full", iconClassName)}>
-          <Icon className="size-5" />
+    <Card className="border-border-soft shadow-card">
+      <CardContent className="flex items-center gap-3 p-3.5">
+        <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-full", iconClassName)}>
+          <Icon className="size-[18px]" />
         </span>
         <div className="min-w-0">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-          <p className="text-2xl font-semibold text-foreground">{value}</p>
-          <p className="text-xs text-muted-foreground">{sublabel}</p>
+          <p className="truncate text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
+            {label}
+          </p>
+          <p className="text-[26px] font-semibold leading-tight text-foreground">{value}</p>
+          <p className="truncate text-xs text-muted-foreground">{sublabel}</p>
         </div>
       </CardContent>
     </Card>
@@ -124,10 +126,10 @@ export async function InvestorsDirectory({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-[1400px] space-y-5">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="font-serif text-2xl font-semibold text-foreground">{title}</h1>
+          <h1 className="font-serif text-[28px] font-semibold leading-tight text-foreground">{title}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {filtered.length} of {allRows.length} client{allRows.length === 1 ? "" : "s"}
           </p>
@@ -135,8 +137,9 @@ export async function InvestorsDirectory({
         {isAdmin(user) && (
           <a
             href="/api/advisor/export"
-            className="rounded-control border border-border bg-card px-3 py-2 text-sm text-secondary-foreground hover:bg-surface"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-control border border-border bg-card px-3.5 py-2 text-sm font-medium text-secondary-foreground shadow-card hover:bg-surface"
           >
+            <Download className="size-3.5" />
             Export CSV
           </a>
         )}
@@ -180,10 +183,10 @@ export async function InvestorsDirectory({
         />
       </div>
 
-      <Card>
-        <CardContent className="p-4">
-          <form method="get" className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+      <Card className="border-border-soft shadow-card">
+        <CardContent className="p-3.5">
+          <form method="get" className="space-y-2.5">
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
               <div className="xl:col-span-1">
                 <label htmlFor="q" className={labelClass}>
                   Search
@@ -285,7 +288,7 @@ export async function InvestorsDirectory({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-end gap-3 border-t border-border-soft pt-3">
+            <div className="flex flex-wrap items-end gap-3 border-t border-border-soft pt-2.5">
               <div className="w-44">
                 <label htmlFor="active" className={labelClass}>
                   Activity
@@ -313,7 +316,7 @@ export async function InvestorsDirectory({
                 </button>
                 <Link
                   href={basePath}
-                  className="rounded-control border border-border px-4 py-2 text-sm text-secondary-foreground hover:bg-surface"
+                  className="inline-flex items-center rounded-control border border-border px-4 py-2 text-sm text-secondary-foreground hover:bg-surface"
                 >
                   Clear
                 </Link>
@@ -323,7 +326,7 @@ export async function InvestorsDirectory({
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-border-soft shadow-card">
         <CardContent className="p-0">
           <InvestorTable
             rows={pageRows}
