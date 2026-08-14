@@ -141,8 +141,12 @@ export default async function InvestorDetailPage({
 
       {/* Primary row: Next Best Action, the one chart worth keeping large
           (Video Engagement), and the three quick-action status cards
-          stacked on the right — no separate strip for them further down. */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[28fr_36fr_36fr]">
+          stacked on the right — no separate strip for them further down.
+          items-start: cards size to their own content instead of
+          stretching to match whichever sibling is tallest — for a sparse
+          lead (no consultation/FDD/funding yet) that stretch used to
+          leave large dead-space gaps inside the shorter cards. */}
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[28fr_36fr_36fr]">
         <NextBestActionCard action={nextBestAction} email={lead.email} />
         <VideoEngagementCard video={video} />
         <div className="flex flex-col gap-4">
@@ -154,8 +158,9 @@ export default async function InvestorDetailPage({
 
       {/* Secondary row: Advisor Notes (large writing surface), the Hot Lead
           Signal sitting directly above the Activity Timeline it explains,
-          and the compact qualification/territory summaries. */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+          and the compact qualification/territory summaries. Same
+          items-start reasoning as the row above. */}
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
         <div className="lg:col-span-4">
           <AdvisorNotesCard
             investorId={lead.id}
