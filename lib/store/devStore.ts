@@ -1,6 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
+import { defaultStateEligibilityRows } from "@/lib/territory/defaultStateEligibility";
 import type { LeadRecord } from "@/types/lead";
 import type { QuestionnaireRecord } from "@/types/questionnaire";
 import type { VideoProgressRecord } from "@/types/portal";
@@ -1399,7 +1400,7 @@ export function createDevStore(): PortalStore {
     },
 
     async createBrand(input: CreateFranchiseBrandInput): Promise<FranchiseBrandRecord> {
-      return withLock(async () => {
+      const record = await withLock(async () => {
         const data = await readData();
         if (data.franchise_brands.some((b) => b.slug === input.slug)) {
           throw new Error(`Brand already exists: ${input.slug}`);
@@ -1418,6 +1419,17 @@ export function createDevStore(): PortalStore {
         await writeData(data);
         return record;
       });
+
+      // Seed every state's default eligibility so a new brand never starts
+      // fully unconfigured (which the evaluator treats as "manual review
+      // everywhere") — see lib/territory/defaultStateEligibility.ts for the
+      // 14-state registration-law exception list. Deliberately outside the
+      // withLock above: upsertStateEligibility takes its own lock, and
+      // withLock isn't reentrant — nesting it here would deadlock.
+      for (const row of defaultStateEligibilityRows()) {
+        await this.upsertStateEligibility({ brand_id: record.id, state_code: row.stateCode, status: row.status });
+      }
+      return record;
     },
 
     async getStateEligibility(

@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { defaultStateEligibilityRows } from "@/lib/territory/defaultStateEligibility";
 import type { LeadRecord } from "@/types/lead";
 import type { QuestionnaireRecord } from "@/types/questionnaire";
 import type { VideoProgressRecord } from "@/types/portal";
@@ -1045,7 +1046,16 @@ export function createSupabaseStore(): PortalStore {
         .select()
         .single();
       if (error) throw new Error(`Failed to create brand: ${error.message}`);
-      return data as FranchiseBrandRecord;
+      const record = data as FranchiseBrandRecord;
+
+      // Seed every state's default eligibility so a new brand never starts
+      // fully unconfigured (which the evaluator treats as "manual review
+      // everywhere") — see lib/territory/defaultStateEligibility.ts for the
+      // 14-state registration-law exception list.
+      for (const row of defaultStateEligibilityRows()) {
+        await this.upsertStateEligibility({ brand_id: record.id, state_code: row.stateCode, status: row.status });
+      }
+      return record;
     },
 
     async getStateEligibility(
