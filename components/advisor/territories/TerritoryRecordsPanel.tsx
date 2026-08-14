@@ -11,6 +11,7 @@ import {
   PUBLIC_DISPLAY_LEVELS,
   TERRITORY_DEFINITION_TYPES,
   TERRITORY_STATUSES,
+  type PublicDisplayLevel,
   type TerritoryDefinitionRecord,
   type TerritoryDefinitionType,
   type TerritoryStatus,
@@ -41,6 +42,32 @@ const STATUS_LABELS: Record<TerritoryStatus, string> = {
   archived: "Archived",
 };
 
+/** Same soft-color palette StageBadge uses elsewhere in the admin app —
+ *  reused here rather than inventing a second color language. Applied to
+ *  the status <select> itself (colored, not just a static badge) since
+ *  status has to stay editable in place. */
+const STATUS_STYLES: Record<TerritoryStatus, string> = {
+  available: "border-success/30 bg-success-soft text-success",
+  reserved: "border-[#f2cf8a] bg-[#fef3c7] text-[#92400e]",
+  pending: "border-[#c9bcf5] bg-[#ede9fe] text-[#5b21b6]",
+  sold: "border-primary-soft-border bg-primary-soft text-primary",
+  corporate: "border-[#c9bcf5] bg-[#ede9fe] text-[#5b21b6]",
+  unavailable: "border-[#f5b8b8] bg-[#fee2e2] text-destructive",
+  archived: "border-border bg-surface text-muted-foreground",
+};
+
+const DISPLAY_LEVEL_LABELS: Record<PublicDisplayLevel, string> = {
+  hidden: "Hidden",
+  generalized: "Generalized",
+  exact: "Exact",
+};
+
+const DISPLAY_LEVEL_STYLES: Record<PublicDisplayLevel, string> = {
+  hidden: "bg-surface text-muted-foreground",
+  generalized: "bg-primary-soft text-primary",
+  exact: "bg-success-soft text-success",
+};
+
 interface ReportZipPreview {
   zipCode: string;
   city: string | null;
@@ -52,7 +79,7 @@ interface ReportPreview {
   territoryName: string;
   territoryCode: string;
   status: TerritoryStatus;
-  publicDisplayLevel: "hidden" | "generalized" | "exact";
+  publicDisplayLevel: PublicDisplayLevel;
   internalNotes: string;
   zips: ReportZipPreview[];
   excludedZips: Set<string>;
@@ -73,7 +100,7 @@ const emptyForm = {
   centerLatitude: "",
   centerLongitude: "",
   radiusMiles: "",
-  publicDisplayLevel: "generalized" as "hidden" | "generalized" | "exact",
+  publicDisplayLevel: "generalized" as PublicDisplayLevel,
   internalNotes: "",
   awardedAt: "",
   reservedUntil: "",
@@ -188,7 +215,7 @@ export function TerritoryRecordsPanel({ brandId, initialTerritories, initialZipC
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <UploadReportCard brandId={brandId} onSaved={handleReportSaved} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -200,18 +227,18 @@ export function TerritoryRecordsPanel({ brandId, initialTerritories, initialZipC
 
       {showCreate && (
         <Card>
-          <CardContent className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2">
+          <CardContent className="grid grid-cols-1 gap-3.5 p-5 sm:grid-cols-2">
             <div>
               <Label htmlFor="territoryName">Territory name</Label>
-              <Input id="territoryName" className="mt-1" value={form.territoryName} onChange={(e) => setForm({ ...form, territoryName: e.target.value })} />
+              <Input id="territoryName" className="mt-1.5" value={form.territoryName} onChange={(e) => setForm({ ...form, territoryName: e.target.value })} />
             </div>
             <div>
               <Label htmlFor="territoryCode">Territory code</Label>
-              <Input id="territoryCode" className="mt-1" value={form.territoryCode} onChange={(e) => setForm({ ...form, territoryCode: e.target.value })} />
+              <Input id="territoryCode" className="mt-1.5" value={form.territoryCode} onChange={(e) => setForm({ ...form, territoryCode: e.target.value })} />
             </div>
             <div>
               <Label htmlFor="definitionType">Definition type</Label>
-              <NativeSelect id="definitionType" className="mt-1" value={form.definitionType} onChange={(e) => setForm({ ...form, definitionType: e.target.value as TerritoryDefinitionType })}>
+              <NativeSelect id="definitionType" className="mt-1.5" value={form.definitionType} onChange={(e) => setForm({ ...form, definitionType: e.target.value as TerritoryDefinitionType })}>
                 {TERRITORY_DEFINITION_TYPES.map((t) => (
                   <option key={t} value={t}>{t}</option>
                 ))}
@@ -219,9 +246,9 @@ export function TerritoryRecordsPanel({ brandId, initialTerritories, initialZipC
             </div>
             <div>
               <Label htmlFor="status">Status</Label>
-              <NativeSelect id="status" className="mt-1" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as TerritoryStatus })}>
+              <NativeSelect id="status" className="mt-1.5" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as TerritoryStatus })}>
                 {TERRITORY_STATUSES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
+                  <option key={s} value={s}>{STATUS_LABELS[s]}</option>
                 ))}
               </NativeSelect>
             </div>
@@ -229,37 +256,37 @@ export function TerritoryRecordsPanel({ brandId, initialTerritories, initialZipC
               <>
                 <div>
                   <Label htmlFor="centerLatitude">Center latitude</Label>
-                  <Input id="centerLatitude" className="mt-1" value={form.centerLatitude} onChange={(e) => setForm({ ...form, centerLatitude: e.target.value })} />
+                  <Input id="centerLatitude" className="mt-1.5" value={form.centerLatitude} onChange={(e) => setForm({ ...form, centerLatitude: e.target.value })} />
                 </div>
                 <div>
                   <Label htmlFor="centerLongitude">Center longitude</Label>
-                  <Input id="centerLongitude" className="mt-1" value={form.centerLongitude} onChange={(e) => setForm({ ...form, centerLongitude: e.target.value })} />
+                  <Input id="centerLongitude" className="mt-1.5" value={form.centerLongitude} onChange={(e) => setForm({ ...form, centerLongitude: e.target.value })} />
                 </div>
                 <div>
                   <Label htmlFor="radiusMiles">Radius (miles)</Label>
-                  <Input id="radiusMiles" className="mt-1" value={form.radiusMiles} onChange={(e) => setForm({ ...form, radiusMiles: e.target.value })} />
+                  <Input id="radiusMiles" className="mt-1.5" value={form.radiusMiles} onChange={(e) => setForm({ ...form, radiusMiles: e.target.value })} />
                 </div>
               </>
             )}
             <div>
               <Label htmlFor="publicDisplayLevel">Public display level</Label>
-              <NativeSelect id="publicDisplayLevel" className="mt-1" value={form.publicDisplayLevel} onChange={(e) => setForm({ ...form, publicDisplayLevel: e.target.value as typeof form.publicDisplayLevel })}>
+              <NativeSelect id="publicDisplayLevel" className="mt-1.5" value={form.publicDisplayLevel} onChange={(e) => setForm({ ...form, publicDisplayLevel: e.target.value as PublicDisplayLevel })}>
                 {PUBLIC_DISPLAY_LEVELS.map((l) => (
-                  <option key={l} value={l}>{l}</option>
+                  <option key={l} value={l}>{DISPLAY_LEVEL_LABELS[l]}</option>
                 ))}
               </NativeSelect>
             </div>
             <div>
               <Label htmlFor="awardedAt">Awarded date</Label>
-              <Input id="awardedAt" type="date" className="mt-1" value={form.awardedAt} onChange={(e) => setForm({ ...form, awardedAt: e.target.value })} />
+              <Input id="awardedAt" type="date" className="mt-1.5" value={form.awardedAt} onChange={(e) => setForm({ ...form, awardedAt: e.target.value })} />
             </div>
             <div>
               <Label htmlFor="reservedUntil">Reservation expires</Label>
-              <Input id="reservedUntil" type="date" className="mt-1" value={form.reservedUntil} onChange={(e) => setForm({ ...form, reservedUntil: e.target.value })} />
+              <Input id="reservedUntil" type="date" className="mt-1.5" value={form.reservedUntil} onChange={(e) => setForm({ ...form, reservedUntil: e.target.value })} />
             </div>
             <div className="sm:col-span-2">
               <Label htmlFor="internalNotes">Internal notes (never shown to prospects)</Label>
-              <Textarea id="internalNotes" className="mt-1" value={form.internalNotes} onChange={(e) => setForm({ ...form, internalNotes: e.target.value })} />
+              <Textarea id="internalNotes" className="mt-1.5" value={form.internalNotes} onChange={(e) => setForm({ ...form, internalNotes: e.target.value })} />
             </div>
             {error && <div className="sm:col-span-2"><FieldError message={error} /></div>}
             <div className="flex gap-2 sm:col-span-2">
@@ -274,15 +301,15 @@ export function TerritoryRecordsPanel({ brandId, initialTerritories, initialZipC
 
       <Card>
         <CardContent className="p-0">
-          <table className="w-full text-left text-[13px]">
+          <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
-                <th className="px-4 py-2.5 font-medium">Name</th>
-                <th className="px-4 py-2.5 font-medium">Type</th>
-                <th className="px-4 py-2.5 font-medium">Status</th>
-                <th className="px-4 py-2.5 font-medium">Display</th>
-                <th className="px-4 py-2.5 font-medium">ZIPs / Radius</th>
-                <th className="px-4 py-2.5 font-medium" />
+              <tr className="border-b border-border text-xs uppercase tracking-wide text-faint-foreground">
+                <th className="px-4 py-3 font-medium">Name</th>
+                <th className="px-4 py-3 font-medium">Type</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Display</th>
+                <th className="px-4 py-3 font-medium">ZIPs / Radius</th>
+                <th className="px-4 py-3 font-medium" />
               </tr>
             </thead>
             <tbody>
@@ -300,7 +327,7 @@ export function TerritoryRecordsPanel({ brandId, initialTerritories, initialZipC
               ))}
               {territories.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                     No territories yet.
                   </td>
                 </tr>
@@ -311,13 +338,13 @@ export function TerritoryRecordsPanel({ brandId, initialTerritories, initialZipC
       </Card>
 
       <Card>
-        <CardContent className="space-y-3 p-4">
+        <CardContent className="space-y-3.5 p-5">
           <div className="flex items-center gap-2">
             <Upload className="size-4 text-muted-foreground" strokeWidth={1.8} />
-            <p className="text-[13.5px] font-bold text-foreground">Bulk ZIP Import (CSV)</p>
+            <p className="text-sm font-semibold text-foreground">Bulk ZIP Import (CSV)</p>
           </div>
-          <p className="text-[12.5px] text-muted-foreground">
-            Columns: <code className="rounded bg-surface px-1 py-0.5 text-[11.5px]">{CSV_TEMPLATE_HEADER}</code>.
+          <p className="text-sm text-muted-foreground">
+            Columns: <code className="rounded bg-surface px-1 py-0.5 text-xs">{CSV_TEMPLATE_HEADER}</code>.
             Rows are grouped by territory_code (or territory_name) — existing territories are reused.
           </p>
           <Textarea
@@ -330,7 +357,7 @@ export function TerritoryRecordsPanel({ brandId, initialTerritories, initialZipC
             {csvBusy && <Loader2 className="animate-spin" />} Import CSV
           </Button>
           {csvResult && (
-            <div className="rounded-control border border-border bg-surface p-3 text-[12.5px]">
+            <div className="rounded-control border-2 border-border-strong bg-surface p-3.5 text-sm">
               <p className="font-medium text-foreground">
                 {csvResult.summary.createdTerritories ?? 0} created, {csvResult.summary.reusedTerritories ?? 0} reused,{" "}
                 {csvResult.summary.zipsAdded ?? 0} ZIPs added
@@ -431,29 +458,31 @@ function TerritoryRow({
   return (
     <>
       <tr className="border-b border-border-soft last:border-0">
-        <td className="px-4 py-2.5">
-          <p className="font-medium text-foreground">{territory.territory_name}</p>
-          {territory.territory_code && <p className="text-[11.5px] text-muted-foreground">{territory.territory_code}</p>}
+        <td className="px-4 py-3">
+          <p className="font-semibold text-foreground">{territory.territory_name}</p>
+          {territory.territory_code && <p className="text-xs text-muted-foreground">{territory.territory_code}</p>}
         </td>
-        <td className="px-4 py-2.5 text-muted-foreground">{territory.definition_type}</td>
-        <td className="px-4 py-2.5">
+        <td className="px-4 py-3 text-secondary-foreground">{territory.definition_type}</td>
+        <td className="px-4 py-3">
           <NativeSelect
-            className="!py-1.5 text-xs"
+            className={cn("w-auto min-w-[9.5rem] font-medium", STATUS_STYLES[territory.status])}
             value={territory.status}
             onChange={(e) => onStatusChange(e.target.value as TerritoryStatus)}
           >
             {TERRITORY_STATUSES.map((s) => (
-              <option key={s} value={s}>{s}</option>
+              <option key={s} value={s}>{STATUS_LABELS[s]}</option>
             ))}
           </NativeSelect>
         </td>
-        <td className="px-4 py-2.5">
-          <Badge variant="outline">{territory.public_display_level}</Badge>
+        <td className="px-4 py-3">
+          <Badge className={DISPLAY_LEVEL_STYLES[territory.public_display_level]}>
+            {DISPLAY_LEVEL_LABELS[territory.public_display_level]}
+          </Badge>
         </td>
-        <td className="px-4 py-2.5 text-muted-foreground">
+        <td className="px-4 py-3 text-secondary-foreground">
           {territory.definition_type === "zip_list" ? `${zipCount} ZIPs` : territory.radius_miles ? `${territory.radius_miles} mi` : "—"}
         </td>
-        <td className="px-4 py-2.5">
+        <td className="px-4 py-3">
           <div className="flex items-center justify-end gap-3">
             {territory.definition_type === "zip_list" && (
               <button type="button" onClick={handleToggle} className="text-muted-foreground hover:text-foreground">
@@ -475,7 +504,7 @@ function TerritoryRow({
       </tr>
       {expanded && territory.definition_type === "zip_list" && (
         <tr>
-          <td colSpan={6} className="bg-surface px-4 py-3">
+          <td colSpan={6} className="bg-surface px-4 py-3.5">
             <div className="flex flex-wrap gap-1.5">
               {(zips ?? []).map((z) => (
                 <span key={z.id} className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-xs">
@@ -487,7 +516,7 @@ function TerritoryRow({
               ))}
               {(zips ?? []).length === 0 && <span className="text-xs text-muted-foreground">No ZIP codes yet.</span>}
             </div>
-            <div className="mt-2 flex gap-2">
+            <div className="mt-2.5 flex gap-2">
               <Input
                 value={newZips}
                 onChange={(e) => setNewZips(e.target.value)}
@@ -617,15 +646,19 @@ function UploadReportCard({
 
   return (
     <Card>
-      <CardContent className="space-y-3 p-4">
-        <div className="flex items-center gap-2">
-          <FileUp className="size-4 text-muted-foreground" strokeWidth={1.8} />
-          <p className="text-[13.5px] font-bold text-foreground">Upload Territory Report</p>
+      <CardContent className="space-y-3.5 p-5">
+        <div className="flex items-center gap-2.5">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-soft">
+            <FileUp className="size-4 text-primary" strokeWidth={1.8} />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-foreground">Upload Territory Report</p>
+            <p className="text-sm text-muted-foreground">
+              Upload the Territory Demographic Report PDF exported from the mapping software. We read the
+              territory name and ZIP codes from it — you choose the status and confirm before anything is saved.
+            </p>
+          </div>
         </div>
-        <p className="text-[12.5px] text-muted-foreground">
-          Upload the Territory Demographic Report PDF exported from the mapping software. We read the
-          territory name and ZIP codes from it — you choose the status and confirm before anything is saved.
-        </p>
 
         {!preview && (
           <div className="flex items-center gap-3">
@@ -635,7 +668,7 @@ function UploadReportCard({
               accept="application/pdf"
               onChange={handleFileChange}
               disabled={parsing}
-              className="text-[12.5px] text-muted-foreground file:mr-3 file:cursor-pointer file:rounded-control file:border file:border-border file:bg-card file:px-3 file:py-1.5 file:text-[12.5px] file:font-medium file:text-foreground hover:file:bg-surface"
+              className="text-sm text-muted-foreground file:mr-3 file:cursor-pointer file:rounded-control file:border-2 file:border-border-strong file:bg-card file:px-3.5 file:py-2 file:text-sm file:font-medium file:text-foreground hover:file:bg-surface"
             />
             {parsing && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
           </div>
@@ -643,13 +676,13 @@ function UploadReportCard({
         {parseError && <FieldError message={parseError} />}
 
         {preview && (
-          <div className="space-y-3 rounded-control border border-border bg-surface p-3.5">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-3.5 rounded-control border-2 border-border-strong bg-surface p-4">
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
               <div>
                 <Label htmlFor="reportTerritoryName">Territory label</Label>
                 <Input
                   id="reportTerritoryName"
-                  className="mt-1"
+                  className="mt-1.5"
                   value={preview.territoryName}
                   onChange={(e) => setPreview({ ...preview, territoryName: e.target.value })}
                 />
@@ -658,7 +691,7 @@ function UploadReportCard({
                 <Label htmlFor="reportTerritoryCode">Territory code (optional)</Label>
                 <Input
                   id="reportTerritoryCode"
-                  className="mt-1"
+                  className="mt-1.5"
                   value={preview.territoryCode}
                   onChange={(e) => setPreview({ ...preview, territoryCode: e.target.value })}
                 />
@@ -667,7 +700,7 @@ function UploadReportCard({
                 <Label htmlFor="reportStatus">Mark as</Label>
                 <NativeSelect
                   id="reportStatus"
-                  className="mt-1"
+                  className={cn("mt-1.5 font-medium", STATUS_STYLES[preview.status])}
                   value={preview.status}
                   onChange={(e) => setPreview({ ...preview, status: e.target.value as TerritoryStatus })}
                 >
@@ -680,12 +713,12 @@ function UploadReportCard({
                 <Label htmlFor="reportDisplayLevel">Public display level</Label>
                 <NativeSelect
                   id="reportDisplayLevel"
-                  className="mt-1"
+                  className="mt-1.5"
                   value={preview.publicDisplayLevel}
-                  onChange={(e) => setPreview({ ...preview, publicDisplayLevel: e.target.value as ReportPreview["publicDisplayLevel"] })}
+                  onChange={(e) => setPreview({ ...preview, publicDisplayLevel: e.target.value as PublicDisplayLevel })}
                 >
                   {PUBLIC_DISPLAY_LEVELS.map((l) => (
-                    <option key={l} value={l}>{l}</option>
+                    <option key={l} value={l}>{DISPLAY_LEVEL_LABELS[l]}</option>
                   ))}
                 </NativeSelect>
               </div>
@@ -693,7 +726,7 @@ function UploadReportCard({
                 <Label htmlFor="reportNotes">Internal notes (never shown to prospects)</Label>
                 <Textarea
                   id="reportNotes"
-                  className="mt-1"
+                  className="mt-1.5"
                   rows={2}
                   value={preview.internalNotes}
                   onChange={(e) => setPreview({ ...preview, internalNotes: e.target.value })}
@@ -702,7 +735,7 @@ function UploadReportCard({
             </div>
 
             {preview.warnings.length > 0 && (
-              <div className="rounded-control border border-[#f5d78e] bg-[#fdf6e3] p-2.5 text-[12px] text-[#7a5b00]">
+              <div className="rounded-control border-2 border-[#f2cf8a] bg-[#fdf6e3] p-3 text-sm text-[#7a5b00]">
                 {preview.warnings.map((warning, i) => (
                   <p key={i}>{warning}</p>
                 ))}
@@ -710,10 +743,10 @@ function UploadReportCard({
             )}
 
             <div>
-              <p className="text-[11.5px] font-medium uppercase tracking-wide text-muted-foreground">
+              <p className="text-xs font-medium uppercase tracking-wide text-faint-foreground">
                 {includedCount} of {preview.zips.length} ZIP code{preview.zips.length === 1 ? "" : "s"} will be saved
               </p>
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
+              <div className="mt-2 flex flex-wrap gap-1.5">
                 {preview.zips.map((z) => {
                   const excluded = preview.excludedZips.has(z.zipCode);
                   return (
