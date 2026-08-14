@@ -2,6 +2,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
 import { defaultStateEligibilityRows } from "@/lib/territory/defaultStateEligibility";
+import { deleteTerritoryReportFile } from "@/lib/territory/reportStorage";
 import type { LeadRecord } from "@/types/lead";
 import type { QuestionnaireRecord } from "@/types/questionnaire";
 import type { VideoProgressRecord } from "@/types/portal";
@@ -1535,6 +1536,21 @@ export function createDevStore(): PortalStore {
         await writeData(data);
         return record;
       });
+    },
+
+    async deleteTerritoryDefinition(id: string): Promise<void> {
+      const sourceUrl = await withLock(async () => {
+        const data = await readData();
+        const record = data.territory_definitions.find((t) => t.id === id);
+        data.territory_definitions = data.territory_definitions.filter((t) => t.id !== id);
+        // No real FK in the file-backed store — cascade manually.
+        data.territory_zip_codes = data.territory_zip_codes.filter((z) => z.territory_definition_id !== id);
+        await writeData(data);
+        return record?.source_document_url ?? null;
+      });
+      // Outside the lock: this is best-effort file cleanup, not a store
+      // write — no need to hold the data-file lock while it runs.
+      if (sourceUrl) await deleteTerritoryReportFile(sourceUrl);
     },
 
     async listZipCodesForTerritory(territoryDefinitionId: string): Promise<TerritoryZipCodeRecord[]> {

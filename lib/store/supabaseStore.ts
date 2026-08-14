@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { defaultStateEligibilityRows } from "@/lib/territory/defaultStateEligibility";
+import { deleteTerritoryReportFile } from "@/lib/territory/reportStorage";
 import type { LeadRecord } from "@/types/lead";
 import type { QuestionnaireRecord } from "@/types/questionnaire";
 import type { VideoProgressRecord } from "@/types/portal";
@@ -1148,6 +1149,22 @@ export function createSupabaseStore(): PortalStore {
         .single();
       if (error) throw new Error(`Failed to update territory definition: ${error.message}`);
       return data as TerritoryDefinitionRecord;
+    },
+
+    async deleteTerritoryDefinition(id: string): Promise<void> {
+      // territory_zip_codes cascades in Postgres (see migration 0005) — no
+      // manual cleanup needed there. The source report PDF (if any) lives
+      // in Supabase storage, outside the DB, so it's cleaned up separately
+      // and best-effort (see deleteTerritoryReportFile).
+      const { data: existing } = await db
+        .from("territory_definitions")
+        .select("source_document_url")
+        .eq("id", id)
+        .maybeSingle();
+      const { error } = await db.from("territory_definitions").delete().eq("id", id);
+      if (error) throw new Error(`Failed to delete territory definition: ${error.message}`);
+      const sourceUrl = (existing as { source_document_url: string | null } | null)?.source_document_url;
+      if (sourceUrl) await deleteTerritoryReportFile(sourceUrl);
     },
 
     async listZipCodesForTerritory(territoryDefinitionId: string): Promise<TerritoryZipCodeRecord[]> {

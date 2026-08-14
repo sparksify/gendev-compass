@@ -613,6 +613,10 @@ export interface PortalStore {
   getTerritoryDefinition(id: string): Promise<TerritoryDefinitionRecord | null>;
   createTerritoryDefinition(input: CreateTerritoryDefinitionInput): Promise<TerritoryDefinitionRecord>;
   updateTerritoryDefinition(id: string, patch: TerritoryDefinitionPatch): Promise<TerritoryDefinitionRecord>;
+  /** Hard delete — also removes the territory's ZIP codes (cascade in
+   *  Supabase; the dev store cascades manually). Distinct from the
+   *  "archived" status, which soft-hides a territory without removing it. */
+  deleteTerritoryDefinition(id: string): Promise<void>;
 
   listZipCodesForTerritory(territoryDefinitionId: string): Promise<TerritoryZipCodeRecord[]>;
   /** Bulk insert; silently skips zip codes already attached to this territory. */

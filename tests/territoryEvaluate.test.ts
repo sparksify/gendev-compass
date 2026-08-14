@@ -370,3 +370,51 @@ describe("evaluateTerritory", () => {
     expect(queue.some((r) => r.id === reviewRequest.id)).toBe(true);
   });
 });
+
+describe("deleteTerritoryDefinition", () => {
+  it("removes the territory and, unlike archiving, its ZIP codes too — a real hard delete", async () => {
+    const brand = await createBrand();
+    const territory = await store.createTerritoryDefinition({
+      brand_id: brand.id,
+      territory_name: "Delete Me",
+      definition_type: "zip_list",
+      status: "sold",
+    });
+    await store.addTerritoryZipCodes(territory.id, ["10001", "10002"]);
+    expect(await store.listZipCodesForTerritory(territory.id)).toHaveLength(2);
+
+    await store.deleteTerritoryDefinition(territory.id);
+
+    expect(await store.getTerritoryDefinition(territory.id)).toBeNull();
+    expect(await store.listZipCodesForTerritory(territory.id)).toHaveLength(0);
+    const remaining = await store.listTerritoryDefinitions(brand.id);
+    expect(remaining.some((t) => t.id === territory.id)).toBe(false);
+  });
+
+  it("deleting one territory never touches another's ZIP codes", async () => {
+    const brand = await createBrand();
+    const keep = await store.createTerritoryDefinition({
+      brand_id: brand.id,
+      territory_name: "Keep Me",
+      definition_type: "zip_list",
+      status: "sold",
+    });
+    const remove = await store.createTerritoryDefinition({
+      brand_id: brand.id,
+      territory_name: "Remove Me",
+      definition_type: "zip_list",
+      status: "sold",
+    });
+    await store.addTerritoryZipCodes(keep.id, ["10001"]);
+    await store.addTerritoryZipCodes(remove.id, ["10002"]);
+
+    await store.deleteTerritoryDefinition(remove.id);
+
+    expect(await store.getTerritoryDefinition(keep.id)).not.toBeNull();
+    expect(await store.listZipCodesForTerritory(keep.id)).toHaveLength(1);
+  });
+
+  it("deleting a nonexistent territory is a safe no-op", async () => {
+    await expect(store.deleteTerritoryDefinition("does-not-exist")).resolves.toBeUndefined();
+  });
+});
