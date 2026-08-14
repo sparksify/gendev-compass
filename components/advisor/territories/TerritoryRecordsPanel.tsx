@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, ChevronDown, ChevronUp, FileUp, Loader2, Plus, Upload } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, FileUp, Loader2, Plus, Trash2, Upload } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label, NativeSelect, Textarea, FieldError } from "@/components/ui/form-fields";
@@ -149,6 +149,20 @@ export function TerritoryRecordsPanel({ brandId, initialTerritories, initialZipC
     }
   }
 
+  async function deleteTerritory(id: string): Promise<boolean> {
+    const response = await fetch(`/api/advisor/territories/records/${id}`, { method: "DELETE" });
+    const data = await response.json();
+    if (data.success) {
+      setTerritories((prev) => prev.filter((t) => t.id !== id));
+      setZipCounts((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    }
+    return Boolean(data.success);
+  }
+
   async function submitCsv() {
     setCsvBusy(true);
     setCsvResult(null);
@@ -281,6 +295,7 @@ export function TerritoryRecordsPanel({ brandId, initialTerritories, initialZipC
                   onToggle={() => setExpandedId((prev) => (prev === t.id ? null : t.id))}
                   onStatusChange={(status) => updateStatus(t.id, status)}
                   onZipCountChange={(count) => setZipCounts((prev) => ({ ...prev, [t.id]: count }))}
+                  onDelete={() => deleteTerritory(t.id)}
                 />
               ))}
               {territories.length === 0 && (
@@ -343,6 +358,7 @@ function TerritoryRow({
   onToggle,
   onStatusChange,
   onZipCountChange,
+  onDelete,
 }: {
   territory: TerritoryDefinitionRecord;
   zipCount: number;
@@ -350,10 +366,28 @@ function TerritoryRow({
   onToggle: () => void;
   onStatusChange: (status: TerritoryStatus) => void;
   onZipCountChange: (count: number) => void;
+  onDelete: () => Promise<boolean>;
 }) {
   const [zips, setZips] = useState<Array<{ id: string; zip_code: string }> | null>(null);
   const [newZips, setNewZips] = useState("");
   const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    const zipLabel = territory.definition_type === "zip_list" ? ` and its ${zipCount} ZIP code${zipCount === 1 ? "" : "s"}` : "";
+    const confirmed = window.confirm(
+      `Delete "${territory.territory_name}"${zipLabel}? This cannot be undone.`,
+    );
+    if (!confirmed) return;
+    setDeleting(true);
+    const ok = await onDelete();
+    if (!ok) {
+      setDeleting(false);
+      window.alert("Could not delete this territory — please try again.");
+    }
+    // On success the row unmounts (parent removes it from the list), so
+    // there's nothing to reset here.
+  }
 
   async function loadZips() {
     if (territory.definition_type !== "zip_list") return;
@@ -419,12 +453,24 @@ function TerritoryRow({
         <td className="px-4 py-2.5 text-muted-foreground">
           {territory.definition_type === "zip_list" ? `${zipCount} ZIPs` : territory.radius_miles ? `${territory.radius_miles} mi` : "—"}
         </td>
-        <td className="px-4 py-2.5 text-right">
-          {territory.definition_type === "zip_list" && (
-            <button type="button" onClick={handleToggle} className="text-muted-foreground hover:text-foreground">
-              {expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+        <td className="px-4 py-2.5">
+          <div className="flex items-center justify-end gap-3">
+            {territory.definition_type === "zip_list" && (
+              <button type="button" onClick={handleToggle} className="text-muted-foreground hover:text-foreground">
+                {expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              title="Delete territory"
+              aria-label={`Delete ${territory.territory_name}`}
+              className="text-muted-foreground hover:text-destructive disabled:opacity-50"
+            >
+              {deleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
             </button>
-          )}
+          </div>
         </td>
       </tr>
       {expanded && territory.definition_type === "zip_list" && (

@@ -64,3 +64,27 @@ export async function readDevTerritoryReportFile(id: string): Promise<Buffer | n
     return null;
   }
 }
+
+/**
+ * Best-effort cleanup when a territory carrying a source document is
+ * deleted — never allowed to block the delete itself (an orphaned file is
+ * harmless; a territory a staff member can't remove is not).
+ */
+export async function deleteTerritoryReportFile(url: string): Promise<void> {
+  try {
+    if (isSupabaseConfigured()) {
+      const marker = `/storage/v1/object/public/${BUCKET}/`;
+      const index = url.indexOf(marker);
+      if (index === -1) return;
+      const storagePath = decodeURIComponent(url.slice(index + marker.length));
+      const { error } = await getSupabaseAdmin().storage.from(BUCKET).remove([storagePath]);
+      if (error) throw error;
+      return;
+    }
+    const match = url.match(/\/reports\/file\/([^/?]+)/);
+    if (!match) return;
+    await fs.rm(path.join(DEV_DIR, match[1]), { force: true });
+  } catch (error) {
+    console.error("[territory-reports] best-effort file cleanup failed:", error);
+  }
+}
