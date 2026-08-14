@@ -49,12 +49,12 @@ const COLUMNS: Array<{ key: InvestorSortKey | null; label: string }> = [
 
 function ColumnHeader({ column, sort }: { column: (typeof COLUMNS)[number]; sort?: SortConfig }) {
   if (!column.key || !sort) {
-    return <th className="px-3 py-2.5 font-medium">{column.label}</th>;
+    return <th className="px-3.5 py-2.5 font-medium">{column.label}</th>;
   }
   const active = sort.activeKey === column.key;
   const Icon = active ? (sort.activeDir === "asc" ? ChevronUp : ChevronDown) : ChevronsUpDown;
   return (
-    <th className="px-3 py-2.5 font-medium">
+    <th className="px-3.5 py-2.5 font-medium">
       <Link
         href={sort.hrefFor(column.key)}
         className={cn(
@@ -101,14 +101,14 @@ export function InvestorTable({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[1000px] text-left text-sm">
+      <table className="w-full min-w-[1080px] text-left text-sm">
         <thead>
           <tr className="border-b border-border text-xs uppercase tracking-wide text-faint-foreground">
             {COLUMNS.map((column) => (
               <ColumnHeader key={column.label} column={column} sort={sort} />
             ))}
-            {showNextAction && <th className="px-3 py-2.5 font-medium">Next Action</th>}
-            {showRowActions && <th className="px-3 py-2.5" />}
+            {showNextAction && <th className="px-3.5 py-2.5 font-medium">Next Action</th>}
+            {showRowActions && <th className="w-10 px-2 py-2.5" />}
           </tr>
         </thead>
         <tbody>
@@ -116,15 +116,18 @@ export function InvestorTable({
             const fullName = `${row.lead.first_name} ${row.lead.last_name}`;
             const date = consultationDate(row);
             return (
-              <tr key={row.lead.id} className="border-b border-border-soft hover:bg-surface">
-                <td className="px-4 py-3">
+              <tr
+                key={row.lead.id}
+                className="border-b border-border-soft transition-colors hover:bg-surface"
+              >
+                <td className="px-4 py-2.5">
                   <div className="flex items-center gap-2.5">
                     <InitialsAvatar name={fullName} size="sm" />
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <Link
                           href={`/advisor/investors/${row.lead.id}`}
-                          className="font-medium text-foreground hover:text-primary"
+                          className="font-semibold text-foreground hover:text-primary"
                         >
                           {fullName}
                         </Link>
@@ -140,38 +143,38 @@ export function InvestorTable({
                     </div>
                   </div>
                 </td>
-                <td className="px-3 py-3">
+                <td className="px-3.5 py-2.5">
                   <StageBadge stage={row.lead.current_stage} />
                 </td>
-                <td className="px-3 py-3 text-secondary-foreground">
+                <td className="px-3.5 py-2.5 text-secondary-foreground">
                   {row.advisor ? `${row.advisor.first_name} ${row.advisor.last_name}` : "—"}
                 </td>
-                <td className="px-3 py-3 text-secondary-foreground">
+                <td className="px-3.5 py-2.5 text-secondary-foreground">
                   {labelForValue(row.questionnaire?.liquid_capital ?? row.lead.initial_liquid_capital)}
                 </td>
-                <td className="px-3 py-3 text-secondary-foreground">
+                <td className="px-3.5 py-2.5 text-secondary-foreground">
                   {labelForValue(row.questionnaire?.net_worth ?? row.lead.initial_net_worth)}
                 </td>
-                <td className="px-3 py-3">
+                <td className="px-3.5 py-2.5">
                   {row.video ? (
                     <MiniVideoRing percent={row.video.highest_percent_watched} completed={row.video.completed} />
                   ) : (
                     <span className="text-secondary-foreground">—</span>
                   )}
                 </td>
-                <td className="px-3 py-3 text-secondary-foreground">
+                <td className="px-3.5 py-2.5 text-secondary-foreground">
                   {consultationLabel(row)}
                   {date && <span className="block text-xs text-muted-foreground">{date}</span>}
                 </td>
-                <td className="px-3 py-3 text-secondary-foreground">{fddLabel(row)}</td>
-                <td className="px-3 py-3 text-muted-foreground">{formatRelative(row.lastActivityAt)}</td>
+                <td className="px-3.5 py-2.5 text-secondary-foreground">{fddLabel(row)}</td>
+                <td className="px-3.5 py-2.5 text-muted-foreground">{formatRelative(row.lastActivityAt)}</td>
                 {showNextAction && (
-                  <td className="px-3 py-3">
+                  <td className="px-3.5 py-2.5">
                     <NextActionPill action={row.nextAction} />
                   </td>
                 )}
                 {showRowActions && (
-                  <td className="px-3 py-3 text-right">
+                  <td className="px-2 py-2.5 text-right">
                     <RowActionsMenu
                       investorId={row.lead.id}
                       portalUrl={`${appUrl}/p/${row.lead.portal_token}`}
