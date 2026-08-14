@@ -5,29 +5,11 @@ import { NextActionPill } from "./NextActionPill";
 import { MiniVideoRing } from "./MiniVideoRing";
 import { RowActionsMenu } from "./RowActionsMenu";
 import { InitialsAvatar } from "./investorDetail/InitialsAvatar";
-import { formatDate, formatRelative } from "@/lib/advisor/format";
+import { formatRelative } from "@/lib/advisor/format";
 import { labelForValue } from "@/lib/advisor/questionnaireCatalog";
-import { FDD_STATUS_LABELS } from "@/lib/fdd/status";
 import { getAppUrl } from "@/lib/config/env";
 import { cn } from "@/lib/utils";
 import type { InvestorRow, InvestorSortKey } from "@/lib/advisor/investors";
-
-function consultationLabel(row: InvestorRow): string {
-  if (row.activeAppointment) return row.activeAppointment.status === "RESCHEDULED" ? "Rescheduled" : "Scheduled";
-  if (row.appointments.some((a) => a.status === "COMPLETED")) return "Completed";
-  if (row.appointments.some((a) => a.status === "CANCELLED")) return "Cancelled";
-  if (row.lead.booked_at) return "Scheduled";
-  return "—";
-}
-
-function consultationDate(row: InvestorRow): string | null {
-  const when = row.activeAppointment?.scheduled_start ?? row.lead.appointment_start_at;
-  return when ? formatDate(when) : null;
-}
-
-function fddLabel(row: InvestorRow): string {
-  return row.fddStatus === "not_requested" ? "—" : FDD_STATUS_LABELS[row.fddStatus];
-}
 
 interface SortConfig {
   activeKey: InvestorSortKey | null;
@@ -35,15 +17,15 @@ interface SortConfig {
   hrefFor: (key: InvestorSortKey) => string;
 }
 
+// Net Worth, Consultation, and FDD were dropped from the list view — that
+// detail lives one click away on the client detail page, and cutting them
+// let the remaining columns breathe instead of competing for space.
 const COLUMNS: Array<{ key: InvestorSortKey | null; label: string }> = [
   { key: "client", label: "Client" },
   { key: "stage", label: "Stage" },
   { key: "advisor", label: "Advisor" },
   { key: "liquidCapital", label: "Liquid Capital" },
-  { key: "netWorth", label: "Net Worth" },
   { key: "video", label: "Video" },
-  { key: null, label: "Consultation" },
-  { key: null, label: "FDD" },
   { key: "lastActivity", label: "Last Activity" },
 ];
 
@@ -107,7 +89,7 @@ export function InvestorTable({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[1080px] text-left text-sm">
+      <table className="w-full min-w-[820px] text-left text-sm">
         <thead>
           <tr className="border-b border-border text-xs uppercase tracking-wide text-faint-foreground">
             {COLUMNS.map((column) => (
@@ -129,7 +111,6 @@ export function InvestorTable({
         <tbody>
           {rows.map((row) => {
             const fullName = `${row.lead.first_name} ${row.lead.last_name}`;
-            const date = consultationDate(row);
             return (
               <tr
                 key={row.lead.id}
@@ -159,16 +140,13 @@ export function InvestorTable({
                   </div>
                 </td>
                 <td className="px-3.5 py-2.5">
-                  <StageBadge stage={row.lead.current_stage} />
+                  <StageBadge stage={row.lead.current_stage} className="rounded-control" />
                 </td>
                 <td className="px-3.5 py-2.5 text-secondary-foreground">
                   {row.advisor ? `${row.advisor.first_name} ${row.advisor.last_name}` : "—"}
                 </td>
                 <td className="px-3.5 py-2.5 text-secondary-foreground">
                   {labelForValue(row.questionnaire?.liquid_capital ?? row.lead.initial_liquid_capital)}
-                </td>
-                <td className="px-3.5 py-2.5 text-secondary-foreground">
-                  {labelForValue(row.questionnaire?.net_worth ?? row.lead.initial_net_worth)}
                 </td>
                 <td className="px-3.5 py-2.5">
                   {row.video ? (
@@ -177,11 +155,6 @@ export function InvestorTable({
                     <span className="text-secondary-foreground">—</span>
                   )}
                 </td>
-                <td className="px-3.5 py-2.5 text-secondary-foreground">
-                  {consultationLabel(row)}
-                  {date && <span className="block text-xs text-muted-foreground">{date}</span>}
-                </td>
-                <td className="px-3.5 py-2.5 text-secondary-foreground">{fddLabel(row)}</td>
                 <td className="px-3.5 py-2.5 text-muted-foreground">{formatRelative(row.lastActivityAt)}</td>
                 {showNextAction && (
                   <td
