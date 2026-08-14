@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Loader2, Plus, Upload } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, FileUp, Loader2, Plus, Upload } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label, NativeSelect, Textarea, FieldError } from "@/components/ui/form-fields";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import {
   PUBLIC_DISPLAY_LEVELS,
   TERRITORY_DEFINITION_TYPES,
@@ -15,6 +16,48 @@ import {
   type TerritoryStatus,
 } from "@/types/territory";
 import { CSV_TEMPLATE_HEADER } from "@/lib/territory/csv";
+
+/** Statuses offered by the report-upload flow, reordered so the two the
+ *  team actually uses day to day — reserving a territory or marking it
+ *  pending sale — lead the list; everything else from the existing
+ *  framework is still available underneath. */
+const REPORT_STATUS_ORDER: TerritoryStatus[] = [
+  "reserved",
+  "pending",
+  "sold",
+  "corporate",
+  "unavailable",
+  "available",
+  "archived",
+];
+
+const STATUS_LABELS: Record<TerritoryStatus, string> = {
+  available: "Available",
+  reserved: "Reserved",
+  sold: "Sold",
+  corporate: "Corporate-owned",
+  unavailable: "Unavailable",
+  pending: "Pending Sale",
+  archived: "Archived",
+};
+
+interface ReportZipPreview {
+  zipCode: string;
+  city: string | null;
+  stateCode: string | null;
+  conflict: { territoryId: string; territoryName: string; status: TerritoryStatus } | null;
+}
+
+interface ReportPreview {
+  territoryName: string;
+  territoryCode: string;
+  status: TerritoryStatus;
+  publicDisplayLevel: "hidden" | "generalized" | "exact";
+  internalNotes: string;
+  zips: ReportZipPreview[];
+  excludedZips: Set<string>;
+  warnings: string[];
+}
 
 interface TerritoryRecordsPanelProps {
   brandId: string;
@@ -86,6 +129,14 @@ export function TerritoryRecordsPanel({ brandId, initialTerritories, initialZipC
     }
   }
 
+  function handleReportSaved(territory: TerritoryDefinitionRecord, zipsAdded: number) {
+    setTerritories((prev) => {
+      const exists = prev.some((t) => t.id === territory.id);
+      return exists ? prev.map((t) => (t.id === territory.id ? territory : t)) : [territory, ...prev];
+    });
+    setZipCounts((prev) => ({ ...prev, [territory.id]: (prev[territory.id] ?? 0) + zipsAdded }));
+  }
+
   async function updateStatus(id: string, status: TerritoryStatus) {
     const response = await fetch(`/api/advisor/territories/records/${id}`, {
       method: "PATCH",
@@ -124,6 +175,8 @@ export function TerritoryRecordsPanel({ brandId, initialTerritories, initialZipC
 
   return (
     <div className="space-y-4">
+      <UploadReportCard brandId={brandId} onSaved={handleReportSaved} />
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">{territories.length} territor{territories.length === 1 ? "y" : "ies"}</p>
         <Button type="button" size="sm" onClick={() => setShowCreate((v) => !v)}>
@@ -403,5 +456,265 @@ function TerritoryRow({
         </tr>
       )}
     </>
+  );
+}
+
+/**
+ * "Upload Territory Report": the primary way territories get marked off
+ * going forward — upload the exact PDF the mapping software exports
+ * ("Territory Demographic Report"), confirm the territory label and
+ * status (reserved / pending sale / anything else in the existing status
+ * list), and save. Nothing is written until the admin confirms the
+ * preview — the parse step (POST .../reports/parse) only reads the file.
+ */
+function UploadReportCard({
+  brandId,
+  onSaved,
+}: {
+  brandId: string;
+  onSaved: (territory: TerritoryDefinitionRecord, zipsAdded: number) => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [parsing, setParsing] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<ReportPreview | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [inputKey, setInputKey] = useState(0); // bumped to clear the file input after save/cancel
+
+  function reset() {
+    setFile(null);
+    setPreview(null);
+    setParseError(null);
+    setSaveError(null);
+    setInputKey((k) => k + 1);
+  }
+
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const selected = event.target.files?.[0];
+    if (!selected) return;
+    setFile(selected);
+    setPreview(null);
+    setParseError(null);
+    setParsing(true);
+    try {
+      const form = new FormData();
+      form.append("file", selected);
+      form.append("brandId", brandId);
+      const response = await fetch("/api/advisor/territories/reports/parse", { method: "POST", body: form });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        setParseError(data.error ?? "Could not read this PDF");
+        return;
+      }
+      setPreview({
+        territoryName: data.territoryName ?? "",
+        territoryCode: "",
+        status: "reserved",
+        publicDisplayLevel: "generalized",
+        internalNotes: "",
+        zips: data.zipCodes,
+        excludedZips: new Set(),
+        warnings: data.warnings ?? [],
+      });
+    } catch {
+      setParseError("Could not upload — check your connection");
+    } finally {
+      setParsing(false);
+    }
+  }
+
+  function toggleZip(zipCode: string) {
+    if (!preview) return;
+    const next = new Set(preview.excludedZips);
+    if (next.has(zipCode)) next.delete(zipCode);
+    else next.add(zipCode);
+    setPreview({ ...preview, excludedZips: next });
+  }
+
+  async function handleConfirm() {
+    if (!file || !preview) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const zipCodes = preview.zips.map((z) => z.zipCode).filter((z) => !preview.excludedZips.has(z));
+      const form = new FormData();
+      form.append("file", file);
+      form.append(
+        "payload",
+        JSON.stringify({
+          brandId,
+          territoryName: preview.territoryName.trim(),
+          territoryCode: preview.territoryCode.trim() || undefined,
+          status: preview.status,
+          publicDisplayLevel: preview.publicDisplayLevel,
+          internalNotes: preview.internalNotes.trim() || undefined,
+          zipCodes,
+        }),
+      );
+      const response = await fetch("/api/advisor/territories/reports/confirm", { method: "POST", body: form });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        setSaveError(data.error ?? "Could not save this territory");
+        return;
+      }
+      onSaved(data.territory, data.zipsAdded);
+      reset();
+    } catch {
+      setSaveError("Could not save — check your connection");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const includedCount = preview ? preview.zips.length - preview.excludedZips.size : 0;
+
+  return (
+    <Card>
+      <CardContent className="space-y-3 p-4">
+        <div className="flex items-center gap-2">
+          <FileUp className="size-4 text-muted-foreground" strokeWidth={1.8} />
+          <p className="text-[13.5px] font-bold text-foreground">Upload Territory Report</p>
+        </div>
+        <p className="text-[12.5px] text-muted-foreground">
+          Upload the Territory Demographic Report PDF exported from the mapping software. We read the
+          territory name and ZIP codes from it — you choose the status and confirm before anything is saved.
+        </p>
+
+        {!preview && (
+          <div className="flex items-center gap-3">
+            <input
+              key={inputKey}
+              type="file"
+              accept="application/pdf"
+              onChange={handleFileChange}
+              disabled={parsing}
+              className="text-[12.5px] text-muted-foreground file:mr-3 file:cursor-pointer file:rounded-control file:border file:border-border file:bg-card file:px-3 file:py-1.5 file:text-[12.5px] file:font-medium file:text-foreground hover:file:bg-surface"
+            />
+            {parsing && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+          </div>
+        )}
+        {parseError && <FieldError message={parseError} />}
+
+        {preview && (
+          <div className="space-y-3 rounded-control border border-border bg-surface p-3.5">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="reportTerritoryName">Territory label</Label>
+                <Input
+                  id="reportTerritoryName"
+                  className="mt-1"
+                  value={preview.territoryName}
+                  onChange={(e) => setPreview({ ...preview, territoryName: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="reportTerritoryCode">Territory code (optional)</Label>
+                <Input
+                  id="reportTerritoryCode"
+                  className="mt-1"
+                  value={preview.territoryCode}
+                  onChange={(e) => setPreview({ ...preview, territoryCode: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="reportStatus">Mark as</Label>
+                <NativeSelect
+                  id="reportStatus"
+                  className="mt-1"
+                  value={preview.status}
+                  onChange={(e) => setPreview({ ...preview, status: e.target.value as TerritoryStatus })}
+                >
+                  {REPORT_STATUS_ORDER.map((s) => (
+                    <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+                  ))}
+                </NativeSelect>
+              </div>
+              <div>
+                <Label htmlFor="reportDisplayLevel">Public display level</Label>
+                <NativeSelect
+                  id="reportDisplayLevel"
+                  className="mt-1"
+                  value={preview.publicDisplayLevel}
+                  onChange={(e) => setPreview({ ...preview, publicDisplayLevel: e.target.value as ReportPreview["publicDisplayLevel"] })}
+                >
+                  {PUBLIC_DISPLAY_LEVELS.map((l) => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
+                </NativeSelect>
+              </div>
+              <div className="sm:col-span-2">
+                <Label htmlFor="reportNotes">Internal notes (never shown to prospects)</Label>
+                <Textarea
+                  id="reportNotes"
+                  className="mt-1"
+                  rows={2}
+                  value={preview.internalNotes}
+                  onChange={(e) => setPreview({ ...preview, internalNotes: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {preview.warnings.length > 0 && (
+              <div className="rounded-control border border-[#f5d78e] bg-[#fdf6e3] p-2.5 text-[12px] text-[#7a5b00]">
+                {preview.warnings.map((warning, i) => (
+                  <p key={i}>{warning}</p>
+                ))}
+              </div>
+            )}
+
+            <div>
+              <p className="text-[11.5px] font-medium uppercase tracking-wide text-muted-foreground">
+                {includedCount} of {preview.zips.length} ZIP code{preview.zips.length === 1 ? "" : "s"} will be saved
+              </p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {preview.zips.map((z) => {
+                  const excluded = preview.excludedZips.has(z.zipCode);
+                  return (
+                    <span
+                      key={z.zipCode}
+                      title={z.conflict ? `Already ${STATUS_LABELS[z.conflict.status]} in "${z.conflict.territoryName}"` : undefined}
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs",
+                        excluded
+                          ? "border-border bg-surface text-muted-foreground line-through"
+                          : z.conflict
+                            ? "border-destructive/40 bg-destructive/5 text-destructive"
+                            : "border-border bg-card text-foreground",
+                      )}
+                    >
+                      {z.conflict && !excluded && <AlertTriangle className="size-3" strokeWidth={2} />}
+                      {z.zipCode}
+                      {z.city ? ` — ${z.city}${z.stateCode ? `, ${z.stateCode}` : ""}` : ""}
+                      <button
+                        type="button"
+                        onClick={() => toggleZip(z.zipCode)}
+                        className="text-muted-foreground hover:text-destructive"
+                        aria-label={excluded ? `Include ${z.zipCode}` : `Exclude ${z.zipCode}`}
+                      >
+                        {excluded ? "+" : "×"}
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+
+            {saveError && <FieldError message={saveError} />}
+
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                disabled={saving || !preview.territoryName.trim() || includedCount === 0}
+                onClick={handleConfirm}
+              >
+                {saving && <Loader2 className="animate-spin" />} Save Territory
+              </Button>
+              <Button type="button" variant="ghost" onClick={reset}>Cancel</Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

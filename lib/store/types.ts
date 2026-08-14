@@ -352,6 +352,9 @@ export interface CreateTerritoryDefinitionInput {
   internal_notes?: string | null;
   awarded_at?: string | null;
   reserved_until?: string | null;
+  source_document_url?: string | null;
+  source_document_filename?: string | null;
+  source_document_uploaded_at?: string | null;
 }
 
 export type TerritoryDefinitionPatch = Partial<
@@ -368,6 +371,9 @@ export type TerritoryDefinitionPatch = Partial<
     | "internal_notes"
     | "awarded_at"
     | "reserved_until"
+    | "source_document_url"
+    | "source_document_filename"
+    | "source_document_uploaded_at"
   >
 >;
 
