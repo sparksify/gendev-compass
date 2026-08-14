@@ -23,9 +23,15 @@ import { LocationTerritoryCard } from "@/components/advisor/investorDetail/Locat
 import { ConsultationsCard } from "@/components/advisor/investorDetail/ConsultationsCard";
 import { FddStatusCard } from "@/components/advisor/investorDetail/FddStatusCard";
 import { FundingProfileCard } from "@/components/advisor/investorDetail/FundingProfileCard";
+import { HotLeadSignalCard } from "@/components/advisor/investorDetail/HotLeadSignalCard";
 
 export const metadata: Metadata = { title: "Client" };
 export const dynamic = "force-dynamic";
+
+function withinHours(iso: string | null | undefined, hours: number): boolean {
+  if (!iso) return false;
+  return Date.now() - new Date(iso).getTime() <= hours * 3_600_000;
+}
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -111,6 +117,9 @@ export default async function InvestorDetailPage({
   const latestSubmission = submissions[0] ?? null;
   const portalUrl = `${getAppUrl()}/p/${lead.portal_token}`;
   const lastActivityLabel = events[0] ? eventLabel(events[0].event_name) : null;
+  // Same field the header's "Last Activity" reads — no separate hotness
+  // score, just a presentation threshold over real recency data.
+  const isHotLead = withinHours(lead.last_activity_at ?? lead.created_at, 24);
 
   return (
     <div className="space-y-5">
@@ -130,13 +139,24 @@ export default async function InvestorDetailPage({
         lastActivityLabel={lastActivityLabel}
       />
 
-      {/* Primary action area: Next Best Action carries the same "why" that
-          used to live in a full-width follow-up banner — never said twice. */}
+      {/* Primary row: Next Best Action, the one chart worth keeping large
+          (Video Engagement), and the three quick-action status cards
+          stacked on the right — no separate strip for them further down. */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[28fr_36fr_36fr]">
+        <NextBestActionCard action={nextBestAction} email={lead.email} />
+        <VideoEngagementCard video={video} />
+        <div className="flex flex-col gap-4">
+          <ConsultationsCard lead={lead} appointments={appointments} staffById={staffById} portalUrl={portalUrl} />
+          <FddStatusCard investorId={lead.id} lead={lead} fddAudit={fddAudit} />
+          <FundingProfileCard questionnaire={questionnaire} />
+        </div>
+      </div>
+
+      {/* Secondary row: Advisor Notes (large writing surface), the Hot Lead
+          Signal sitting directly above the Activity Timeline it explains,
+          and the compact qualification/territory summaries. */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
         <div className="lg:col-span-4">
-          <NextBestActionCard action={nextBestAction} email={lead.email} />
-        </div>
-        <div className="lg:col-span-8">
           <AdvisorNotesCard
             investorId={lead.id}
             notes={notes}
@@ -144,34 +164,18 @@ export default async function InvestorDetailPage({
             currentStaffId={user.id}
           />
         </div>
-      </div>
-
-      {/* Deal intelligence: weighted, not four equally-sized boxes. */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-12">
-        <div className="xl:col-span-3">
-          <VideoEngagementCard video={video} />
-        </div>
-        <div className="xl:col-span-4">
+        <div className="flex flex-col gap-5 lg:col-span-5">
+          <HotLeadSignalCard active={isHotLead} />
           <ActivityTimelineCard events={events} />
         </div>
-        <div className="xl:col-span-3">
+        <div className="flex flex-col gap-5 lg:col-span-3">
           <QualificationOverviewCard
             lead={lead}
             questionnaire={questionnaire}
             hasFullProfile={Boolean(latestSubmission)}
           />
-        </div>
-        <div className="xl:col-span-2">
           <LocationTerritoryCard lead={lead} questionnaire={questionnaire} isAdminUser={isAdminUser} />
         </div>
-      </div>
-
-      {/* Secondary deal information: compact, expandable, not competing for
-          attention with the sections above. */}
-      <div className="grid gap-5 lg:grid-cols-3">
-        <ConsultationsCard lead={lead} appointments={appointments} staffById={staffById} portalUrl={portalUrl} />
-        <FddStatusCard investorId={lead.id} lead={lead} fddAudit={fddAudit} />
-        <FundingProfileCard questionnaire={questionnaire} />
       </div>
 
       {/* Full questionnaire responses — kept for the record beneath the summary cards above. */}
