@@ -26,7 +26,7 @@ function param(params: InvestorsSearchParams, key: string): string | undefined {
 }
 
 const selectClass =
-  "block w-full rounded-control border border-border bg-card px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none";
+  "block w-full rounded-control border-2 border-border-strong bg-card px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none";
 const labelClass = "mb-1 block text-xs font-medium text-muted-foreground";
 
 function SummaryCard({

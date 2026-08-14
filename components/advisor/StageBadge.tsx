@@ -20,9 +20,9 @@ export const STAGE_STYLES: Partial<Record<InvestorStage, string>> = {
   CLOSED_INVESTED: "bg-success text-white",
 };
 
-export function StageBadge({ stage }: { stage: string }) {
+export function StageBadge({ stage, className }: { stage: string; className?: string }) {
   const label = STAGE_LABELS[stage as InvestorStage] ?? stage;
   return (
-    <Badge className={cn("whitespace-nowrap", STAGE_STYLES[stage as InvestorStage])}>{label}</Badge>
+    <Badge className={cn("whitespace-nowrap", STAGE_STYLES[stage as InvestorStage], className)}>{label}</Badge>
   );
 }
