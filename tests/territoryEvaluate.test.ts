@@ -136,10 +136,15 @@ describe("evaluateTerritory", () => {
   });
 
   it("5. missing state configuration → MANUAL_REVIEW (never AVAILABLE)", async () => {
-    await seedZips();
+    // createBrand now seeds every real US state's eligibility by default
+    // (see lib/territory/defaultStateEligibility.ts), so a genuinely
+    // *unconfigured* state has to be one outside that default set — "ZZ"
+    // is not a real state code and will never get a seeded row, which is
+    // exactly the "missing configuration" precondition this test needs.
+    await seedZips("ZZ");
     const brand = await createBrand();
     const lead = await createLead();
-    // No brand_state_eligibility row for TX at all.
+    // No brand_state_eligibility row for ZZ at all.
 
     const result = await evaluateTerritory({ brandId: brand.id, query: "10001", radiusMiles: 10, leadId: lead.id });
     expect(result.status).toBe("MANUAL_REVIEW");
