@@ -111,7 +111,9 @@ export function AdvisorNotesCard({
   }
 
   return (
-    <Card className="h-full rounded-2xl">
+    // Notepad treatment: warm ivory paper, not a form field — the one card
+    // that should read as "an advisor is writing here" at a glance.
+    <Card className="h-full rounded-2xl border-[#e8dfc0] bg-[#fdfaf0]">
       <CardContent className="flex h-full flex-col p-6">
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold text-foreground">Advisor Notes</p>
@@ -125,7 +127,7 @@ export function AdvisorNotesCard({
         </div>
 
         <form onSubmit={onSubmit} className="mt-3 flex flex-1 flex-col space-y-2">
-          <div className="flex items-center gap-1 rounded-t-control border border-b-0 border-border bg-surface px-2 py-1.5">
+          <div className="flex items-center gap-1 rounded-t-control border border-b-0 border-[#e8dfc0] bg-[#f7f1de] px-2 py-1.5">
             {[
               { icon: Bold, label: "Bold", onClick: () => mark("wrap", "**") },
               { icon: Italic, label: "Italic", onClick: () => mark("wrap", "_") },
@@ -138,7 +140,7 @@ export function AdvisorNotesCard({
                 type="button"
                 aria-label={label}
                 onClick={onClick}
-                className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
+                className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-white hover:text-foreground"
               >
                 <Icon className="size-3.5" />
               </button>
@@ -152,7 +154,13 @@ export function AdvisorNotesCard({
             maxLength={10_000}
             aria-label="New note"
             rows={8}
-            className="block w-full flex-1 rounded-b-control border border-border bg-card px-3 py-2.5 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(to bottom, transparent, transparent 27px, rgba(180, 150, 80, 0.16) 27px, rgba(180, 150, 80, 0.16) 28px)",
+              backgroundPosition: "0 12px",
+              lineHeight: "28px",
+            }}
+            className="block w-full flex-1 rounded-b-control border border-[#e8dfc0] bg-[#fffdf6] px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
           <FieldError message={error ?? undefined} />
           <div className="flex items-center justify-between pt-1">
@@ -172,9 +180,9 @@ export function AdvisorNotesCard({
         </form>
 
         {showHistory && (
-          <ul className="mt-4 space-y-3 border-t border-border-soft pt-4">
+          <ul className="mt-4 space-y-3 border-t border-[#e8dfc0] pt-4">
             {notes.map((n) => (
-              <li key={n.id} className="rounded-control border border-border-soft bg-surface p-3">
+              <li key={n.id} className="rounded-control border border-[#e8dfc0] bg-[#f7f1de] p-3">
                 <p className="whitespace-pre-wrap text-sm text-foreground">{n.note}</p>
                 <p className="mt-1.5 text-xs text-muted-foreground">
                   {staffNameById[n.staff_user_id] ?? (n.staff_user_id === currentStaffId ? "You" : "Unknown")} ·{" "}
