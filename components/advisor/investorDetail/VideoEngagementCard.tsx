@@ -1,7 +1,6 @@
-import { Clock, Play, PlayCircle } from "lucide-react";
+import { Clock, Play } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Disclosure } from "./Disclosure";
+import { Progress } from "@/components/ui/progress";
 import { formatDateTime, formatWatchTime } from "@/lib/advisor/format";
 import type { VideoProgressRecord } from "@/types/portal";
 
@@ -50,31 +49,36 @@ function Stat({ icon: Icon, label, value }: { icon: React.ComponentType<{ classN
 
 /**
  * The one visualization kept front and center per the redesign brief — a
- * donut of percent watched, with the supporting numbers as plain stats
- * rather than a second chart or an engagement score.
+ * donut of percent watched, with the supporting numbers laid out beside it
+ * (not stacked beneath, and not hidden behind a disclosure) so the full
+ * picture reads at a glance.
  */
 export function VideoEngagementCard({ video }: { video: VideoProgressRecord | null }) {
+  const clampedPercent = video ? Math.min(100, Math.max(0, video.highest_percent_watched)) : 0;
+
   return (
     <Card className="h-full rounded-2xl">
       <CardContent className="p-6">
         <p className="text-sm font-semibold text-foreground">Video Engagement</p>
         {video ? (
-          <div className="mt-4 flex flex-col items-center gap-4">
+          <div className="mt-4 flex items-center gap-6">
             <DonutStat percent={video.highest_percent_watched} />
-            <div className="grid w-full grid-cols-1 gap-3">
+            <div className="flex-1 space-y-3">
               <Stat icon={Clock} label="Total Watch Time" value={formatWatchTime(video.accumulated_seconds_watched)} />
               <Stat icon={Play} label="Play Count" value={String(video.play_count)} />
-              <Stat icon={PlayCircle} label="Last Played" value={formatDateTime(video.last_event_at)} />
-            </div>
-            <Disclosure summary="View Video Activity" className="w-full" defaultOpen={false}>
-              <div className="space-y-2">
-                <Stat icon={Clock} label="First Played" value={formatDateTime(video.first_played_at)} />
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-muted-foreground">Completed</span>
-                  <Badge variant={video.completed ? "success" : "neutral"}>{video.completed ? "Yes" : "No"}</Badge>
+              <Stat icon={Clock} label="First Played" value={formatDateTime(video.first_played_at)} />
+              <Stat icon={Clock} label="Last Played" value={formatDateTime(video.last_event_at)} />
+              <div className="flex items-center gap-2">
+                <Clock className="size-3.5 shrink-0 text-muted-foreground" />
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] text-muted-foreground">Completion Status</p>
+                    <p className="text-[11px] font-medium text-foreground">{Math.round(clampedPercent)}%</p>
+                  </div>
+                  <Progress value={clampedPercent} className="mt-1" />
                 </div>
               </div>
-            </Disclosure>
+            </div>
           </div>
         ) : (
           <p className="mt-4 text-sm text-muted-foreground">No video activity yet.</p>
