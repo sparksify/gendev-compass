@@ -1,5 +1,7 @@
 import { getStore } from "@/lib/store";
 import { dispatchNotificationsForEvent } from "@/lib/notifications/dispatch";
+import { dispatchOsBridgeEvent } from "@/lib/os-bridge/webhook";
+import { generateEventId } from "@/lib/tracking/eventId";
 import type { LeadRecord } from "@/types/lead";
 import type { ActivityEventRecord } from "@/types/domain";
 
@@ -85,6 +87,15 @@ export async function recordLeadEvent(
   // Policy lives entirely in lib/notifications/rules.ts — almost every event
   // is dashboard-only and returns immediately. This never throws.
   await dispatchNotificationsForEvent({ lead, eventName, eventData, activityEventId });
+
+  // Stage four: AI Employee OS bridge. Policy lives in lib/os-bridge/rules.ts
+  // (curated allowlist; unknown events are never forwarded). Same contract as
+  // notifications: fire-safe, never throws, never blocks the portal.
+  await dispatchOsBridgeEvent(lead, eventName, eventData, {
+    eventId: options.externalEventId ?? activityEventId ?? generateEventId(),
+    occurredAt: options.occurredAt ?? null,
+    source,
+  });
 }
 
 /** Opportunity timeline, newest first (occurred_at ordering). */
