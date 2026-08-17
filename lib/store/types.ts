@@ -212,6 +212,13 @@ export type LeadPatch = Partial<
     | "advisor_selected"
     | "advisor_booked"
     | "overflow_used"
+    | "territories_wanted"
+    | "lead_type"
+    | "broker_name"
+    | "broker_network"
+    | "broker_email"
+    | "broker_phone"
+    | "process_milestones"
   >
 >;
 
