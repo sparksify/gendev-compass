@@ -15,6 +15,26 @@ export type LeadStatus =
 
 export type QualificationResultValue = "qualified" | "review_required";
 
+/** How the lead reached us — drives the Lead Source card's two states. */
+export type LeadType = "organic" | "broker";
+
+/** The four sequential steps to close a franchise sale (migration 0015).
+ * Statuses are per-milestone (see lib/advisor/milestones.ts); dates apply
+ * where the step has one (ops call attended-at, founder call booked-for,
+ * signing day date). */
+export type MilestoneKey =
+  | "ops_zoom_call"
+  | "founder_intro_call"
+  | "territory_designed"
+  | "signing_day";
+
+export interface MilestoneState {
+  status: string;
+  date: string | null;
+}
+
+export type ProcessMilestones = Partial<Record<MilestoneKey, MilestoneState>>;
+
 export interface LeadRecord {
   id: string;
   portal_token: string;
@@ -124,6 +144,22 @@ export interface LeadRecord {
   advisor_selected: string | null;
   advisor_booked: string | null;
   overflow_used: boolean;
+
+  // ---------------------------------------------------------------------
+  // Client detail workspace fields (migration 0015). All advisor-entered
+  // or CRM-supplied; absent (undefined) on dev-store records created
+  // before the migration, so read them with `?? null`.
+  // ---------------------------------------------------------------------
+  /** Advisor's estimate of how many territories/units the client wants —
+   * from conversations, NOT the questionnaire. */
+  territories_wanted?: number | null;
+  /** null is treated as "organic". */
+  lead_type?: LeadType | null;
+  broker_name?: string | null;
+  broker_network?: string | null;
+  broker_email?: string | null;
+  broker_phone?: string | null;
+  process_milestones?: ProcessMilestones | null;
 }
 
 export interface CreateLeadInput {

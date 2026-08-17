@@ -1,19 +1,19 @@
-import { Clock, Play } from "lucide-react";
+import { Info } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { formatDateTime, formatWatchTime } from "@/lib/advisor/format";
 import type { VideoProgressRecord } from "@/types/portal";
 
 function DonutStat({ percent }: { percent: number }) {
-  const radius = 42;
+  const radius = 43;
   const circumference = 2 * Math.PI * radius;
   const clamped = Math.min(100, Math.max(0, percent));
   const offset = circumference * (1 - clamped / 100);
 
   return (
-    <div className="relative flex size-[132px] shrink-0 items-center justify-center">
+    <div className="relative flex size-[84px] shrink-0 items-center justify-center">
       <svg viewBox="0 0 100 100" className="size-full -rotate-90">
-        <circle cx="50" cy="50" r={radius} fill="none" stroke="var(--border-soft)" strokeWidth="9" />
+        <circle cx="50" cy="50" r={radius} fill="none" stroke="#eef0f4" strokeWidth="9" />
         <circle
           cx="50"
           cy="50"
@@ -28,60 +28,52 @@ function DonutStat({ percent }: { percent: number }) {
         />
       </svg>
       <div className="absolute flex flex-col items-center">
-        <span className="text-2xl font-semibold text-foreground">{Math.round(clamped)}%</span>
-        <span className="text-[11px] text-muted-foreground">Watched</span>
-      </div>
-    </div>
-  );
-}
-
-function Stat({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <Icon className="size-3.5 shrink-0 text-muted-foreground" />
-      <div>
-        <p className="text-[11px] text-muted-foreground">{label}</p>
-        <p className="text-sm font-medium text-foreground">{value}</p>
+        <span className="text-[17px] font-bold leading-none text-foreground">{Math.round(clamped)}%</span>
+        <span className="mt-0.5 text-[10px] text-faint-foreground">watched</span>
       </div>
     </div>
   );
 }
 
 /**
- * The one visualization kept front and center per the redesign brief — a
- * donut of percent watched, with the supporting numbers laid out beside it
- * (not stacked beneath, and not hidden behind a disclosure) so the full
- * picture reads at a glance.
+ * Donut + supporting numbers side by side, with the completion bar
+ * underneath — everything visible, nothing behind a disclosure.
  */
 export function VideoEngagementCard({ video }: { video: VideoProgressRecord | null }) {
-  const clampedPercent = video ? Math.min(100, Math.max(0, video.highest_percent_watched)) : 0;
+  const clamped = video ? Math.min(100, Math.max(0, video.highest_percent_watched)) : 0;
 
   return (
-    <Card className="h-full rounded-2xl">
-      <CardContent className="p-6">
-        <p className="text-sm font-semibold text-foreground">Video Engagement</p>
+    <Card className="h-full">
+      <CardContent className="px-[15px] py-[13px]">
+        <p className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
+          Video engagement
+          <Info className="size-[13px] text-[#c2c9d4]" aria-label="Highest percent watched across sessions" />
+        </p>
         {video ? (
-          <div className="mt-4 flex items-center gap-6">
-            <DonutStat percent={video.highest_percent_watched} />
-            <div className="flex-1 space-y-3">
-              <Stat icon={Clock} label="Total Watch Time" value={formatWatchTime(video.accumulated_seconds_watched)} />
-              <Stat icon={Play} label="Play Count" value={String(video.play_count)} />
-              <Stat icon={Clock} label="First Played" value={formatDateTime(video.first_played_at)} />
-              <Stat icon={Clock} label="Last Played" value={formatDateTime(video.last_event_at)} />
-              <div className="flex items-center gap-2">
-                <Clock className="size-3.5 shrink-0 text-muted-foreground" />
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[11px] text-muted-foreground">Completion Status</p>
-                    <p className="text-[11px] font-medium text-foreground">{Math.round(clampedPercent)}%</p>
+          <>
+            <div className="mt-[9px] flex items-center gap-3.5">
+              <DonutStat percent={video.highest_percent_watched} />
+              <div className="grid flex-1 grid-cols-[repeat(auto-fit,minmax(112px,1fr))] gap-x-3 gap-y-2">
+                {[
+                  ["Total watch time", formatWatchTime(video.accumulated_seconds_watched)],
+                  ["Play count", String(video.play_count)],
+                  ["First played", formatDateTime(video.first_played_at)],
+                  ["Last played", formatDateTime(video.last_event_at)],
+                ].map(([label, value]) => (
+                  <div key={label} className="min-w-0">
+                    <p className="text-[10.5px] text-faint-foreground">{label}</p>
+                    <p className="text-[13px] font-semibold leading-snug text-foreground">{value}</p>
                   </div>
-                  <Progress value={clampedPercent} className="mt-1" />
-                </div>
+                ))}
               </div>
             </div>
-          </div>
+            <div className="mt-2.5 flex items-center gap-2">
+              <Progress value={clamped} className="h-1.5 flex-1 bg-[#eef0f4]" />
+              <span className="text-[11px] font-medium text-muted-foreground">{Math.round(clamped)}%</span>
+            </div>
+          </>
         ) : (
-          <p className="mt-4 text-sm text-muted-foreground">No video activity yet.</p>
+          <p className="mt-2.5 text-[13px] text-muted-foreground">No video activity yet.</p>
         )}
       </CardContent>
     </Card>

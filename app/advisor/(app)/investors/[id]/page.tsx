@@ -5,25 +5,25 @@ import { canAccessLead, isAdmin } from "@/lib/advisor/access";
 import { getStore } from "@/lib/store";
 import { evaluateFollowUp } from "@/lib/advisor/followUp";
 import { deriveNextBestAction } from "@/lib/advisor/nextBestAction";
-import { eventLabel, formatDateTime } from "@/lib/advisor/format";
+import { eventLabel, formatDate } from "@/lib/advisor/format";
+import { effectiveFddStatus } from "@/lib/fdd/status";
 import { resolveClientFromLead } from "@/lib/domain/clients";
 import { listOpportunitiesForClient } from "@/lib/domain/opportunities";
 import { getAppUrl } from "@/lib/config/env";
+import type { MilestoneTone } from "@/lib/advisor/milestones";
 import type { BrandRecord, ClientRecord, OpportunityRecord } from "@/types/domain";
 import { OwnershipProfileCard } from "@/components/advisor/OwnershipProfileCard";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClientHeaderCard } from "@/components/advisor/investorDetail/ClientHeaderCard";
 import { NextBestActionCard } from "@/components/advisor/investorDetail/NextBestActionCard";
-import { AdvisorNotesCard } from "@/components/advisor/investorDetail/AdvisorNotesCard";
+import { ClientProgressCard } from "@/components/advisor/investorDetail/ClientProgressCard";
+import { ProcessMilestonesCard } from "@/components/advisor/investorDetail/ProcessMilestonesCard";
 import { VideoEngagementCard } from "@/components/advisor/investorDetail/VideoEngagementCard";
+import { LeadSourceCard } from "@/components/advisor/investorDetail/LeadSourceCard";
 import { ActivityTimelineCard } from "@/components/advisor/investorDetail/ActivityTimelineCard";
+import { AdvisorNotesCard } from "@/components/advisor/investorDetail/AdvisorNotesCard";
 import { QualificationOverviewCard } from "@/components/advisor/investorDetail/QualificationOverviewCard";
-import { LocationTerritoryCard } from "@/components/advisor/investorDetail/LocationTerritoryCard";
-import { ConsultationsCard } from "@/components/advisor/investorDetail/ConsultationsCard";
-import { FddStatusCard } from "@/components/advisor/investorDetail/FddStatusCard";
-import { FundingProfileCard } from "@/components/advisor/investorDetail/FundingProfileCard";
-import { HotLeadSignalCard } from "@/components/advisor/investorDetail/HotLeadSignalCard";
+import { QuestionnaireResponsesCard } from "@/components/advisor/investorDetail/QuestionnaireResponsesCard";
+import { AttributionCard } from "@/components/advisor/investorDetail/AttributionCard";
 
 export const metadata: Metadata = { title: "Client" };
 export const dynamic = "force-dynamic";
@@ -31,15 +31,6 @@ export const dynamic = "force-dynamic";
 function withinHours(iso: string | null | undefined, hours: number): boolean {
   if (!iso) return false;
   return Date.now() - new Date(iso).getTime() <= hours * 3_600_000;
-}
-
-function Field({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-faint-foreground">{label}</p>
-      <div className="mt-0.5 text-sm text-foreground">{value ?? "—"}</div>
-    </div>
-  );
 }
 
 export default async function InvestorDetailPage({
@@ -61,7 +52,6 @@ export default async function InvestorDetailPage({
     submissions,
     video,
     appointments,
-    fddAudit,
     notes,
     events,
     staff,
@@ -72,7 +62,6 @@ export default async function InvestorDetailPage({
       store.getSubmissionsForLead(lead.id),
       store.getVideoProgress(lead.id),
       store.getAppointmentsForLead(lead.id),
-      store.listFddAudit(lead.id),
       store.getNotesForLead(lead.id),
       store.getEventsForLead(lead.id),
       store.listStaffUsers(),
@@ -117,12 +106,32 @@ export default async function InvestorDetailPage({
   const latestSubmission = submissions[0] ?? null;
   const portalUrl = `${getAppUrl()}/p/${lead.portal_token}`;
   const lastActivityLabel = events[0] ? eventLabel(events[0].event_name) : null;
-  // Same field the header's "Last Activity" reads — no separate hotness
+  // Same field the header's "Last activity" reads — no separate hotness
   // score, just a presentation threshold over real recency data.
   const isHotLead = withinHours(lead.last_activity_at ?? lead.created_at, 24);
 
+  // Consultation summary for the Client Progress rail.
+  const activeAppointment = appointments.find(
+    (a) => a.status === "SCHEDULED" || a.status === "RESCHEDULED",
+  );
+  const completedAppointment = appointments.some((a) => a.status === "COMPLETED");
+  const consultation: { label: string; tone: MilestoneTone; date: string | null } = activeAppointment
+    ? {
+        label: activeAppointment.status === "RESCHEDULED" ? "Rescheduled" : "Scheduled",
+        tone: "amber",
+        date: formatDate(activeAppointment.scheduled_start),
+      }
+    : completedAppointment
+      ? { label: "Completed", tone: "green", date: null }
+      : lead.booked_at
+        ? { label: "Scheduled", tone: "amber", date: formatDate(lead.appointment_start_at) }
+        : { label: "Not booked", tone: "neutral", date: null };
+
+  const fddStatus = effectiveFddStatus(lead);
+  const fddInFlight = fddStatus !== "not_requested" && fddStatus !== "error_manual_review";
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-2.5">
       <ClientHeaderCard
         lead={lead}
         advisor={advisor ?? null}
@@ -136,149 +145,52 @@ export default async function InvestorDetailPage({
         staff={staff}
         portalUrl={portalUrl}
         needsFollowUp={followUp.needed}
+        isHotLead={isHotLead}
         lastActivityLabel={lastActivityLabel}
       />
 
-      {/* Primary row: Next Best Action, the one chart worth keeping large
-          (Video Engagement), and the three quick-action status cards
-          stacked on the right — no separate strip for them further down.
-          items-start: cards size to their own content instead of
-          stretching to match whichever sibling is tallest — for a sparse
-          lead (no consultation/FDD/funding yet) that stretch used to
-          leave large dead-space gaps inside the shorter cards. */}
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[28fr_36fr_36fr]">
-        <NextBestActionCard action={nextBestAction} email={lead.email} />
+      {/* Row A — the actionable pair: what to do next, where the client is. */}
+      <div className="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(330px,1fr))]">
+        <NextBestActionCard action={nextBestAction} email={lead.email} portalUrl={portalUrl} />
+        <ClientProgressCard
+          investorId={lead.id}
+          email={lead.email}
+          portalUrl={portalUrl}
+          consultation={consultation}
+          fddStatus={fddStatus}
+          fddInFlight={fddInFlight}
+          questionnaire={questionnaire}
+          questionnaireCompleted={Boolean(lead.questionnaire_completed_at ?? questionnaire)}
+          questionnaireStarted={Boolean(lead.questionnaire_started_at)}
+        />
+      </div>
+
+      {/* Row B — milestones, engagement, source. */}
+      <div className="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(290px,1fr))]">
+        <ProcessMilestonesCard investorId={lead.id} milestones={lead.process_milestones ?? null} />
         <VideoEngagementCard video={video} />
-        <div className="flex flex-col gap-4">
-          <ConsultationsCard lead={lead} appointments={appointments} staffById={staffById} portalUrl={portalUrl} />
-          <FddStatusCard investorId={lead.id} lead={lead} fddAudit={fddAudit} />
-          <FundingProfileCard questionnaire={questionnaire} />
-        </div>
+        <LeadSourceCard lead={lead} questionnaire={questionnaire} />
       </div>
 
-      {/* Secondary row: Advisor Notes (large writing surface), the Hot Lead
-          Signal sitting directly above the Activity Timeline it explains,
-          and the compact qualification/territory summaries. Same
-          items-start reasoning as the row above. */}
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
-        <div className="lg:col-span-4">
-          <AdvisorNotesCard
-            investorId={lead.id}
-            notes={notes}
-            staffNameById={staffNameById}
-            currentStaffId={user.id}
-          />
-        </div>
-        <div className="flex flex-col gap-5 lg:col-span-5">
-          <HotLeadSignalCard active={isHotLead} />
-          <ActivityTimelineCard events={events} />
-        </div>
-        <div className="flex flex-col gap-5 lg:col-span-3">
-          <QualificationOverviewCard
-            lead={lead}
-            questionnaire={questionnaire}
-            hasFullProfile={Boolean(latestSubmission)}
-          />
-          <LocationTerritoryCard lead={lead} questionnaire={questionnaire} isAdminUser={isAdminUser} />
-        </div>
+      {/* Row C — the working surfaces. */}
+      <div className="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(370px,1fr))]">
+        <ActivityTimelineCard events={events} />
+        <AdvisorNotesCard
+          investorId={lead.id}
+          notes={notes}
+          staffNameById={staffNameById}
+          currentStaffId={user.id}
+        />
       </div>
 
-      {/* Full questionnaire responses — kept for the record beneath the summary cards above. */}
+      {/* Static facts, next to the questionnaire they came from. */}
+      <QualificationOverviewCard lead={lead} questionnaire={questionnaire} />
+
       {latestSubmission && (
-        <Card id="questionnaire-responses" className="scroll-mt-6 rounded-2xl">
-          <CardHeader>
-            <CardTitle>Questionnaire Responses</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Submitted {formatDateTime(latestSubmission.submitted_at)} · Version{" "}
-              {latestSubmission.questionnaire_version}
-            </p>
-          </CardHeader>
-          <CardContent>
-            <dl className="space-y-4">
-              {latestSubmission.answers.map((answer) => (
-                <div key={answer.id}>
-                  <dt className="text-sm font-medium text-secondary-foreground">
-                    {answer.question_text}
-                  </dt>
-                  <dd className="mt-0.5 text-sm text-foreground">{answer.answer_display_value}</dd>
-                </div>
-              ))}
-            </dl>
-          </CardContent>
-        </Card>
+        <QuestionnaireResponsesCard questionnaire={questionnaire} submission={latestSubmission} />
       )}
 
-      {/* Attribution — first/last touch marketing data, kept for the record. */}
-      <Card className="rounded-2xl">
-        <CardHeader>
-          <CardTitle>Attribution</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-faint-foreground">
-              First Touch
-            </p>
-            <div className="mt-2 grid gap-3 sm:grid-cols-2">
-              <Field label="Source" value={lead.source} />
-              <Field label="Campaign" value={lead.campaign} />
-              <Field label="Ad Set" value={lead.ad_set} />
-              <Field label="Ad" value={lead.ad} />
-              <Field label="UTM Source" value={lead.first_utm_source} />
-              <Field label="UTM Campaign" value={lead.first_utm_campaign} />
-              <Field label="UTM Medium" value={lead.first_utm_medium} />
-              <Field label="UTM Content" value={lead.first_utm_content} />
-              <Field label="Facebook Lead ID" value={lead.facebook_lead_id} />
-              <Field label="Facebook Click ID" value={lead.first_fbclid} />
-              <Field label="Google Click ID" value={lead.first_gclid} />
-              <Field label="Landing Page" value={lead.first_landing_page} />
-              <Field label="Referrer" value={lead.first_referrer} />
-              <Field label="Portal First Opened" value={formatDateTime(lead.portal_first_opened_at)} />
-            </div>
-          </div>
-
-          {(lead.facebook_campaign_id || lead.facebook_adset_id || lead.facebook_ad_id || lead.facebook_form_id) && (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-faint-foreground">
-                Facebook Lead Ads
-              </p>
-              <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                <Field label="Campaign ID" value={lead.facebook_campaign_id} />
-                <Field label="Ad Set ID" value={lead.facebook_adset_id} />
-                <Field label="Ad ID" value={lead.facebook_ad_id} />
-                <Field label="Form ID" value={lead.facebook_form_id} />
-              </div>
-            </div>
-          )}
-
-          {lead.last_touch_at && (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-faint-foreground">
-                Last Touch
-              </p>
-              <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                <Field label="Source" value={lead.last_utm_source} />
-                <Field label="Campaign" value={lead.last_utm_campaign} />
-                <Field label="Referrer" value={lead.last_referrer} />
-                <Field label="Last Touch At" value={formatDateTime(lead.last_touch_at)} />
-              </div>
-            </div>
-          )}
-
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-faint-foreground">
-              Conversion
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {lead.qualification_result === "qualified" && <Badge variant="success">Qualified Lead</Badge>}
-              {lead.qualification_result === "review_required" && <Badge variant="outline">Review Required</Badge>}
-              {lead.booked_at && <Badge variant="primary">Booked Consultation</Badge>}
-              {!lead.qualification_result && !lead.booked_at && (
-                <span className="text-sm text-muted-foreground">No conversion yet</span>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <AttributionCard lead={lead} />
 
       {/* What the investor says they want from ownership (self-reported,
           not a qualification signal). */}
