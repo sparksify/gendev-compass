@@ -513,3 +513,4 @@ supabase/migrations/       SQL migrations
 tests/                     vitest suite
 types/                     shared domain types
 ```
+
