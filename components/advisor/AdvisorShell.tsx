@@ -198,7 +198,10 @@ export function AdvisorShell({
           </nav>
         </header>
 
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">{children}</main>
+        {/* Full-width content with a slim gutter (handoff: main padding
+            0 14px 16px) — pages that want a centered column (e.g. the
+            Clients list) cap their own width internally. */}
+        <main className="w-full flex-1 px-3.5 pb-4 pt-4">{children}</main>
       </div>
     </div>
   );
