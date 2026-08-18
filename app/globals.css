@@ -347,3 +347,38 @@ main:has(.ti-workspace) + aside {
     animation: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Advisor visual system (design_handoff_client_panel) — the advisor side no
+ * longer matches the client-facing portal UI. Scoped token overrides: every
+ * utility that reads a token (bg-surface, border-border, rounded-card,
+ * font-serif, shadow-card…) resolves to these values inside .advisor-theme,
+ * so the portal keeps its own look untouched.
+ * ------------------------------------------------------------------------- */
+.advisor-theme {
+  --background: #f5f7fb;
+  --surface: #f5f7fb;
+  --surface-raised: #f8fafd;
+  --card: #ffffff;
+  --foreground: #0f172a;
+  --secondary-foreground: #334155;
+  --muted-foreground: #64748b;
+  --faint-foreground: #94a3b8;
+  --border: #e6eaf2;
+  --border-soft: #eef2f8;
+  --border-strong: #cbd5e1;
+  --primary: #2463eb;
+  --primary-hover: #1d4ed8;
+  --primary-soft: #eff4ff;
+  --primary-soft-border: #b9cffc;
+  --radius: 14px;
+  --shadow-card: 0 1px 3px rgb(15 23 42 / 0.05);
+  --font-sans: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* No serif in the new system — headings use the same family, bold. */
+  --font-serif: var(--font-sans);
+  font-family: var(--font-sans);
+  letter-spacing: -0.01em;
+  background-color: var(--surface);
+  color: var(--foreground);
+}

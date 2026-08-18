@@ -47,7 +47,7 @@ export function LeadSourceCard({
     <Card className="h-full">
       <CardContent className="flex h-full flex-col px-[15px] py-[13px]">
         <div className="flex items-center justify-between gap-2">
-          <p className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
+          <p className="flex items-center gap-1 text-[15px] font-bold text-foreground">
             Lead source
             <Info className="size-[13px] text-[#c2c9d4]" aria-label="How this lead reached us" />
           </p>

@@ -57,7 +57,7 @@ export function QuestionnaireResponsesCard({
       <CardContent className="px-[15px] py-[13px]">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
+            <p className="text-[15px] font-bold text-foreground">
               Questionnaire responses
             </p>
             <p className="flex items-center gap-1 text-[11.5px] text-[#15803d]">

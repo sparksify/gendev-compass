@@ -2,7 +2,6 @@ import { requireStaffUser } from "@/lib/advisor/auth";
 import { isAdmin } from "@/lib/advisor/access";
 import { getSiteLogoUrl } from "@/lib/assets";
 import { AdvisorShell } from "@/components/advisor/AdvisorShell";
-import { BrandBlock } from "@/components/layout/PortalShell";
 
 export const dynamic = "force-dynamic";
 
@@ -12,11 +11,7 @@ export default async function AdvisorAppLayout({ children }: { children: React.R
   const logoUrl = await getSiteLogoUrl();
 
   return (
-    <AdvisorShell
-      brandBlock={<BrandBlock logoUrl={logoUrl} variant="sidebar" />}
-      userName={user.first_name}
-      isAdmin={isAdmin(user)}
-    >
+    <AdvisorShell logoUrl={logoUrl} userName={user.first_name} isAdmin={isAdmin(user)}>
       {children}
     </AdvisorShell>
   );
