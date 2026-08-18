@@ -63,7 +63,7 @@ function Pill({ tone, children }: { tone: PillTone; children: React.ReactNode })
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+        "inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold",
         PILL_CLASS[tone],
       )}
     >
@@ -75,7 +75,7 @@ function Pill({ tone, children }: { tone: PillTone; children: React.ReactNode })
 function SectionLabel({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between">
-      <p className="text-xs font-bold uppercase tracking-[0.06em] text-faint-foreground">{children}</p>
+      <p className="text-[12.5px] font-bold uppercase tracking-[0.06em] text-faint-foreground">{children}</p>
       {right}
     </div>
   );
@@ -89,7 +89,7 @@ function Tile({ className, children }: { className?: string; children: React.Rea
   );
 }
 
-const LINK_ACTION = "text-[11.5px] font-bold text-primary hover:underline";
+const LINK_ACTION = "text-[12.5px] font-bold text-primary hover:underline";
 
 function milestoneAction(key: MilestoneKey, status: string): { label: string; next?: string; href?: string } | null {
   switch (key) {
@@ -206,7 +206,7 @@ export function ClientDetailsPanel({
     <div className="flex h-full flex-col bg-card">
       {/* Header */}
       <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3">
-        <p className="text-[15px] font-extrabold text-foreground">Client Details</p>
+        <p className="text-base font-extrabold text-foreground">Client Details</p>
         <button
           type="button"
           onClick={onClose}
@@ -240,9 +240,9 @@ export function ClientDetailsPanel({
                   .join("")}
               </span>
               <div className="min-w-0">
-                <p className="text-[16.5px] font-extrabold leading-tight text-foreground">{data.name}</p>
+                <p className="text-lg font-extrabold leading-tight text-foreground">{data.name}</p>
                 {data.brandName && (
-                  <p className="truncate text-[12.5px] font-semibold text-primary">{data.brandName}</p>
+                  <p className="truncate text-[13.5px] font-semibold text-primary">{data.brandName}</p>
                 )}
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   <Pill tone={stage.tone}>{stage.label}</Pill>
@@ -260,7 +260,7 @@ export function ClientDetailsPanel({
             <div className="space-y-1.5">
               <a
                 href={`mailto:${data.email}`}
-                className="flex items-center gap-2 text-[13px] font-semibold text-secondary-foreground hover:text-primary"
+                className="flex items-center gap-2 text-sm font-semibold text-secondary-foreground hover:text-primary"
               >
                 <Mail className="size-[15px] text-faint-foreground" />
                 <span className="truncate">{data.email}</span>
@@ -268,7 +268,7 @@ export function ClientDetailsPanel({
               {data.phone && (
                 <a
                   href={`tel:${data.phone}`}
-                  className="flex items-center gap-2 text-[13px] font-semibold text-secondary-foreground hover:text-primary"
+                  className="flex items-center gap-2 text-sm font-semibold text-secondary-foreground hover:text-primary"
                 >
                   <Phone className="size-[15px] text-faint-foreground" />
                   {data.phone}
@@ -279,10 +279,10 @@ export function ClientDetailsPanel({
             {/* Tile pair: video + last activity */}
             <div className="grid grid-cols-2 gap-2.5">
               <Tile>
-                <p className="text-[10.5px] font-semibold text-faint-foreground">Video watched</p>
+                <p className="text-[11.5px] font-semibold text-faint-foreground">Video watched</p>
                 {data.video ? (
                   <>
-                    <p className="mt-0.5 text-sm font-extrabold text-foreground">
+                    <p className="mt-0.5 text-[15px] font-extrabold text-foreground">
                       {Math.round(data.video.percent)}%
                       <span className="ml-1 text-[10.5px] font-semibold text-muted-foreground">
                         {data.video.watchTime} · {data.video.playCount} play
@@ -301,8 +301,8 @@ export function ClientDetailsPanel({
                 )}
               </Tile>
               <Tile>
-                <p className="text-[10.5px] font-semibold text-faint-foreground">Last activity</p>
-                <p className="mt-0.5 text-sm font-extrabold text-foreground">{data.lastActivity.relative}</p>
+                <p className="text-[11.5px] font-semibold text-faint-foreground">Last activity</p>
+                <p className="mt-0.5 text-[15px] font-extrabold text-foreground">{data.lastActivity.relative}</p>
                 {data.lastActivity.label && (
                   <p className="mt-0.5 truncate text-[10.5px] text-muted-foreground">
                     {data.lastActivity.label}
@@ -315,13 +315,13 @@ export function ClientDetailsPanel({
             <div className="flex items-center gap-2.5 rounded-[11px] bg-[linear-gradient(135deg,#3b82f6,#2463eb)] px-3.5 py-3">
               <Zap className="size-4 shrink-0 text-white" />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[12.5px] font-bold text-white">{data.nextBestAction.title}</p>
-                <p className="truncate text-[11px] text-[#cdddff]">{data.nextBestAction.sub}</p>
+                <p className="truncate text-[13.5px] font-bold text-white">{data.nextBestAction.title}</p>
+                <p className="truncate text-xs text-[#cdddff]">{data.nextBestAction.sub}</p>
               </div>
               {data.nextBestAction.mailto && (
                 <a
                   href={data.nextBestAction.mailto}
-                  className="shrink-0 rounded-[8px] bg-white px-2.5 py-1.5 text-[11.5px] font-bold text-primary hover:bg-[#eff4ff]"
+                  className="shrink-0 rounded-[8px] bg-white px-2.5 py-1.5 text-xs font-bold text-primary hover:bg-[#eff4ff]"
                 >
                   Remind
                 </a>
@@ -340,8 +340,8 @@ export function ClientDetailsPanel({
                     ["Owned a business", data.financial.ownedBusiness],
                   ].map(([label, value]) => (
                     <div key={label} className="min-w-0">
-                      <p className="text-[10.5px] font-semibold text-faint-foreground">{label}</p>
-                      <p className="truncate text-[12.5px] font-bold text-foreground">{value}</p>
+                      <p className="text-[11.5px] font-semibold text-faint-foreground">{label}</p>
+                      <p className="truncate text-[13.5px] font-bold text-foreground">{value}</p>
                     </div>
                   ))}
                 </div>
@@ -417,7 +417,7 @@ export function ClientDetailsPanel({
                       index !== all.length - 1 && "border-b border-[#f1f5f9]",
                     )}
                   >
-                    <span className="text-[13px] font-semibold text-foreground">{row.label}</span>
+                    <span className="text-sm font-semibold text-foreground">{row.label}</span>
                     <span className="flex items-center gap-2.5">
                       <Pill tone={row.pill.tone}>{row.pill.label}</Pill>
                       {row.action}
@@ -466,7 +466,7 @@ export function ClientDetailsPanel({
                                 : "text-[#cbd5e1]",
                           )}
                         />
-                        <span className="truncate text-[13px] font-semibold text-foreground">{def.label}</span>
+                        <span className="truncate text-sm font-semibold text-foreground">{def.label}</span>
                       </span>
                       <span className="flex shrink-0 items-center gap-2">
                         {(current.complete || current.tone === "amber") && (
@@ -532,14 +532,14 @@ export function ClientDetailsPanel({
                       ] as const)
                   ).map(([label, value, link]) => (
                     <div key={label} className="min-w-0">
-                      <p className="text-[10.5px] font-semibold text-faint-foreground">{label}</p>
+                      <p className="text-[11.5px] font-semibold text-faint-foreground">{label}</p>
                       {value ? (
                         link ? (
                           <a href={link} className="block truncate text-[12.5px] font-bold text-primary hover:underline">
                             {value}
                           </a>
                         ) : (
-                          <p className="truncate text-[12.5px] font-bold text-foreground">{value}</p>
+                          <p className="truncate text-[13.5px] font-bold text-foreground">{value}</p>
                         )
                       ) : (
                         <p className="text-[12.5px] text-[#cbd5e1]">—</p>
@@ -553,7 +553,7 @@ export function ClientDetailsPanel({
             {/* Territory */}
             <div className="grid grid-cols-2 gap-2.5">
               <Tile>
-                <p className="text-[10.5px] font-semibold text-faint-foreground">Territories wanted</p>
+                <p className="text-[11.5px] font-semibold text-faint-foreground">Territories wanted</p>
                 {editingTerritories ? (
                   <input
                     type="number"
@@ -583,7 +583,7 @@ export function ClientDetailsPanel({
                 <p className="mt-0.5 text-[10.5px] text-faint-foreground">Advisor estimate</p>
               </Tile>
               <Tile>
-                <p className="text-[10.5px] font-semibold text-faint-foreground">Primary territory</p>
+                <p className="text-[11.5px] font-semibold text-faint-foreground">Primary territory</p>
                 <p className="mt-0.5 flex items-center gap-1 text-[12.5px] font-bold text-foreground">
                   <MapPin className="size-3.5 shrink-0 text-faint-foreground" />
                   <span className="truncate">{data.territory}</span>
@@ -607,10 +607,10 @@ export function ClientDetailsPanel({
               </SectionLabel>
               {data.latestNote ? (
                 <Tile className="mt-2">
-                  <p className="whitespace-pre-wrap text-[12.5px] leading-normal text-secondary-foreground">
+                  <p className="whitespace-pre-wrap text-[13.5px] leading-normal text-secondary-foreground">
                     {data.latestNote.body}
                   </p>
-                  <p className="mt-1.5 text-[10.5px] font-semibold text-faint-foreground">
+                  <p className="mt-1.5 text-[11.5px] font-semibold text-faint-foreground">
                     {data.latestNote.author} · {data.latestNote.when}
                   </p>
                 </Tile>
@@ -621,7 +621,7 @@ export function ClientDetailsPanel({
 
             <Link
               href={`/advisor/investors/${data.id}`}
-              className="inline-flex items-center gap-1 text-[12.5px] font-bold text-primary hover:underline"
+              className="inline-flex items-center gap-1 text-[13.5px] font-bold text-primary hover:underline"
             >
               Open full client record
               <ArrowRight className="size-3.5" />
@@ -635,7 +635,7 @@ export function ClientDetailsPanel({
         <div className="flex shrink-0 items-center gap-2 border-t border-border px-5 py-3">
           <a
             href={`mailto:${data.email}`}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-[9px] bg-primary px-3 py-2.5 text-[13px] font-bold text-white shadow-[0_2px_6px_rgb(36_99_235/0.3)] transition-colors hover:bg-primary-hover"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-[9px] bg-primary px-3 py-2.5 text-sm font-bold text-white shadow-[0_2px_6px_rgb(36_99_235/0.3)] transition-colors hover:bg-primary-hover"
           >
             <Mail className="size-4" />
             Send Email
@@ -644,7 +644,7 @@ export function ClientDetailsPanel({
             href={data.phone ? `tel:${data.phone}` : undefined}
             aria-disabled={!data.phone}
             className={cn(
-              "flex flex-1 items-center justify-center gap-1.5 rounded-[9px] border border-border bg-card px-3 py-2.5 text-[13px] font-bold text-foreground transition-colors",
+              "flex flex-1 items-center justify-center gap-1.5 rounded-[9px] border border-border bg-card px-3 py-2.5 text-sm font-bold text-foreground transition-colors",
               data.phone ? "hover:border-primary hover:text-primary" : "pointer-events-none opacity-50",
             )}
           >

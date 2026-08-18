@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { requireStaffUser } from "@/lib/advisor/auth";
 import { filterInvestorRows, loadInvestorRows, type InvestorRow } from "@/lib/advisor/investors";
+import { labelForValue } from "@/lib/advisor/questionnaireCatalog";
 import { cn } from "@/lib/utils";
 import { ClientsWithPanel, type ClientListRow } from "@/components/advisor/clientsPanel/ClientsWithPanel";
 
@@ -43,6 +44,10 @@ function toListRow(row: InvestorRow): ClientListRow {
     stage: row.lead.current_stage,
     source: row.lead.source,
     territories: row.lead.territories_wanted ?? null,
+    videoPercent: row.video ? Math.min(100, Math.max(0, row.video.highest_percent_watched)) : null,
+    videoCompleted: row.video?.completed ?? false,
+    liquidCapital: labelForValue(row.questionnaire?.liquid_capital ?? row.lead.initial_liquid_capital),
+    netWorth: labelForValue(row.questionnaire?.net_worth ?? row.lead.initial_net_worth),
   };
 }
 
