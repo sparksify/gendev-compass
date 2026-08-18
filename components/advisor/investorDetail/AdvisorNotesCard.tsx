@@ -67,7 +67,7 @@ export function AdvisorNotesCard({
     <Card id="advisor-notes" className="h-full scroll-mt-4">
       <CardContent className="px-[15px] py-[13px]">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
+          <p className="text-[15px] font-bold text-foreground">
             Advisor notes
           </p>
           <div className="flex items-center gap-2.5">

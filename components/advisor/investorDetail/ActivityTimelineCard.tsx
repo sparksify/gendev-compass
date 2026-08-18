@@ -54,7 +54,7 @@ export function ActivityTimelineCard({ events }: { events: PortalEventRecord[] }
     <Card className="h-full">
       <CardContent className="px-[15px] py-[13px]">
         <div className="flex items-center justify-between">
-          <p className="border-b-2 border-primary pb-[5px] text-[11px] font-bold uppercase tracking-[0.09em] text-foreground">
+          <p className="border-b-2 border-primary pb-[5px] text-[15px] font-bold text-foreground">
             Activity timeline
           </p>
           {events.length > PREVIEW_COUNT && (

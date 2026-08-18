@@ -92,7 +92,7 @@ export function ProcessMilestonesCard({
     <Card className="h-full">
       <CardContent className="px-[15px] py-[13px]">
         <div className="flex items-center justify-between">
-          <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
+          <p className="text-[15px] font-bold text-foreground">
             Process milestones
           </p>
           <p className="text-[11px] text-faint-foreground">{done} of 4 complete</p>

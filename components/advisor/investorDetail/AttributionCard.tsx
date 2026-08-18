@@ -26,7 +26,7 @@ export function AttributionCard({ lead }: { lead: LeadRecord }) {
     <Card id="attribution" className="scroll-mt-4">
       <CardContent className="px-[15px] py-[13px]">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
+          <p className="text-[15px] font-bold text-foreground">
             Attribution · first touch
           </p>
           {lead.qualification_result === "review_required" && (

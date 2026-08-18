@@ -5,6 +5,7 @@ import { marketingAllowed, readConsentCookie } from "@/lib/tracking/consent";
 import { TrackingScripts } from "@/components/tracking/TrackingScripts";
 import { ConsentBanner } from "@/components/tracking/ConsentBanner";
 import "@fontsource-variable/dm-sans";
+import "@fontsource-variable/plus-jakarta-sans";
 import "@fontsource-variable/source-serif-4";
 import "./globals.css";
 
