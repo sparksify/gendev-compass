@@ -1,6 +1,17 @@
 import { getStore } from "@/lib/store";
 import { brand } from "@/lib/config/brand";
-import { labelForValue } from "@/lib/advisor/questionnaireCatalog";
+import { labelForValue, labelIn } from "@/lib/advisor/questionnaireCatalog";
+import {
+  CREDIT_SCORE_RANGES,
+  CASH_CONTRIBUTION_RANGES,
+  EXISTING_ENTITY_OPTIONS,
+  FINANCING_NEED_OPTIONS,
+  FINANCING_PERCENTAGE_OPTIONS,
+  FUNDING_ASSISTANCE_OPTIONS,
+  FUNDING_SOURCE_OPTIONS,
+  LENDER_STATUS_OPTIONS,
+  PRIOR_FINANCING_EXPERIENCE_OPTIONS,
+} from "@/types/questionnaire";
 import {
   activityLabels,
   environmentLabels,
@@ -44,6 +55,8 @@ export async function buildEmailBody(
       return questionnaireCompleted(context);
     case "consultation_scheduled":
       return consultationScheduled(context);
+    case "booking_claimed":
+      return bookingClaimed(context);
     case "strategist_review_requested":
       return strategistReviewRequested(context);
     case "video_completed":
@@ -107,10 +120,76 @@ async function questionnaireCompleted(context: TemplateContext): Promise<EmailBo
   ];
 
   if (questionnaire) {
+    // Full mailing address as one line; parts that are absent drop out.
+    const addressParts = [
+      [questionnaire.address_line_1, questionnaire.address_line_2].filter(Boolean).join(", "),
+      [questionnaire.city, questionnaire.state].filter(Boolean).join(", "),
+      questionnaire.postal_code,
+      questionnaire.country,
+    ].filter(Boolean);
+    const mailingAddress = addressParts.length > 0 ? addressParts.join(" · ") : null;
+
+    const fundingSources =
+      Array.isArray(questionnaire.anticipated_funding_sources) &&
+      questionnaire.anticipated_funding_sources.length > 0
+        ? questionnaire.anticipated_funding_sources
+            .map((source) => labelIn(FUNDING_SOURCE_OPTIONS, source))
+            .join(", ")
+        : null;
+
+    // The financing-detail trio only exists when financing may be in play.
+    const financingApplies = Boolean(
+      questionnaire.financing_need && questionnaire.financing_need !== "no",
+    );
+
     rows.push(
       { label: "Timeline", value: labelForValue(questionnaire.investment_timeline) },
       { label: "Liquid capital", value: labelForValue(questionnaire.liquid_capital) },
       { label: "Net worth", value: labelForValue(questionnaire.net_worth) },
+      { label: "Mailing address", value: mailingAddress },
+      {
+        label: "Credit score (self-reported)",
+        value: labelIn(CREDIT_SCORE_RANGES, questionnaire.estimated_credit_score_range),
+      },
+      { label: "Funding sources", value: fundingSources },
+      {
+        label: "Financing need",
+        value: labelIn(FINANCING_NEED_OPTIONS, questionnaire.financing_need),
+      },
+      ...(financingApplies
+        ? [
+            {
+              label: "Prefers to finance",
+              value: labelIn(
+                FINANCING_PERCENTAGE_OPTIONS,
+                questionnaire.preferred_financing_percentage,
+              ),
+            },
+            {
+              label: "Lender status",
+              value: labelIn(LENDER_STATUS_OPTIONS, questionnaire.lender_status),
+            },
+            {
+              label: "Wants financing help",
+              value: labelIn(FUNDING_ASSISTANCE_OPTIONS, questionnaire.funding_assistance_requested),
+            },
+          ]
+        : []),
+      {
+        label: "Cash contribution",
+        value: labelIn(CASH_CONTRIBUTION_RANGES, questionnaire.available_cash_contribution),
+      },
+      {
+        label: "Existing business entity",
+        value: labelIn(EXISTING_ENTITY_OPTIONS, questionnaire.existing_business_entity),
+      },
+      {
+        label: "Prior SBA/commercial financing",
+        value: labelIn(
+          PRIOR_FINANCING_EXPERIENCE_OPTIONS,
+          questionnaire.prior_business_financing_experience,
+        ),
+      },
       { label: "Owned a business", value: labelForValue(questionnaire.business_ownership) },
       {
         label: "Decision participants",
@@ -136,6 +215,43 @@ async function questionnaireCompleted(context: TemplateContext): Promise<EmailBo
   });
 
   return { subject: `Investor Qualification Completed — ${name}`, html, text };
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * The prospect clicked "I completed my booking" but no booking was detected
+ * from the calendar widget or webhook — an action-required verification
+ * email, deliberately distinct from the confirmed-booking template.
+ */
+async function bookingClaimed(context: TemplateContext): Promise<EmailBody> {
+  const { lead } = context;
+  const name = investorName(lead);
+
+  const qualification =
+    lead.qualification_result === "qualified"
+      ? "Qualified"
+      : lead.qualification_result === "review_required"
+        ? "Review required"
+        : null;
+
+  const rows: DetailRow[] = [
+    ...contactRows(lead),
+    { label: "Qualification", value: qualification },
+    { label: "Calendar booking detected", value: "No" },
+  ];
+
+  const { html, text } = renderEmail({
+    eyebrow: "Verify Booking",
+    headline: `${name} says they scheduled a consultation — no calendar booking was detected.`,
+    intro:
+      "They clicked the confirmation button on the scheduling page, but no booking event arrived from the calendar. Check your calendar; if nothing is there, reach out to get them scheduled — they intended to book.",
+    rows,
+    cta: cta(lead),
+    footnote: "You receive this because unverified booking claims are set to notify immediately.",
+  });
+
+  return { subject: `Verify booking — ${name} (no calendar event found)`, html, text };
 }
 
 // ---------------------------------------------------------------------------

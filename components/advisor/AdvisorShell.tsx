@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Bell,
   ChevronDown,
+  ClipboardCheck,
   LayoutDashboard,
   LayoutGrid,
   Map as MapIcon,
@@ -34,6 +35,7 @@ function navGroups(isAdmin: boolean): NavGroup[] {
       items: [
         { href: "/advisor", label: "Dashboard", icon: LayoutDashboard, exact: true },
         { href: "/advisor/investors", label: "Clients", icon: Users },
+        { href: "/advisor/questionnaires", label: "Questionnaires", icon: ClipboardCheck },
         { href: "/advisor/team", label: "Team", icon: UsersRound },
       ],
     },

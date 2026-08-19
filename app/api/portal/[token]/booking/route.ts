@@ -19,6 +19,14 @@ const bookingSchema = z.object({
  * Marks the lead as booked. Scheduling opens as soon as the questionnaire
  * is submitted — the advisor reviews responses before the call, so there is
  * no approval gate. Booking is still not a path around the questionnaire.
+ *
+ * Only 'embed-event' (a booking message from the calendar widget itself)
+ * marks the lead booked. 'manual-confirm' — the fallback button — is a
+ * self-reported claim with no calendar evidence: it records a
+ * booking_claimed event for the advisor to verify and fires no conversion,
+ * no stage advance, and no booked status. The provider webhook
+ * (/api/webhooks/calendar) remains the fully verified path and reconciles
+ * claims when the real booking arrives.
  */
 export async function POST(
   request: Request,
@@ -47,6 +55,17 @@ export async function POST(
   const now = new Date().toISOString();
 
   try {
+    if (parsed.data.detectedVia === "manual-confirm") {
+      // Already genuinely booked (e.g. widget detection then a redundant
+      // click) — behave like the idempotent replay below.
+      if (lead.booked_at) {
+        return NextResponse.json({ success: true, nextUrl: `/p/${token}/schedule` });
+      }
+      // Unverified self-report: timeline entry + advisor email only.
+      await trackEvent(lead, "booking_claimed", { detectedVia: "manual-confirm" });
+      return NextResponse.json({ success: true, claimed: true });
+    }
+
     if (!lead.booked_at) {
       const store = getStore();
       await store.updateLead(lead.id, {

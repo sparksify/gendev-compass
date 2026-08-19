@@ -132,3 +132,63 @@ export const questionnaireSchema = z
   });
 
 export type QuestionnairePayload = z.infer<typeof questionnaireSchema>;
+
+// ---------------------------------------------------------------------------
+// Draft (autosave) schema — a lenient counterpart to the full schema above.
+// Every field is optional; empty strings and invalid values are dropped
+// rather than rejected so a half-filled form always produces a storable
+// draft. Drafts live in leads.questionnaire_draft (Supabase only — never
+// dispatched to analytics) and are replaced by the validated payload on
+// final submit.
+// ---------------------------------------------------------------------------
+
+const draftEnum = <T extends readonly { value: string }[]>(options: T) =>
+  z.enum(valuesOf(options)).optional().catch(undefined);
+
+const draftText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .optional()
+    .catch(undefined)
+    .transform((value) => (value ? value : undefined));
+
+export const questionnaireDraftSchema = z.object({
+  investmentTimeline: draftEnum(INVESTMENT_TIMELINES),
+  liquidCapital: draftEnum(LIQUID_CAPITAL_RANGES),
+  netWorth: draftEnum(NET_WORTH_RANGES),
+  businessOwnership: draftEnum(BUSINESS_OWNERSHIP_OPTIONS),
+  primaryInterest: draftText(5000),
+  remainingQuestions: draftText(5000),
+  decisionCriteria: draftText(5000),
+  decisionParticipants: draftEnum(DECISION_PARTICIPANT_OPTIONS),
+  accuracyConfirmed: z.boolean().optional().catch(undefined),
+  addressLine1: draftText(200),
+  addressLine2: draftText(200),
+  city: draftText(100),
+  state: draftText(100),
+  postalCode: draftText(20),
+  country: draftEnum(COUNTRY_OPTIONS),
+  estimatedCreditScoreRange: draftEnum(CREDIT_SCORE_RANGES),
+  anticipatedFundingSources: z
+    .array(z.enum(valuesOf(FUNDING_SOURCE_OPTIONS)))
+    .max(FUNDING_SOURCE_OPTIONS.length)
+    .optional()
+    .catch(undefined)
+    .transform((value) => (value && value.length > 0 ? value : undefined)),
+  financingNeed: draftEnum(FINANCING_NEED_OPTIONS),
+  preferredFinancingPercentage: draftEnum(FINANCING_PERCENTAGE_OPTIONS),
+  lenderStatus: draftEnum(LENDER_STATUS_OPTIONS),
+  fundingAssistanceRequested: draftEnum(FUNDING_ASSISTANCE_OPTIONS),
+  availableCashContribution: draftEnum(CASH_CONTRIBUTION_RANGES),
+  existingBusinessEntity: draftEnum(EXISTING_ENTITY_OPTIONS),
+  priorBusinessFinancingExperience: draftEnum(PRIOR_FINANCING_EXPERIENCE_OPTIONS),
+});
+
+export type QuestionnaireDraft = z.infer<typeof questionnaireDraftSchema>;
+
+/** Drops undefined entries so the stored jsonb only holds answered fields. */
+export function pruneDraft(draft: QuestionnaireDraft): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(draft).filter(([, value]) => value !== undefined));
+}

@@ -47,6 +47,7 @@ export interface NotificationRule {
 export type EmailTemplateKey =
   | "questionnaire_completed"
   | "consultation_scheduled"
+  | "booking_claimed"
   | "strategist_review_requested"
   | "video_completed"
   | "ownership_profile_completed";
@@ -96,6 +97,16 @@ const IMMEDIATE: Partial<Record<PortalEventName, NotificationRule>> = {
     channel: "email",
     templateKey: "consultation_scheduled",
     dedupeGroup: "consultation_scheduled",
+  },
+
+  // A self-reported "I booked" with no calendar evidence — the advisor must
+  // verify (call the prospect or check the calendar). Its own group so a
+  // later verified booking still sends the real confirmation email.
+  booking_claimed: {
+    action: "immediate_email",
+    channel: "email",
+    templateKey: "booking_claimed",
+    dedupeGroup: "booking_claimed",
   },
 
   // A prospect asking for a human read on a territory is a real buying signal.

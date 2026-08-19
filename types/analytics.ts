@@ -21,6 +21,9 @@ export type PortalEventName =
   | "lead_sent_to_review"
   | "calendar_opened"
   | "calendar_booking_completed"
+  // Self-reported "I scheduled" click with no calendar-detected booking —
+  // internal advisor signal only, never a conversion.
+  | "booking_claimed"
   | "portal_completed"
   | "fdd_requested"
   | "fdd_request_failed"
