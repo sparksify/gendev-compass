@@ -161,6 +161,8 @@ export type LeadPatch = Partial<
     | "video_completed_at"
     | "questionnaire_started_at"
     | "questionnaire_completed_at"
+    | "questionnaire_draft"
+    | "questionnaire_draft_saved_at"
     | "qualified_at"
     | "calendar_viewed_at"
     | "booked_at"

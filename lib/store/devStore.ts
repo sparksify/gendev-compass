@@ -320,6 +320,8 @@ export function createDevStore(): PortalStore {
           video_completed_at: null,
           questionnaire_started_at: null,
           questionnaire_completed_at: null,
+          questionnaire_draft: null,
+          questionnaire_draft_saved_at: null,
           qualified_at: null,
           calendar_viewed_at: null,
           booked_at: null,

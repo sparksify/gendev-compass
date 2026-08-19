@@ -66,6 +66,9 @@ export interface LeadRecord {
   video_completed_at: string | null;
   questionnaire_started_at: string | null;
   questionnaire_completed_at: string | null;
+  /** In-progress questionnaire answers (autosave); cleared on final submit. */
+  questionnaire_draft: Record<string, unknown> | null;
+  questionnaire_draft_saved_at: string | null;
   qualified_at: string | null;
   calendar_viewed_at: string | null;
   booked_at: string | null;

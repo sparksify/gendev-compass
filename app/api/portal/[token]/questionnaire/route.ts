@@ -120,6 +120,9 @@ export async function POST(
     const updatedLead = await store.updateLead(lead.id, {
       questionnaire_started_at: lead.questionnaire_started_at ?? now,
       questionnaire_completed_at: now,
+      // The validated payload is now canonical — drop the autosaved draft.
+      questionnaire_draft: null,
+      questionnaire_draft_saved_at: null,
       qualification_score: qualification.score,
       qualification_result: qualification.result,
       qualification_reasons: qualification.reasons,

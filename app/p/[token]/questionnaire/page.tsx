@@ -9,7 +9,11 @@ import { loadPortalContext } from "@/lib/portal/context";
 import { brand } from "@/lib/config/brand";
 import { trackEvent } from "@/lib/portal/events";
 import { LIQUID_CAPITAL_RANGES, NET_WORTH_RANGES } from "@/types/questionnaire";
-import type { QuestionnairePayload } from "@/lib/validation/questionnaire";
+import {
+  pruneDraft,
+  questionnaireDraftSchema,
+  type QuestionnairePayload,
+} from "@/lib/validation/questionnaire";
 
 function knownValue<T extends string>(
   options: ReadonlyArray<{ value: T }>,
@@ -29,9 +33,17 @@ export default async function QuestionnairePage({ params }: { params: Promise<{ 
   const { lead, state } = context;
   if (state.questionnaireCompleted || state.booked) redirect(`/p/${token}/schedule`);
   await trackEvent(lead, "questionnaire_opened", null, "questionnaire");
-  const defaults: Partial<Pick<QuestionnairePayload, "liquidCapital" | "netWorth">> = {
+  // Restore any autosaved draft on top of the application pre-fills. The
+  // accuracy confirmation is deliberately never restored — the prospect
+  // re-confirms on every visit.
+  const parsedDraft = questionnaireDraftSchema.safeParse(lead.questionnaire_draft ?? {});
+  const draftDefaults = parsedDraft.success
+    ? { ...parsedDraft.data, accuracyConfirmed: undefined }
+    : {};
+  const defaults: Partial<QuestionnairePayload> = {
     liquidCapital: knownValue(LIQUID_CAPITAL_RANGES, lead.initial_liquid_capital),
     netWorth: knownValue(NET_WORTH_RANGES, lead.initial_net_worth),
+    ...(pruneDraft(draftDefaults) as Partial<QuestionnairePayload>),
   };
   return (
     <div className="space-y-[18px]">

@@ -38,8 +38,9 @@ import { COUNTRY_OPTIONS, DEFAULT_COUNTRY, US_STATES } from "@/types/address";
 interface QuestionnaireFormProps {
   token: string;
   advisorName: string;
-  /** Known answers from the original application, used to pre-fill fields. */
-  defaults?: Partial<Pick<QuestionnairePayload, "liquidCapital" | "netWorth">>;
+  /** Known answers from the original application and any autosaved draft,
+   * used to pre-fill fields. */
+  defaults?: Partial<QuestionnairePayload>;
 }
 
 function whatsNext(advisorName: string) {
@@ -62,6 +63,8 @@ export function QuestionnaireForm({ token, advisorName, defaults }: Questionnair
   const [serverError, setServerError] = useState<string | null>(null);
   const startedRef = useRef(false);
   const sectionEventsSent = useRef(new Set<string>());
+  const submittedRef = useRef(false);
+  const lastSavedDraftRef = useRef<string>("");
 
   const {
     register,
@@ -153,8 +156,60 @@ export function QuestionnaireForm({ token, advisorName, defaults }: Questionnair
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token, eventName: "questionnaire_started" }),
+    })
+      .then(async (response) => {
+        // The start event is the one client event with an ad-platform tier —
+        // the server returns dataLayer/Pixel payloads with its dedup ID.
+        const data = (await response.json()) as { tracking?: PortalTrackingResult };
+        if (data.tracking) firePortalTrackingResults([data.tracking]);
+      })
+      .catch(() => undefined);
+  };
+
+  // Draft autosave: persist in-progress answers ~2s after the last change,
+  // plus a final beacon flush when the tab is hidden or closed. Values go to
+  // the portal's own draft endpoint (Supabase only — never analytics).
+  const valuesRef = useRef(values);
+  valuesRef.current = values;
+
+  const saveDraft = (useBeacon = false) => {
+    if (submittedRef.current || !startedRef.current) return;
+    const payload = JSON.stringify(valuesRef.current ?? {});
+    if (payload === lastSavedDraftRef.current) return;
+    lastSavedDraftRef.current = payload;
+    const url = `/api/portal/${token}/questionnaire/draft`;
+    if (useBeacon && typeof navigator !== "undefined" && navigator.sendBeacon) {
+      navigator.sendBeacon(url, new Blob([payload], { type: "application/json" }));
+      return;
+    }
+    void fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: payload,
+      keepalive: true,
     }).catch(() => undefined);
   };
+  const saveDraftRef = useRef(saveDraft);
+  saveDraftRef.current = saveDraft;
+
+  useEffect(() => {
+    if (!startedRef.current) return;
+    const timer = setTimeout(() => saveDraftRef.current(), 2000);
+    return () => clearTimeout(timer);
+  }, [values]);
+
+  useEffect(() => {
+    const flush = () => saveDraftRef.current(true);
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
 
   const onSubmit = async (payload: QuestionnairePayload) => {
     setServerError(null);
@@ -171,6 +226,7 @@ export function QuestionnaireForm({ token, advisorName, defaults }: Questionnair
         tracking?: PortalTrackingResult[];
       };
       if (data.success && data.nextUrl) {
+        submittedRef.current = true;
         firePortalTrackingResults(data.tracking ?? []);
         router.push(data.nextUrl);
         router.refresh();
@@ -207,6 +263,9 @@ export function QuestionnaireForm({ token, advisorName, defaults }: Questionnair
         className="mt-2"
         aria-label="Questionnaire progress"
       />
+      <p className="mt-2 text-[11.5px] text-muted-foreground">
+        Your progress is saved automatically — you can leave and pick up where you left off.
+      </p>
 
       <div className="mt-9 space-y-9">
         {/* Section 1 — Investment Goals */}
