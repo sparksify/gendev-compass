@@ -204,7 +204,7 @@ export function AdminOverviewPanels({ stats }: { stats: OverviewStats }) {
                         {formatDateTime(lead.fdd_requested_at)}
                       </p>
                       <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${FDD_STATUS_STYLES[lead.fdd_effective_status] ?? "bg-gray-100 text-gray-700"}`}
+                        className={`rounded-full border px-2.5 py-1 text-xs font-medium ${FDD_STATUS_STYLES[lead.fdd_effective_status] ?? "border-border bg-surface text-secondary-foreground"}`}
                       >
                         {lead.fdd_effective_status.replaceAll("_", " ")}
                       </span>

@@ -89,6 +89,10 @@
     Roboto, "Helvetica Neue", Arial, sans-serif;
   /* Display serif for page titles and names (comp: Source Serif 4). */
   --font-serif: "Source Serif 4 Variable", "Source Serif 4", Georgia, "Times New Roman", serif;
+  /* Inter — used by surfaces styled after the NexCRM dashboard comp
+   * (currently the FDD Requests admin page). */
+  --font-inter: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
 
   /* One shadow for every card (comp). */
   --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04);
