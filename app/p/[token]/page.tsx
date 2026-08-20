@@ -4,6 +4,7 @@ import { HeroBackdrop } from "@/components/dashboard/HeroBackdrop";
 import { VideoCard } from "@/components/dashboard/VideoCard";
 import { InvestorFAQ } from "@/components/dashboard/InvestorFAQ";
 import { InvalidPortal } from "@/components/portal/InvalidPortal";
+import { PortalEventFirer } from "@/components/tracking/PortalEventFirer";
 import { loadPortalContext } from "@/lib/portal/context";
 import { deriveJourney } from "@/lib/portal/journey";
 import { resolveOpportunityProfile } from "@/lib/assets";
@@ -22,17 +23,18 @@ export default async function PortalDashboardPage({
   const context = await loadPortalContext(token);
   if (!context) return <InvalidPortal />;
 
-  const { lead, state, videoProgress } = context;
+  const { lead, state, videoProgress, firstVisit } = context;
   const journey = deriveJourney(state);
   const profile = await resolveOpportunityProfile();
 
   return (
     <div className="space-y-3.5">
+      <PortalEventFirer result={context.openEventTracking} />
       <div className="relative overflow-hidden pb-3 pt-5">
         <HeroBackdrop />
         <div className="relative">
           <p className="text-[13px] font-semibold uppercase tracking-[0.03em] text-sidebar">
-            Welcome back, {lead.first_name}
+            {firstVisit ? "Welcome" : "Welcome back"}, {lead.first_name}
           </p>
           <h1 className="mt-1.5 font-serif text-[38px] font-medium leading-[1.08] tracking-[-0.015em] text-sidebar sm:text-[42px]">
             Your {profile.shortName} Investment Journey

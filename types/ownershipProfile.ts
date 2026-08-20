@@ -113,13 +113,53 @@ export interface OwnershipProfileInput {
   timeline: TimelineValue | null;
 }
 
-/** Persisted shape — Input plus bookkeeping for autosave/resume/completion. */
+/** Client-side shape — Input plus bookkeeping for autosave/resume/completion. */
 export interface OwnershipProfileRecord extends OwnershipProfileInput {
   /** Schema version, so a future shape change can migrate old localStorage entries. */
   version: 1;
   currentStep: number;
   updatedAt: string;
   completedAt: string | null;
+}
+
+/**
+ * Server-side row (ownership_profiles, migration 0014). Snake-case to match
+ * every other *Record in types/, and stored as option keys rather than
+ * labels so wording can change without a data migration.
+ */
+export interface OwnershipProfileDbRecord {
+  id: string;
+  lead_id: string;
+  motivations: string[];
+  activities: string[];
+  ownership_style: number;
+  growth_comfort: string | null;
+  environments: string[];
+  priorities: string[];
+  experience: string[];
+  timeline: string | null;
+  current_step: number;
+  answered_sections: number;
+  completed_at: string | null;
+  organization_id: string | null;
+  client_id: string | null;
+  opportunity_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Converts a stored row back into the shape the UI and helpers expect. */
+export function toOwnershipProfileInput(row: OwnershipProfileDbRecord): OwnershipProfileInput {
+  return {
+    motivations: row.motivations as MotivationValue[],
+    activities: row.activities as ActivityValue[],
+    ownershipStyle: row.ownership_style,
+    growthComfort: (row.growth_comfort as GrowthComfortValue | null) ?? null,
+    environments: row.environments as EnvironmentValue[],
+    priorities: row.priorities as PriorityValue[],
+    experience: row.experience as ExperienceValue[],
+    timeline: (row.timeline as TimelineValue | null) ?? null,
+  };
 }
 
 export const EMPTY_OWNERSHIP_PROFILE: OwnershipProfileInput = {

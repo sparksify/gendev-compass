@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { firePortalTrackingResults, type PortalTrackingResult } from "@/lib/tracking/client";
 
 interface CalendarEmbedProps {
   embedUrl: string | null;
@@ -38,6 +39,7 @@ export function CalendarEmbed({
 }: CalendarEmbedProps) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
+  const [claimed, setClaimed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [loadTimedOut, setLoadTimedOut] = useState(false);
@@ -63,8 +65,13 @@ export function CalendarEmbed({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        const data = (await response.json()) as { success: boolean; nextUrl?: string };
+        const data = (await response.json()) as {
+          success: boolean;
+          nextUrl?: string;
+          tracking?: PortalTrackingResult[];
+        };
         if (data.success && data.nextUrl) {
+          firePortalTrackingResults(data.tracking ?? []);
           router.push(data.nextUrl);
           router.refresh();
         }
@@ -83,7 +90,18 @@ export function CalendarEmbed({
       }).catch(() => undefined);
     }
 
+    // Only messages from the scheduling widget's own origin count as
+    // booking evidence — anything else on the page (extensions, other
+    // frames, devtools) must not be able to mark the lead booked.
+    let embedOrigin: string | null = null;
+    try {
+      embedOrigin = embedUrl ? new URL(embedUrl).origin : null;
+    } catch {
+      embedOrigin = null;
+    }
+
     function onMessage(event: MessageEvent) {
+      if (!embedOrigin || event.origin !== embedOrigin) return;
       // Calendly: { event: "calendly.event_scheduled", payload: { event: { uri }, invitee: { uri } } }
       const data = event.data as
         | { event?: string; payload?: { event?: { uri?: string } } }
@@ -99,16 +117,21 @@ export function CalendarEmbed({
         });
         return;
       }
-      // Cal.com: { type: "CAL::bookingSuccessful", data: { ... } } (namespaced under cal:: prefixes)
+      // Cal.com: { type: "CAL::bookingSuccessful", data: { ... } } (namespaced
+      // as "CAL:<ns>::bookingSuccessful") — require the CAL prefix, not just
+      // any string containing "bookingSuccessful".
       const calData = event.data as { type?: string } | undefined;
-      if (typeof calData?.type === "string" && /bookingSuccessful/i.test(calData.type)) {
+      if (
+        typeof calData?.type === "string" &&
+        /^CAL:.*bookingSuccessful$/i.test(calData.type)
+      ) {
         void recordBooking({ detectedVia: "embed-event" });
       }
     }
 
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [router, token]);
+  }, [router, token, embedUrl]);
 
   async function handleManualConfirm() {
     setConfirming(true);
@@ -119,10 +142,24 @@ export function CalendarEmbed({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ detectedVia: "manual-confirm" }),
       });
-      const data = (await response.json()) as { success: boolean; nextUrl?: string; error?: string };
+      const data = (await response.json()) as {
+        success: boolean;
+        nextUrl?: string;
+        claimed?: boolean;
+        error?: string;
+        tracking?: PortalTrackingResult[];
+      };
       if (data.success && data.nextUrl) {
+        firePortalTrackingResults(data.tracking ?? []);
         router.push(data.nextUrl);
         router.refresh();
+        return;
+      }
+      if (data.success && data.claimed) {
+        // Self-reported booking noted for the advisor to verify; the page
+        // stays put so the calendar remains available.
+        setClaimed(true);
+        setConfirming(false);
         return;
       }
       setError(data.error ?? "We could not record your booking. Please try again.");
@@ -188,23 +225,34 @@ export function CalendarEmbed({
       )}
 
       <div className="rounded-card border border-border bg-white p-5">
-        <p className="text-sm text-muted-foreground">
-          Already picked a time? If this page doesn&apos;t update automatically after booking,
-          confirm below.
-        </p>
-        {error && (
-          <p className="mt-2 text-sm text-red-700" role="alert">
-            {error}
+        {claimed ? (
+          <p className="text-sm text-muted-foreground" role="status">
+            Thanks — we&apos;ve let {advisorName} know. If you received a confirmation email from
+            the calendar, you&apos;re all set. If not, your time may not be reserved yet — please
+            pick a time above, or {contactFallback}.
           </p>
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground">
+              Finished booking above but this page didn&apos;t update? A booking is only confirmed
+              once you complete the calendar&apos;s final step and receive its confirmation email.
+              If you did and the page still didn&apos;t update, let us know below.
+            </p>
+            {error && (
+              <p className="mt-2 text-sm text-red-700" role="alert">
+                {error}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={handleManualConfirm}
+              disabled={confirming}
+              className="mt-3 rounded-control border border-primary px-5 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary hover:text-primary-foreground disabled:opacity-60"
+            >
+              {confirming ? "Sending…" : "I completed my booking"}
+            </button>
+          </>
         )}
-        <button
-          type="button"
-          onClick={handleManualConfirm}
-          disabled={confirming}
-          className="mt-3 rounded-control border border-primary px-5 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary hover:text-primary-foreground disabled:opacity-60"
-        >
-          {confirming ? "Confirming…" : "I Scheduled My Consultation"}
-        </button>
       </div>
     </div>
   );

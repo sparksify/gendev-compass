@@ -1,11 +1,13 @@
 export type PortalEventName =
   | "lead_created"
+  | "start_claimed"
   | "portal_opened"
   | "overview_page_opened"
   | "opportunity_overview_opened"
   | "faq_opened"
   | "resources_opened"
   | "ownership_profile_opened"
+  | "ownership_profile_completed"
   | "video_started"
   | "video_progress_25"
   | "video_progress_50"
@@ -14,10 +16,14 @@ export type PortalEventName =
   | "questionnaire_opened"
   | "questionnaire_started"
   | "questionnaire_submitted"
+  | "funding_assistance_requested"
   | "lead_qualified"
   | "lead_sent_to_review"
   | "calendar_opened"
   | "calendar_booking_completed"
+  // Self-reported "I scheduled" click with no calendar-detected booking —
+  // internal advisor signal only, never a conversion.
+  | "booking_claimed"
   | "portal_completed"
   | "fdd_requested"
   | "fdd_request_failed"
@@ -46,7 +52,24 @@ export type PortalEventName =
   | "territory_result_unavailable"
   | "territory_result_state_restricted"
   | "territory_review_requested"
-  | "territory_alternative_selected";
+  | "territory_alternative_selected"
+  // Tracking & Attribution taxonomy additions (Phase 11). Existing events
+  // above already cover most of the canonical list in
+  // docs/tracking-attribution.md; these fill the remaining gaps so the type
+  // system enforces the full taxonomy even where UI wiring is incremental.
+  | "portal_returned"
+  | "questionnaire_viewed"
+  | "resource_viewed"
+  | "resource_downloaded"
+  | "advisor_overflow_presented"
+  | "advisor_presented"
+  | "advisor_selected"
+  | "advisor_booked"
+  | "appointment_booked"
+  | "precall_questions_submitted"
+  | "territory_check_started"
+  | "territory_check_completed"
+  | "lead_review_required";
 
 export interface PortalEventRecord {
   id: string;

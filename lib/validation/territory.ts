@@ -54,6 +54,23 @@ export const territoryDefinitionSchema = z.object({
 });
 export type TerritoryDefinitionPayload = z.infer<typeof territoryDefinitionSchema>;
 
+/** Confirmation payload for the "Upload Territory Report" flow (sent as
+ *  the `payload` field of a multipart request alongside the source PDF —
+ *  see app/api/advisor/territories/reports/confirm). */
+export const territoryReportConfirmSchema = z.object({
+  brandId: z.string().trim().min(1),
+  territoryName: z.string().trim().min(1).max(200),
+  territoryCode: z.string().trim().max(60).optional().nullable(),
+  status: z.enum(["available", "reserved", "sold", "corporate", "unavailable", "pending", "archived"]),
+  publicDisplayLevel: z.enum(["hidden", "generalized", "exact"]).optional(),
+  internalNotes: z.string().trim().max(4000).optional().nullable(),
+  zipCodes: z
+    .array(z.string().trim().regex(/^\d{5}$/, "Each ZIP must be 5 digits"))
+    .min(1)
+    .max(2000),
+});
+export type TerritoryReportConfirmPayload = z.infer<typeof territoryReportConfirmSchema>;
+
 export const addZipCodesSchema = z.object({
   zipCodes: z
     .array(z.string().trim().regex(/^\d{5}$/, "Each ZIP must be 5 digits"))

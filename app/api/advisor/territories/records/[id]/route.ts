@@ -53,3 +53,35 @@ export async function PATCH(
     return NextResponse.json({ success: false, error: "Could not update territory" }, { status: 500 });
   }
 }
+
+/**
+ * Hard delete a territory record and its ZIP codes — distinct from setting
+ * status to "archived" (a soft hide staff can undo). This actually removes
+ * the row; use archive instead if the intent is to keep the record around
+ * but stop it affecting evaluations.
+ */
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<NextResponse> {
+  if (!sameOriginOk(request)) {
+    return NextResponse.json({ success: false, error: "Invalid origin" }, { status: 403 });
+  }
+  const auth = await requireAdminApi();
+  if ("response" in auth) return auth.response;
+  const { id } = await params;
+
+  const store = getStore();
+  const existing = await store.getTerritoryDefinition(id);
+  if (!existing) {
+    return NextResponse.json({ success: false, error: "Territory not found" }, { status: 404 });
+  }
+
+  try {
+    await store.deleteTerritoryDefinition(id);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("[advisor/territories/records/:id] delete failed:", error);
+    return NextResponse.json({ success: false, error: "Could not delete territory" }, { status: 500 });
+  }
+}

@@ -136,10 +136,15 @@ describe("evaluateTerritory", () => {
   });
 
   it("5. missing state configuration → MANUAL_REVIEW (never AVAILABLE)", async () => {
-    await seedZips();
+    // createBrand now seeds every real US state's eligibility by default
+    // (see lib/territory/defaultStateEligibility.ts), so a genuinely
+    // *unconfigured* state has to be one outside that default set — "ZZ"
+    // is not a real state code and will never get a seeded row, which is
+    // exactly the "missing configuration" precondition this test needs.
+    await seedZips("ZZ");
     const brand = await createBrand();
     const lead = await createLead();
-    // No brand_state_eligibility row for TX at all.
+    // No brand_state_eligibility row for ZZ at all.
 
     const result = await evaluateTerritory({ brandId: brand.id, query: "10001", radiusMiles: 10, leadId: lead.id });
     expect(result.status).toBe("MANUAL_REVIEW");
@@ -363,5 +368,53 @@ describe("evaluateTerritory", () => {
     // 4. It shows up in the admin queue (success state confirmed for the prospect).
     const queue = await store.listTerritoryReviewRequests();
     expect(queue.some((r) => r.id === reviewRequest.id)).toBe(true);
+  });
+});
+
+describe("deleteTerritoryDefinition", () => {
+  it("removes the territory and, unlike archiving, its ZIP codes too — a real hard delete", async () => {
+    const brand = await createBrand();
+    const territory = await store.createTerritoryDefinition({
+      brand_id: brand.id,
+      territory_name: "Delete Me",
+      definition_type: "zip_list",
+      status: "sold",
+    });
+    await store.addTerritoryZipCodes(territory.id, ["10001", "10002"]);
+    expect(await store.listZipCodesForTerritory(territory.id)).toHaveLength(2);
+
+    await store.deleteTerritoryDefinition(territory.id);
+
+    expect(await store.getTerritoryDefinition(territory.id)).toBeNull();
+    expect(await store.listZipCodesForTerritory(territory.id)).toHaveLength(0);
+    const remaining = await store.listTerritoryDefinitions(brand.id);
+    expect(remaining.some((t) => t.id === territory.id)).toBe(false);
+  });
+
+  it("deleting one territory never touches another's ZIP codes", async () => {
+    const brand = await createBrand();
+    const keep = await store.createTerritoryDefinition({
+      brand_id: brand.id,
+      territory_name: "Keep Me",
+      definition_type: "zip_list",
+      status: "sold",
+    });
+    const remove = await store.createTerritoryDefinition({
+      brand_id: brand.id,
+      territory_name: "Remove Me",
+      definition_type: "zip_list",
+      status: "sold",
+    });
+    await store.addTerritoryZipCodes(keep.id, ["10001"]);
+    await store.addTerritoryZipCodes(remove.id, ["10002"]);
+
+    await store.deleteTerritoryDefinition(remove.id);
+
+    expect(await store.getTerritoryDefinition(keep.id)).not.toBeNull();
+    expect(await store.listZipCodesForTerritory(keep.id)).toHaveLength(1);
+  });
+
+  it("deleting a nonexistent territory is a safe no-op", async () => {
+    await expect(store.deleteTerritoryDefinition("does-not-exist")).resolves.toBeUndefined();
   });
 });

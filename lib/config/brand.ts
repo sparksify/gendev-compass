@@ -39,7 +39,7 @@ export const brand: BrandConfig = {
   advisorPhone: process.env.NEXT_PUBLIC_ADVISOR_PHONE ?? "(416) 802-2484",
   advisorEmail: process.env.NEXT_PUBLIC_ADVISOR_EMAIL ?? "darko@frangendev.com",
   advisorPhotoPath: "/advisor.webp",
-  supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@example.com",
+  supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "help@gendevcompass.com",
   privacyPolicyUrl: process.env.NEXT_PUBLIC_PRIVACY_POLICY_URL ?? "#",
   termsUrl: process.env.NEXT_PUBLIC_TERMS_URL ?? "#",
   legalNoticeTitle: "Franchise Disclosure & Legal Notice",

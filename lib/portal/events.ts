@@ -1,23 +1,36 @@
 import { hashToken } from "@/lib/portal/tokens";
 import { recordLeadEvent } from "@/lib/domain/activities";
+import { dispatchPortalEvent, type TrackPortalEventOptions } from "@/lib/tracking/dispatch";
 import type { LeadRecord } from "@/types/lead";
 import type { PortalEventName } from "@/types/analytics";
 
+export interface TrackEventResult {
+  /** Shared browser/server dedup ID for this event (spec §9) — thread this to the client to fire dataLayer/Pixel with the SAME id. */
+  eventId: string;
+  dataLayerPayload: Awaited<ReturnType<typeof dispatchPortalEvent>>["dataLayerPayload"];
+  metaPixelBrowser: Awaited<ReturnType<typeof dispatchPortalEvent>>["metaPixelBrowser"];
+}
+
 /**
  * Records a funnel event (portal_events + activity_events via the central
- * activity service) and, when configured, forwards a copy to PostHog. All
- * writes are fire-safe: analytics failures must never break the prospect's
- * flow (spec §5, §19).
+ * activity service), forwards a copy to PostHog when configured, and
+ * dispatches it through the centralized tracking layer (GTM dataLayer
+ * contract, Meta Pixel/CAPI — lib/tracking/dispatch.ts). All writes are
+ * fire-safe: analytics/tracking failures must never break the prospect's
+ * flow (spec §5, §19). This is the single place every portal action routes
+ * through — do not call recordLeadEvent or a tracking provider directly
+ * from a page or route handler.
  *
  * Detailed financial answers stay in Supabase — only coarse metadata is
- * ever sent to third-party analytics.
+ * ever sent to third-party analytics/advertising platforms.
  */
 export async function trackEvent(
   lead: LeadRecord,
   eventName: PortalEventName,
   eventData: Record<string, unknown> | null = null,
   pageUrl: string | null = null,
-): Promise<void> {
+  trackingOptions: TrackPortalEventOptions = {},
+): Promise<TrackEventResult> {
   const safeData = {
     ...(eventData ?? {}),
     source: lead.source,
@@ -31,6 +44,14 @@ export async function trackEvent(
   }
 
   await sendToPostHog(lead, eventName, safeData);
+
+  try {
+    return await dispatchPortalEvent(lead, eventName, { pageUrl, ...trackingOptions });
+  } catch (error) {
+    console.error(`[tracking] dispatch failed for ${eventName} (event recorded regardless):`, error);
+    const { generateEventId } = await import("@/lib/tracking/eventId");
+    return { eventId: trackingOptions.eventId ?? generateEventId(), dataLayerPayload: null, metaPixelBrowser: null };
+  }
 }
 
 async function sendToPostHog(

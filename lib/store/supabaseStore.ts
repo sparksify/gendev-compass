@@ -1,4 +1,6 @@
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { defaultStateEligibilityRows } from "@/lib/territory/defaultStateEligibility";
+import { deleteTerritoryReportFile } from "@/lib/territory/reportStorage";
 import type { LeadRecord } from "@/types/lead";
 import type { QuestionnaireRecord } from "@/types/questionnaire";
 import type { VideoProgressRecord } from "@/types/portal";
@@ -26,6 +28,7 @@ import type {
   CreateTerritorySearchInput,
   InsertEventOptions,
   LeadPatch,
+  ListTrackingDeliveriesFilter,
   PortalStore,
   StaffUserPatch,
   TerritoryDefinitionPatch,
@@ -33,6 +36,15 @@ import type {
   UpsertStateEligibilityInput,
   VideoProgressPatch,
 } from "./types";
+import type {
+  ConsentRecord,
+  CreateConsentInput,
+  CreateTrackingDeliveryInput,
+  TrackingDeliveryPatch,
+  TrackingDeliveryRecord,
+  TrackingSettingsPatch,
+  TrackingSettingsRecord,
+} from "@/types/tracking";
 import type {
   BrandStateEligibilityRecord,
   CensusImportJobPatch,
@@ -48,6 +60,8 @@ import type {
   UpsertZipCodeReferenceInput,
   ZipGeographyRecord,
 } from "@/types/territory";
+import type { NotificationDeliveryRecord } from "@/types/notifications";
+import type { OwnershipProfileDbRecord } from "@/types/ownershipProfile";
 import type {
   ActivityEventRecord,
   ClientRecord,
@@ -163,6 +177,53 @@ export function createSupabaseStore(): PortalStore {
         .single();
       if (error) throw new Error(`Failed to save questionnaire: ${error.message}`);
       return data as QuestionnaireRecord;
+    },
+
+    async getOwnershipProfile(leadId) {
+      const { data, error } = await db
+        .from("ownership_profiles")
+        .select()
+        .eq("lead_id", leadId)
+        .maybeSingle();
+      if (error) throw new Error(`Failed to load ownership profile: ${error.message}`);
+      return (data as OwnershipProfileDbRecord | null) ?? null;
+    },
+
+    async upsertOwnershipProfile(input) {
+      // Completion is sticky: an autosave after finishing must not clear it,
+      // so completed_at is only written when this call sets it.
+      const row: Record<string, unknown> = {
+        lead_id: input.lead_id,
+        motivations: input.motivations,
+        activities: input.activities,
+        ownership_style: input.ownership_style,
+        growth_comfort: input.growth_comfort,
+        environments: input.environments,
+        priorities: input.priorities,
+        experience: input.experience,
+        timeline: input.timeline,
+        current_step: input.current_step,
+        answered_sections: input.answered_sections,
+        organization_id: input.organization_id ?? null,
+        client_id: input.client_id ?? null,
+        opportunity_id: input.opportunity_id ?? null,
+        updated_at: nowIso(),
+      };
+      if (input.completed_at) row.completed_at = input.completed_at;
+
+      const { data, error } = await db
+        .from("ownership_profiles")
+        .upsert(row, { onConflict: "lead_id" })
+        .select()
+        .single();
+      if (error) throw new Error(`Failed to save ownership profile: ${error.message}`);
+      return data as OwnershipProfileDbRecord;
+    },
+
+    async listOwnershipProfiles() {
+      const { data, error } = await db.from("ownership_profiles").select();
+      if (error) throw new Error(`Failed to list ownership profiles: ${error.message}`);
+      return (data ?? []) as OwnershipProfileDbRecord[];
     },
 
     async insertEvent(leadId, eventName, eventData, pageUrl, options?: InsertEventOptions): Promise<void> {
@@ -864,6 +925,60 @@ export function createSupabaseStore(): PortalStore {
       return Boolean(data && data.length > 0);
     },
 
+    async createNotificationDelivery(input) {
+      const row = {
+        organization_id: input.organization_id ?? null,
+        lead_id: input.lead_id ?? null,
+        activity_event_id: input.activity_event_id ?? null,
+        event_type: input.event_type,
+        channel: input.channel,
+        template_key: input.template_key,
+        recipient: input.recipient ?? null,
+        status: input.status ?? "pending",
+        dedupe_key: input.dedupe_key,
+      };
+      const { data, error } = await db
+        .from("notification_deliveries")
+        .insert(row)
+        .select()
+        .single();
+      if (error) {
+        // 23505 = the dedupe key is already claimed, i.e. this notification
+        // has been handled. That is the idempotency guarantee working, not a
+        // failure, so it is not logged as one.
+        if (error.code === "23505") return null;
+        console.error(
+          `Failed to create notification delivery for ${input.event_type}: ${error.message}`,
+        );
+        return null;
+      }
+      return data as NotificationDeliveryRecord;
+    },
+
+    async updateNotificationDelivery(id, patch) {
+      const { data, error } = await db
+        .from("notification_deliveries")
+        .update({ ...patch, updated_at: nowIso() })
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) {
+        console.error(`Failed to update notification delivery ${id}: ${error.message}`);
+        return null;
+      }
+      return data as NotificationDeliveryRecord;
+    },
+
+    async listNotificationDeliveriesForLead(leadId) {
+      const { data, error } = await db
+        .from("notification_deliveries")
+        .select()
+        .eq("lead_id", leadId)
+        .order("created_at", { ascending: false });
+      if (error) throw new Error(`Failed to list notification deliveries: ${error.message}`);
+      return (data ?? []) as NotificationDeliveryRecord[];
+    },
+
     async createFddWorkflow(input) {
       const { data, error } = await db
         .from("opportunity_fdd_workflows")
@@ -932,7 +1047,16 @@ export function createSupabaseStore(): PortalStore {
         .select()
         .single();
       if (error) throw new Error(`Failed to create brand: ${error.message}`);
-      return data as FranchiseBrandRecord;
+      const record = data as FranchiseBrandRecord;
+
+      // Seed every state's default eligibility so a new brand never starts
+      // fully unconfigured (which the evaluator treats as "manual review
+      // everywhere") — see lib/territory/defaultStateEligibility.ts for the
+      // 14-state registration-law exception list.
+      for (const row of defaultStateEligibilityRows()) {
+        await this.upsertStateEligibility({ brand_id: record.id, state_code: row.stateCode, status: row.status });
+      }
+      return record;
     },
 
     async getStateEligibility(
@@ -1025,6 +1149,22 @@ export function createSupabaseStore(): PortalStore {
         .single();
       if (error) throw new Error(`Failed to update territory definition: ${error.message}`);
       return data as TerritoryDefinitionRecord;
+    },
+
+    async deleteTerritoryDefinition(id: string): Promise<void> {
+      // territory_zip_codes cascades in Postgres (see migration 0005) — no
+      // manual cleanup needed there. The source report PDF (if any) lives
+      // in Supabase storage, outside the DB, so it's cleaned up separately
+      // and best-effort (see deleteTerritoryReportFile).
+      const { data: existing } = await db
+        .from("territory_definitions")
+        .select("source_document_url")
+        .eq("id", id)
+        .maybeSingle();
+      const { error } = await db.from("territory_definitions").delete().eq("id", id);
+      if (error) throw new Error(`Failed to delete territory definition: ${error.message}`);
+      const sourceUrl = (existing as { source_document_url: string | null } | null)?.source_document_url;
+      if (sourceUrl) await deleteTerritoryReportFile(sourceUrl);
     },
 
     async listZipCodesForTerritory(territoryDefinitionId: string): Promise<TerritoryZipCodeRecord[]> {
@@ -1344,6 +1484,127 @@ export function createSupabaseStore(): PortalStore {
         .select("*", { count: "exact", head: true });
       if (error) throw new Error(`Failed to count raw Census imports: ${error.message}`);
       return count ?? 0;
+    },
+
+    // -------------------------------------------------------------------
+    // Tracking & Attribution
+    // -------------------------------------------------------------------
+    async getTrackingSettings(): Promise<TrackingSettingsRecord> {
+      const { data, error } = await db
+        .from("tracking_settings")
+        .select()
+        .is("brand_id", null)
+        .maybeSingle();
+      if (error) throw new Error(`Failed to load tracking settings: ${error.message}`);
+      if (data) return data as TrackingSettingsRecord;
+
+      const { data: created, error: createError } = await db
+        .from("tracking_settings")
+        .insert({})
+        .select()
+        .single();
+      if (createError) throw new Error(`Failed to create tracking settings: ${createError.message}`);
+      return created as TrackingSettingsRecord;
+    },
+
+    async updateTrackingSettings(id: string, patch: TrackingSettingsPatch): Promise<TrackingSettingsRecord> {
+      const { data, error } = await db
+        .from("tracking_settings")
+        .update({ ...patch, updated_at: nowIso() })
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw new Error(`Failed to update tracking settings: ${error.message}`);
+      return data as TrackingSettingsRecord;
+    },
+
+    async insertTrackingDelivery(input: CreateTrackingDeliveryInput): Promise<TrackingDeliveryRecord> {
+      const { data, error } = await db
+        .from("tracking_deliveries")
+        .insert({
+          portal_event_id: input.portal_event_id ?? null,
+          lead_id: input.lead_id ?? null,
+          provider: input.provider,
+          event_name: input.event_name,
+          external_event_name: input.external_event_name ?? null,
+          event_id: input.event_id,
+          delivery_mode: input.delivery_mode,
+          status: input.status,
+          attempt_count: input.attempt_count ?? 0,
+          next_attempt_at: input.next_attempt_at ?? null,
+          response_code: input.response_code ?? null,
+          provider_response: input.provider_response ?? null,
+          sent_at: input.sent_at ?? null,
+          failed_at: input.failed_at ?? null,
+        })
+        .select()
+        .single();
+      if (error) throw new Error(`Failed to insert tracking delivery: ${error.message}`);
+      return data as TrackingDeliveryRecord;
+    },
+
+    async updateTrackingDelivery(id: string, patch: TrackingDeliveryPatch): Promise<TrackingDeliveryRecord> {
+      const { data, error } = await db
+        .from("tracking_deliveries")
+        .update(patch)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw new Error(`Failed to update tracking delivery: ${error.message}`);
+      return data as TrackingDeliveryRecord;
+    },
+
+    async listTrackingDeliveries(filter: ListTrackingDeliveriesFilter = {}): Promise<TrackingDeliveryRecord[]> {
+      let query = db.from("tracking_deliveries").select().order("created_at", { ascending: false });
+      if (filter.leadId) query = query.eq("lead_id", filter.leadId);
+      if (filter.status) query = query.eq("status", filter.status);
+      if (filter.provider) query = query.eq("provider", filter.provider);
+      query = query.limit(filter.limit ?? 200);
+      const { data, error } = await query;
+      if (error) throw new Error(`Failed to list tracking deliveries: ${error.message}`);
+      return (data as TrackingDeliveryRecord[]) ?? [];
+    },
+
+    async listDueTrackingDeliveries(nowIsoValue: string): Promise<TrackingDeliveryRecord[]> {
+      const { data, error } = await db
+        .from("tracking_deliveries")
+        .select()
+        .eq("status", "failed")
+        .lt("attempt_count", 3)
+        .lte("next_attempt_at", nowIsoValue)
+        .order("next_attempt_at", { ascending: true })
+        .limit(100);
+      if (error) throw new Error(`Failed to list due tracking deliveries: ${error.message}`);
+      return (data as TrackingDeliveryRecord[]) ?? [];
+    },
+
+    async insertConsent(input: CreateConsentInput): Promise<ConsentRecord> {
+      const { data, error } = await db
+        .from("portal_consent")
+        .insert({
+          lead_id: input.lead_id ?? null,
+          portal_token: input.portal_token ?? null,
+          necessary: input.necessary ?? true,
+          analytics: input.analytics,
+          marketing: input.marketing,
+          consent_version: input.consent_version,
+          ip_address: input.ip_address ?? null,
+          user_agent: input.user_agent ?? null,
+        })
+        .select()
+        .single();
+      if (error) throw new Error(`Failed to record consent: ${error.message}`);
+      return data as ConsentRecord;
+    },
+
+    async getLatestConsent(args: { leadId?: string; portalToken?: string }): Promise<ConsentRecord | null> {
+      let query = db.from("portal_consent").select().order("created_at", { ascending: false }).limit(1);
+      if (args.leadId) query = query.eq("lead_id", args.leadId);
+      else if (args.portalToken) query = query.eq("portal_token", args.portalToken);
+      else return null;
+      const { data, error } = await query.maybeSingle();
+      if (error) throw new Error(`Failed to load consent: ${error.message}`);
+      return (data as ConsentRecord | null) ?? null;
     },
   };
 }

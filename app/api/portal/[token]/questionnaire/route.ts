@@ -4,7 +4,7 @@ import { getStore } from "@/lib/store";
 import { statusRank } from "@/lib/store/types";
 import { trackEvent } from "@/lib/portal/events";
 import { evaluateQualification } from "@/lib/portal/qualification";
-import { questionnaireSchema } from "@/lib/validation/questionnaire";
+import { financingDetailsApply, questionnaireSchema } from "@/lib/validation/questionnaire";
 import { autoAdvanceStage } from "@/lib/advisor/stages";
 import { buildAnswerSnapshot, QUESTIONNAIRE_VERSION } from "@/lib/advisor/questionnaireCatalog";
 import { ensureLeadDomainChain, type LeadDomainChain } from "@/lib/domain/chain";
@@ -75,6 +75,12 @@ export async function POST(
   }
 
   try {
+    // Financing-dependent answers only exist when financing may be in play;
+    // funding_followup_requested is the internal workflow flag (spec §5).
+    const financingDetails = financingDetailsApply(answers.financingNeed);
+    const fundingFollowupRequested =
+      financingDetails && answers.fundingAssistanceRequested === "yes";
+
     await store.createQuestionnaire({
       lead_id: lead.id,
       investment_timeline: answers.investmentTimeline,
@@ -87,6 +93,26 @@ export async function POST(
       decision_participants: answers.decisionParticipants,
       accuracy_confirmed: answers.accuracyConfirmed,
       opportunity_id: chain?.opportunity.id ?? null,
+      address_line_1: answers.addressLine1,
+      address_line_2: answers.addressLine2 ?? null,
+      city: answers.city,
+      state: answers.state,
+      postal_code: answers.postalCode,
+      country: answers.country,
+      estimated_credit_score_range: answers.estimatedCreditScoreRange,
+      anticipated_funding_sources: answers.anticipatedFundingSources,
+      financing_need: answers.financingNeed,
+      preferred_financing_percentage: financingDetails
+        ? (answers.preferredFinancingPercentage ?? null)
+        : null,
+      available_cash_contribution: answers.availableCashContribution,
+      lender_status: financingDetails ? (answers.lenderStatus ?? null) : null,
+      funding_assistance_requested: financingDetails
+        ? (answers.fundingAssistanceRequested ?? null)
+        : null,
+      funding_followup_requested: fundingFollowupRequested,
+      existing_business_entity: answers.existingBusinessEntity,
+      prior_business_financing_experience: answers.priorBusinessFinancingExperience,
     });
 
     const qualification = evaluateQualification(lead, answers, videoCompleted);
@@ -94,6 +120,9 @@ export async function POST(
     const updatedLead = await store.updateLead(lead.id, {
       questionnaire_started_at: lead.questionnaire_started_at ?? now,
       questionnaire_completed_at: now,
+      // The validated payload is now canonical — drop the autosaved draft.
+      questionnaire_draft: null,
+      questionnaire_draft_saved_at: null,
       qualification_score: qualification.score,
       qualification_result: qualification.result,
       qualification_reasons: qualification.reasons,
@@ -120,12 +149,31 @@ export async function POST(
 
     await autoAdvanceStage(lead, "QUESTIONNAIRE_COMPLETED", "portal");
 
-    await trackEvent(lead, "questionnaire_submitted", null);
-    await trackEvent(
-      lead,
+    // `updatedLead` rather than `lead`: the advisor notification renders the
+    // qualification result and score, which only exist after the update
+    // above. The version scopes the notification's idempotency key, so a
+    // genuinely new questionnaire version can notify again. The returned
+    // tracking payloads are threaded to the client so the browser fires
+    // dataLayer/Pixel with the same dedup event IDs.
+    const submittedTracking = await trackEvent(updatedLead, "questionnaire_submitted", {
+      questionnaireVersion: QUESTIONNAIRE_VERSION,
+    });
+    const qualificationTracking = await trackEvent(
+      updatedLead,
       qualification.qualified ? "lead_qualified" : "lead_sent_to_review",
       { score: qualification.score },
+      null,
+      // Tier 2 conversion (spec §8) — the business cares about qualified
+      // volume, not raw submissions. Only a coarse boolean ever leaves the
+      // portal; the score/reasons stay in Supabase.
+      qualification.qualified
+        ? { meta: { customData: { qualification_status: "qualified" } } }
+        : {},
     );
+    // Workflow signal only — never the underlying financial answers.
+    if (fundingFollowupRequested) {
+      await trackEvent(lead, "funding_assistance_requested", null);
+    }
 
     // Every prospect proceeds directly to scheduling — the qualification
     // result is internal context for the advisor, not an approval gate.
@@ -133,6 +181,10 @@ export async function POST(
       success: true,
       qualified: qualification.qualified,
       nextUrl: `${base}/schedule`,
+      tracking: [
+        { eventId: submittedTracking.eventId, dataLayerPayload: submittedTracking.dataLayerPayload, metaPixelBrowser: submittedTracking.metaPixelBrowser },
+        { eventId: qualificationTracking.eventId, dataLayerPayload: qualificationTracking.dataLayerPayload, metaPixelBrowser: qualificationTracking.metaPixelBrowser },
+      ],
     });
   } catch (error) {
     console.error("[questionnaire] save failed:", error);

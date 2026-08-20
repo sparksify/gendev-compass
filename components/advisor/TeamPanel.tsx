@@ -14,7 +14,7 @@ interface StaffUserSummary {
 }
 
 const INPUT_CLASS =
-  "mt-1 block w-full rounded-control border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15";
+  "mt-1 block w-full rounded-control border-2 border-border-strong bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15";
 
 function formatWhen(iso: string | null): string {
   if (!iso) return "never";

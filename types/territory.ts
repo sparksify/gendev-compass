@@ -101,6 +101,11 @@ export interface TerritoryDefinitionRecord {
   internal_notes: string | null;
   awarded_at: string | null;
   reserved_until: string | null;
+  /** Original document this territory was marked from (e.g. an uploaded
+   *  mapping-software report) — an audit trail, never shown to prospects. */
+  source_document_url: string | null;
+  source_document_filename: string | null;
+  source_document_uploaded_at: string | null;
   created_at: string;
   updated_at: string;
 }

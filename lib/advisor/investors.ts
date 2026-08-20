@@ -4,9 +4,11 @@ import { resolveDefaultOrganization } from "@/lib/domain/organizations";
 import { visibleLeads } from "./access";
 import { evaluateFollowUp, type FollowUpResult } from "./followUp";
 import { suggestNextAction } from "./nextAction";
+import { INVESTOR_STAGES } from "@/types/advisor";
 import type { AppointmentRecord, StaffUserRecord } from "@/types/advisor";
 import type { FddStatus } from "@/types/fdd";
 import type { LeadRecord } from "@/types/lead";
+import { LIQUID_CAPITAL_RANGES, NET_WORTH_RANGES } from "@/types/questionnaire";
 import type { QuestionnaireRecord } from "@/types/questionnaire";
 import type { VideoProgressRecord } from "@/types/portal";
 import type {
@@ -216,4 +218,82 @@ export function filterInvestorRows(
 
     return true;
   });
+}
+
+export const INVESTOR_SORT_KEYS = [
+  "client",
+  "stage",
+  "advisor",
+  "liquidCapital",
+  "netWorth",
+  "video",
+  "lastActivity",
+] as const;
+export type InvestorSortKey = (typeof INVESTOR_SORT_KEYS)[number];
+
+export function isInvestorSortKey(value: string): value is InvestorSortKey {
+  return (INVESTOR_SORT_KEYS as readonly string[]).includes(value);
+}
+
+const liquidCapitalOrder: Map<string, number> = new Map(LIQUID_CAPITAL_RANGES.map((r, i) => [r.value, i]));
+const netWorthOrder: Map<string, number> = new Map(NET_WORTH_RANGES.map((r, i) => [r.value, i]));
+const stageOrder: Map<string, number> = new Map(INVESTOR_STAGES.map((s, i) => [s, i]));
+
+/** Ascending comparison for two possibly-missing ordinal/numeric values;
+ * missing values always sort last, in either direction — "—" rows don't
+ * jump to the top on a descending sort. `dir` only flips the ordering
+ * between two present values. */
+function compareOrdinal(av: number | undefined, bv: number | undefined, dir: 1 | -1): number {
+  if (av === undefined && bv === undefined) return 0;
+  if (av === undefined) return 1;
+  if (bv === undefined) return -1;
+  return (av - bv) * dir;
+}
+
+function compareRows(a: InvestorRow, b: InvestorRow, key: InvestorSortKey, dir: 1 | -1): number {
+  switch (key) {
+    case "client":
+      return (
+        `${a.lead.first_name} ${a.lead.last_name}`.localeCompare(
+          `${b.lead.first_name} ${b.lead.last_name}`,
+        ) * dir
+      );
+    case "stage":
+      return compareOrdinal(stageOrder.get(a.stage), stageOrder.get(b.stage), dir);
+    case "advisor": {
+      const an = a.advisor ? `${a.advisor.first_name} ${a.advisor.last_name}` : null;
+      const bn = b.advisor ? `${b.advisor.first_name} ${b.advisor.last_name}` : null;
+      if (an === null && bn === null) return 0;
+      if (an === null) return 1;
+      if (bn === null) return -1;
+      return an.localeCompare(bn) * dir;
+    }
+    case "liquidCapital":
+      return compareOrdinal(
+        liquidCapitalOrder.get(a.questionnaire?.liquid_capital ?? a.lead.initial_liquid_capital ?? ""),
+        liquidCapitalOrder.get(b.questionnaire?.liquid_capital ?? b.lead.initial_liquid_capital ?? ""),
+        dir,
+      );
+    case "netWorth":
+      return compareOrdinal(
+        netWorthOrder.get(a.questionnaire?.net_worth ?? a.lead.initial_net_worth ?? ""),
+        netWorthOrder.get(b.questionnaire?.net_worth ?? b.lead.initial_net_worth ?? ""),
+        dir,
+      );
+    case "video":
+      return compareOrdinal(a.video?.highest_percent_watched, b.video?.highest_percent_watched, dir);
+    case "lastActivity":
+      return a.lastActivityAt.localeCompare(b.lastActivityAt) * dir;
+    default:
+      return 0;
+  }
+}
+
+export function sortInvestorRows(
+  rows: InvestorRow[],
+  key: InvestorSortKey,
+  direction: "asc" | "desc",
+): InvestorRow[] {
+  const dir = direction === "desc" ? -1 : 1;
+  return [...rows].sort((a, b) => compareRows(a, b, key, dir));
 }

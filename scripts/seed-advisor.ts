@@ -23,6 +23,64 @@ function iso(msAgo: number): string {
   return new Date(Date.now() - msAgo).toISOString();
 }
 
+
+// Demo answers for the v1.1 location / credit / funding questions so seeded
+// investors exercise the new admin cards. Camel-case for the snapshot,
+// snake-case for the questionnaire row.
+const DEMO_LOCATION_FUNDING_ANSWERS: Pick<
+  import("@/types/questionnaire").QuestionnaireInput,
+  | "addressLine1"
+  | "addressLine2"
+  | "city"
+  | "state"
+  | "postalCode"
+  | "country"
+  | "estimatedCreditScoreRange"
+  | "anticipatedFundingSources"
+  | "financingNeed"
+  | "preferredFinancingPercentage"
+  | "lenderStatus"
+  | "fundingAssistanceRequested"
+  | "availableCashContribution"
+  | "existingBusinessEntity"
+  | "priorBusinessFinancingExperience"
+> = {
+  addressLine1: "4821 Maple Grove Lane",
+  addressLine2: undefined,
+  city: "Plano",
+  state: "TX",
+  postalCode: "75024",
+  country: "United States",
+  estimatedCreditScoreRange: "720-759",
+  anticipatedFundingSources: ["cash", "sba-financing"],
+  financingNeed: "possibly",
+  preferredFinancingPercentage: "25-49",
+  lenderStatus: "initial-conversation",
+  fundingAssistanceRequested: "possibly",
+  availableCashContribution: "150k-249k",
+  existingBusinessEntity: "no",
+  priorBusinessFinancingExperience: "no",
+};
+
+const DEMO_LOCATION_FUNDING_COLUMNS = {
+  address_line_1: DEMO_LOCATION_FUNDING_ANSWERS.addressLine1,
+  address_line_2: null,
+  city: DEMO_LOCATION_FUNDING_ANSWERS.city,
+  state: DEMO_LOCATION_FUNDING_ANSWERS.state,
+  postal_code: DEMO_LOCATION_FUNDING_ANSWERS.postalCode,
+  country: DEMO_LOCATION_FUNDING_ANSWERS.country,
+  estimated_credit_score_range: DEMO_LOCATION_FUNDING_ANSWERS.estimatedCreditScoreRange,
+  anticipated_funding_sources: [...DEMO_LOCATION_FUNDING_ANSWERS.anticipatedFundingSources],
+  financing_need: DEMO_LOCATION_FUNDING_ANSWERS.financingNeed,
+  preferred_financing_percentage: DEMO_LOCATION_FUNDING_ANSWERS.preferredFinancingPercentage ?? null,
+  available_cash_contribution: DEMO_LOCATION_FUNDING_ANSWERS.availableCashContribution,
+  lender_status: DEMO_LOCATION_FUNDING_ANSWERS.lenderStatus ?? null,
+  funding_assistance_requested: DEMO_LOCATION_FUNDING_ANSWERS.fundingAssistanceRequested ?? null,
+  funding_followup_requested: false,
+  existing_business_entity: DEMO_LOCATION_FUNDING_ANSWERS.existingBusinessEntity,
+  prior_business_financing_experience: DEMO_LOCATION_FUNDING_ANSWERS.priorBusinessFinancingExperience,
+};
+
 async function main() {
   const { getStore } = await import("../lib/store");
   const { generatePortalToken } = await import("../lib/portal/tokens");
@@ -356,6 +414,7 @@ async function main() {
         decision_criteria: seed.questionnaire.decisionCriteria,
         decision_participants: seed.questionnaire.decisionParticipants,
         accuracy_confirmed: true,
+        ...DEMO_LOCATION_FUNDING_COLUMNS,
       });
       await store.createSubmission({
         lead_id: lead.id,
@@ -371,6 +430,7 @@ async function main() {
           decisionCriteria: seed.questionnaire.decisionCriteria,
           decisionParticipants: seed.questionnaire.decisionParticipants as never,
           accuracyConfirmed: true,
+          ...DEMO_LOCATION_FUNDING_ANSWERS,
         }),
       });
       await store.insertEvent(lead.id, "questionnaire_submitted", null, null, {

@@ -1,6 +1,8 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
+import { defaultStateEligibilityRows } from "@/lib/territory/defaultStateEligibility";
+import { deleteTerritoryReportFile } from "@/lib/territory/reportStorage";
 import type { LeadRecord } from "@/types/lead";
 import type { QuestionnaireRecord } from "@/types/questionnaire";
 import type { VideoProgressRecord } from "@/types/portal";
@@ -17,6 +19,7 @@ import type {
   CreateTerritorySearchInput,
   InsertEventOptions,
   LeadPatch,
+  ListTrackingDeliveriesFilter,
   PortalStore,
   StaffUserPatch,
   TerritoryDefinitionPatch,
@@ -24,6 +27,15 @@ import type {
   UpsertStateEligibilityInput,
   VideoProgressPatch,
 } from "./types";
+import type {
+  ConsentRecord,
+  CreateConsentInput,
+  CreateTrackingDeliveryInput,
+  TrackingDeliveryPatch,
+  TrackingDeliveryRecord,
+  TrackingSettingsPatch,
+  TrackingSettingsRecord,
+} from "@/types/tracking";
 import type { PortalEventRecord } from "@/types/analytics";
 import type { FddAuditInsert, FddAuditRecord } from "@/types/fdd";
 import type {
@@ -35,6 +47,8 @@ import type {
   StaffSessionRecord,
   StaffUserRecord,
 } from "@/types/advisor";
+import type { NotificationDeliveryRecord } from "@/types/notifications";
+import type { OwnershipProfileDbRecord } from "@/types/ownershipProfile";
 import type {
   ActivityEventRecord,
   ClientRecord,
@@ -74,6 +88,7 @@ interface DevData {
   leads: LeadRecord[];
   video_progress: VideoProgressRecord[];
   questionnaire_responses: QuestionnaireRecord[];
+  ownership_profiles: OwnershipProfileDbRecord[];
   portal_events: PortalEventRecord[];
   staff_users: StaffUserRecord[];
   staff_sessions: StaffSessionRecord[];
@@ -91,6 +106,7 @@ interface DevData {
   external_record_mappings: ExternalRecordMappingRecord[];
   integration_connections: IntegrationConnectionRecord[];
   activity_events: ActivityEventRecord[];
+  notification_deliveries: NotificationDeliveryRecord[];
   opportunity_fdd_workflows: OpportunityFddWorkflowRecord[];
   franchise_brands: FranchiseBrandRecord[];
   brand_state_eligibility: BrandStateEligibilityRecord[];
@@ -102,6 +118,9 @@ interface DevData {
   territory_review_requests: TerritoryReviewRequestRecord[];
   census_import_jobs: CensusImportJobRecord[];
   census_acs_raw: CensusAcsRawRecord[];
+  tracking_settings: TrackingSettingsRecord[];
+  tracking_deliveries: TrackingDeliveryRecord[];
+  portal_consent: ConsentRecord[];
 }
 
 const DATA_DIR = path.join(process.cwd(), ".dev-data");
@@ -111,6 +130,7 @@ const EMPTY: DevData = {
   leads: [],
   video_progress: [],
   questionnaire_responses: [],
+  ownership_profiles: [],
   portal_events: [],
   staff_users: [],
   staff_sessions: [],
@@ -128,6 +148,7 @@ const EMPTY: DevData = {
   external_record_mappings: [],
   integration_connections: [],
   activity_events: [],
+  notification_deliveries: [],
   opportunity_fdd_workflows: [],
   franchise_brands: [],
   brand_state_eligibility: [],
@@ -139,6 +160,9 @@ const EMPTY: DevData = {
   territory_review_requests: [],
   census_import_jobs: [],
   census_acs_raw: [],
+  tracking_settings: [],
+  tracking_deliveries: [],
+  portal_consent: [],
 };
 
 /**
@@ -263,6 +287,24 @@ export function createDevStore(): PortalStore {
         const lead: LeadRecord = {
           id: randomUUID(),
           state: null,
+          first_utm_source: null,
+          first_utm_medium: null,
+          first_utm_campaign: null,
+          first_utm_content: null,
+          first_utm_term: null,
+          first_fbclid: null,
+          first_gclid: null,
+          first_msclkid: null,
+          first_fbp: null,
+          first_fbc: null,
+          first_referrer: null,
+          first_landing_page: null,
+          first_touch_at: null,
+          facebook_campaign_id: null,
+          facebook_adset_id: null,
+          facebook_ad_id: null,
+          facebook_form_id: null,
+          facebook_page_id: null,
           ...input,
           status: "created",
           current_stage: "NEW_LEAD",
@@ -278,6 +320,8 @@ export function createDevStore(): PortalStore {
           video_completed_at: null,
           questionnaire_started_at: null,
           questionnaire_completed_at: null,
+          questionnaire_draft: null,
+          questionnaire_draft_saved_at: null,
           qualified_at: null,
           calendar_viewed_at: null,
           booked_at: null,
@@ -285,6 +329,19 @@ export function createDevStore(): PortalStore {
           appointment_start_at: null,
           ...FDD_DEFAULTS,
           ...LEAD_LINK_DEFAULTS,
+          last_utm_source: null,
+          last_utm_medium: null,
+          last_utm_campaign: null,
+          last_utm_content: null,
+          last_utm_term: null,
+          last_fbclid: null,
+          last_referrer: null,
+          last_landing_page: null,
+          last_touch_at: null,
+          advisor_presented: null,
+          advisor_selected: null,
+          advisor_booked: null,
+          overflow_used: false,
         };
         data.leads.push(lead);
         await writeData(data);
@@ -372,6 +429,57 @@ export function createDevStore(): PortalStore {
         await writeData(data);
         return record;
       });
+    },
+
+    async getOwnershipProfile(leadId) {
+      return (await readData()).ownership_profiles.find((p) => p.lead_id === leadId) ?? null;
+    },
+
+    async upsertOwnershipProfile(input) {
+      return withLock(async () => {
+        const data = await readData();
+        const existing = data.ownership_profiles.find((p) => p.lead_id === input.lead_id);
+        const now = nowIso();
+
+        if (existing) {
+          Object.assign(existing, input, {
+            // Completion is sticky: an autosave after finishing (e.g. the
+            // investor reopening the summary) must not clear it.
+            completed_at: input.completed_at ?? existing.completed_at,
+            updated_at: now,
+          });
+          await writeData(data);
+          return existing;
+        }
+
+        const record: OwnershipProfileDbRecord = {
+          id: randomUUID(),
+          lead_id: input.lead_id,
+          motivations: input.motivations,
+          activities: input.activities,
+          ownership_style: input.ownership_style,
+          growth_comfort: input.growth_comfort,
+          environments: input.environments,
+          priorities: input.priorities,
+          experience: input.experience,
+          timeline: input.timeline,
+          current_step: input.current_step,
+          answered_sections: input.answered_sections,
+          completed_at: input.completed_at ?? null,
+          organization_id: input.organization_id ?? null,
+          client_id: input.client_id ?? null,
+          opportunity_id: input.opportunity_id ?? null,
+          created_at: now,
+          updated_at: now,
+        };
+        data.ownership_profiles.push(record);
+        await writeData(data);
+        return record;
+      });
+    },
+
+    async listOwnershipProfiles() {
+      return (await readData()).ownership_profiles;
     },
 
     async insertEvent(leadId, eventName, eventData, pageUrl, options?: InsertEventOptions): Promise<void> {
@@ -1171,6 +1279,56 @@ export function createDevStore(): PortalStore {
       );
     },
 
+    async createNotificationDelivery(input) {
+      return withLock(async () => {
+        const data = await readData();
+        // Emulates the unique index on dedupe_key: a claimed key means the
+        // notification has already been handled.
+        if (data.notification_deliveries.some((d) => d.dedupe_key === input.dedupe_key)) {
+          return null;
+        }
+        const now = nowIso();
+        const record: NotificationDeliveryRecord = {
+          id: randomUUID(),
+          organization_id: input.organization_id ?? null,
+          lead_id: input.lead_id ?? null,
+          activity_event_id: input.activity_event_id ?? null,
+          event_type: input.event_type,
+          channel: input.channel,
+          template_key: input.template_key,
+          recipient: input.recipient ?? null,
+          status: input.status ?? "pending",
+          provider: null,
+          provider_message_id: null,
+          error_message: null,
+          dedupe_key: input.dedupe_key,
+          sent_at: null,
+          created_at: now,
+          updated_at: now,
+        };
+        data.notification_deliveries.push(record);
+        await writeData(data);
+        return record;
+      });
+    },
+
+    async updateNotificationDelivery(id, patch) {
+      return withLock(async () => {
+        const data = await readData();
+        const record = data.notification_deliveries.find((d) => d.id === id);
+        if (!record) return null;
+        Object.assign(record, patch, { updated_at: nowIso() });
+        await writeData(data);
+        return record;
+      });
+    },
+
+    async listNotificationDeliveriesForLead(leadId) {
+      return (await readData()).notification_deliveries
+        .filter((d) => d.lead_id === leadId)
+        .sort((a, b) => b.created_at.localeCompare(a.created_at));
+    },
+
     async createFddWorkflow(input) {
       return withLock(async () => {
         const data = await readData();
@@ -1245,7 +1403,7 @@ export function createDevStore(): PortalStore {
     },
 
     async createBrand(input: CreateFranchiseBrandInput): Promise<FranchiseBrandRecord> {
-      return withLock(async () => {
+      const record = await withLock(async () => {
         const data = await readData();
         if (data.franchise_brands.some((b) => b.slug === input.slug)) {
           throw new Error(`Brand already exists: ${input.slug}`);
@@ -1264,6 +1422,17 @@ export function createDevStore(): PortalStore {
         await writeData(data);
         return record;
       });
+
+      // Seed every state's default eligibility so a new brand never starts
+      // fully unconfigured (which the evaluator treats as "manual review
+      // everywhere") — see lib/territory/defaultStateEligibility.ts for the
+      // 14-state registration-law exception list. Deliberately outside the
+      // withLock above: upsertStateEligibility takes its own lock, and
+      // withLock isn't reentrant — nesting it here would deadlock.
+      for (const row of defaultStateEligibilityRows()) {
+        await this.upsertStateEligibility({ brand_id: record.id, state_code: row.stateCode, status: row.status });
+      }
+      return record;
     },
 
     async getStateEligibility(
@@ -1345,6 +1514,9 @@ export function createDevStore(): PortalStore {
           internal_notes: input.internal_notes ?? null,
           awarded_at: input.awarded_at ?? null,
           reserved_until: input.reserved_until ?? null,
+          source_document_url: input.source_document_url ?? null,
+          source_document_filename: input.source_document_filename ?? null,
+          source_document_uploaded_at: input.source_document_uploaded_at ?? null,
           created_at: nowIso(),
           updated_at: nowIso(),
         };
@@ -1366,6 +1538,21 @@ export function createDevStore(): PortalStore {
         await writeData(data);
         return record;
       });
+    },
+
+    async deleteTerritoryDefinition(id: string): Promise<void> {
+      const sourceUrl = await withLock(async () => {
+        const data = await readData();
+        const record = data.territory_definitions.find((t) => t.id === id);
+        data.territory_definitions = data.territory_definitions.filter((t) => t.id !== id);
+        // No real FK in the file-backed store — cascade manually.
+        data.territory_zip_codes = data.territory_zip_codes.filter((z) => z.territory_definition_id !== id);
+        await writeData(data);
+        return record?.source_document_url ?? null;
+      });
+      // Outside the lock: this is best-effort file cleanup, not a store
+      // write — no need to hold the data-file lock while it runs.
+      if (sourceUrl) await deleteTerritoryReportFile(sourceUrl);
     },
 
     async listZipCodesForTerritory(territoryDefinitionId: string): Promise<TerritoryZipCodeRecord[]> {
@@ -1664,6 +1851,144 @@ export function createDevStore(): PortalStore {
 
     async countCensusAcsRaw(): Promise<number> {
       return (await readData()).census_acs_raw.length;
+    },
+
+    // -------------------------------------------------------------------
+    // Tracking & Attribution
+    // -------------------------------------------------------------------
+    async getTrackingSettings(): Promise<TrackingSettingsRecord> {
+      return withLock(async () => {
+        const data = await readData();
+        let settings = data.tracking_settings.find((s) => s.brand_id === null);
+        if (!settings) {
+          settings = {
+            id: randomUUID(),
+            brand_id: null,
+            gtm_enabled: false,
+            gtm_container_id: null,
+            meta_enabled: false,
+            meta_browser_mode: "gtm",
+            meta_pixel_id: null,
+            meta_capi_enabled: false,
+            meta_capi_access_token_ciphertext: null,
+            meta_test_event_code: null,
+            consent_required: false,
+            marketing_tracking_default: "denied",
+            event_overrides: {},
+            last_gtm_test_at: null,
+            last_meta_browser_test_at: null,
+            last_meta_capi_success_at: null,
+            last_meta_capi_failure_at: null,
+            last_meta_capi_error: null,
+            created_at: nowIso(),
+            updated_at: nowIso(),
+          };
+          data.tracking_settings.push(settings);
+          await writeData(data);
+        }
+        return settings;
+      });
+    },
+
+    async updateTrackingSettings(id: string, patch: TrackingSettingsPatch): Promise<TrackingSettingsRecord> {
+      return withLock(async () => {
+        const data = await readData();
+        const settings = data.tracking_settings.find((s) => s.id === id);
+        if (!settings) throw new Error(`Tracking settings not found: ${id}`);
+        Object.assign(settings, patch, { updated_at: nowIso() });
+        await writeData(data);
+        return settings;
+      });
+    },
+
+    async insertTrackingDelivery(input: CreateTrackingDeliveryInput): Promise<TrackingDeliveryRecord> {
+      return withLock(async () => {
+        const data = await readData();
+        const record: TrackingDeliveryRecord = {
+          id: randomUUID(),
+          portal_event_id: input.portal_event_id ?? null,
+          lead_id: input.lead_id ?? null,
+          provider: input.provider,
+          event_name: input.event_name,
+          external_event_name: input.external_event_name ?? null,
+          event_id: input.event_id,
+          delivery_mode: input.delivery_mode,
+          status: input.status,
+          attempt_count: input.attempt_count ?? 0,
+          next_attempt_at: input.next_attempt_at ?? null,
+          response_code: input.response_code ?? null,
+          provider_response: input.provider_response ?? null,
+          sent_at: input.sent_at ?? null,
+          failed_at: input.failed_at ?? null,
+          created_at: nowIso(),
+        };
+        data.tracking_deliveries.push(record);
+        await writeData(data);
+        return record;
+      });
+    },
+
+    async updateTrackingDelivery(id: string, patch: TrackingDeliveryPatch): Promise<TrackingDeliveryRecord> {
+      return withLock(async () => {
+        const data = await readData();
+        const record = data.tracking_deliveries.find((d) => d.id === id);
+        if (!record) throw new Error(`Tracking delivery not found: ${id}`);
+        Object.assign(record, patch);
+        await writeData(data);
+        return record;
+      });
+    },
+
+    async listTrackingDeliveries(filter: ListTrackingDeliveriesFilter = {}): Promise<TrackingDeliveryRecord[]> {
+      const data = await readData();
+      let rows = data.tracking_deliveries.slice().sort((a, b) => b.created_at.localeCompare(a.created_at));
+      if (filter.leadId) rows = rows.filter((d) => d.lead_id === filter.leadId);
+      if (filter.status) rows = rows.filter((d) => d.status === filter.status);
+      if (filter.provider) rows = rows.filter((d) => d.provider === filter.provider);
+      return rows.slice(0, filter.limit ?? 200);
+    },
+
+    async listDueTrackingDeliveries(nowIsoValue: string): Promise<TrackingDeliveryRecord[]> {
+      const data = await readData();
+      return data.tracking_deliveries
+        .filter(
+          (d) =>
+            d.status === "failed" &&
+            d.attempt_count < 3 &&
+            d.next_attempt_at !== null &&
+            d.next_attempt_at <= nowIsoValue,
+        )
+        .sort((a, b) => (a.next_attempt_at ?? "").localeCompare(b.next_attempt_at ?? ""))
+        .slice(0, 100);
+    },
+
+    async insertConsent(input: CreateConsentInput): Promise<ConsentRecord> {
+      return withLock(async () => {
+        const data = await readData();
+        const record: ConsentRecord = {
+          id: randomUUID(),
+          lead_id: input.lead_id ?? null,
+          portal_token: input.portal_token ?? null,
+          necessary: input.necessary ?? true,
+          analytics: input.analytics,
+          marketing: input.marketing,
+          consent_version: input.consent_version,
+          ip_address: input.ip_address ?? null,
+          user_agent: input.user_agent ?? null,
+          created_at: nowIso(),
+        };
+        data.portal_consent.push(record);
+        await writeData(data);
+        return record;
+      });
+    },
+
+    async getLatestConsent(args: { leadId?: string; portalToken?: string }): Promise<ConsentRecord | null> {
+      const data = await readData();
+      const rows = data.portal_consent
+        .filter((c) => (args.leadId ? c.lead_id === args.leadId : c.portal_token === args.portalToken))
+        .sort((a, b) => b.created_at.localeCompare(a.created_at));
+      return rows[0] ?? null;
     },
   };
 }

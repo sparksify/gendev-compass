@@ -1,13 +1,10 @@
 import Link from "next/link";
+import { Plus } from "lucide-react";
 import { requireStaffUser } from "@/lib/advisor/auth";
-import { isAdmin } from "@/lib/advisor/access";
-import { filterInvestorRows, loadInvestorRows, type InvestorFilters } from "@/lib/advisor/investors";
-import { getStore } from "@/lib/store";
-import { InvestorTable } from "@/components/advisor/InvestorTable";
-import { Card, CardContent } from "@/components/ui/card";
-import { INVESTOR_STAGES, STAGE_LABELS } from "@/types/advisor";
-
-const PAGE_SIZE = 25;
+import { filterInvestorRows, loadInvestorRows, type InvestorRow } from "@/lib/advisor/investors";
+import { labelForValue } from "@/lib/advisor/questionnaireCatalog";
+import { cn } from "@/lib/utils";
+import { ClientsWithPanel, type ClientListRow } from "@/components/advisor/clientsPanel/ClientsWithPanel";
 
 export type InvestorsSearchParams = Record<string, string | string[] | undefined>;
 
@@ -16,14 +13,48 @@ function param(params: InvestorsSearchParams, key: string): string | undefined {
   return typeof value === "string" && value !== "" ? value : undefined;
 }
 
-const selectClass =
-  "rounded-control border border-border bg-card px-2.5 py-2 text-sm text-foreground focus:border-primary focus:outline-none";
+/** Filter-chip groups over the pipeline stages. */
+const CHIPS: Array<{ key: string; label: string; stages: string[] | null }> = [
+  { key: "all", label: "All", stages: null },
+  { key: "new", label: "New", stages: ["NEW_LEAD", "PORTAL_ACTIVE"] },
+  {
+    key: "engaged",
+    label: "Engaged",
+    stages: [
+      "ENGAGED",
+      "QUESTIONNAIRE_STARTED",
+      "QUESTIONNAIRE_COMPLETED",
+      "CONSULTATION_SCHEDULED",
+      "CONSULTATION_COMPLETED",
+      "FDD_SENT",
+      "FDD_ACKNOWLEDGED",
+      "DUE_DILIGENCE",
+      "QUALIFIED",
+    ],
+  },
+  { key: "signed", label: "Signed", stages: ["CLOSED_INVESTED"] },
+];
+
+function toListRow(row: InvestorRow): ClientListRow {
+  return {
+    id: row.lead.id,
+    name: `${row.lead.first_name} ${row.lead.last_name}`,
+    email: row.lead.email,
+    brandName: row.brand?.name ?? null,
+    stage: row.lead.current_stage,
+    source: row.lead.source,
+    territories: row.lead.territories_wanted ?? null,
+    videoPercent: row.video ? Math.min(100, Math.max(0, row.video.highest_percent_watched)) : null,
+    videoCompleted: row.video?.completed ?? false,
+    liquidCapital: labelForValue(row.questionnaire?.liquid_capital ?? row.lead.initial_liquid_capital),
+    netWorth: labelForValue(row.questionnaire?.net_worth ?? row.lead.initial_net_worth),
+  };
+}
 
 /**
- * The filterable client/investor directory, shared by the advisor app
- * (/advisor/investors, "Clients") and the admin dashboard
- * (/advisor/platform/investors, "Investors"). basePath keeps the Clear
- * link and pagination on whichever route is hosting it.
+ * The clients list per the client-panel handoff: header + Add Client,
+ * stage filter chips with counts, and the table that opens the slide-in
+ * Client Details drawer. Search comes from the shell's top-bar field (?q=).
  */
 export async function InvestorsDirectory({
   params,
@@ -35,222 +66,74 @@ export async function InvestorsDirectory({
   title: string;
 }) {
   const user = await requireStaffUser();
-
-  const filters: InvestorFilters = {
-    search: param(params, "q"),
-    stage: param(params, "stage"),
-    advisorId: param(params, "advisor"),
-    state: param(params, "state"),
-    consultation: param(params, "consultation") as InvestorFilters["consultation"],
-    fdd: param(params, "fdd") as InvestorFilters["fdd"],
-    questionnaire: param(params, "questionnaire") as InvestorFilters["questionnaire"],
-    activeWithinHours: param(params, "active") ? Number(param(params, "active")) : undefined,
-    followUpOnly: param(params, "followUp") === "1",
-  };
-  const page = Math.max(1, Number(param(params, "page") ?? "1") || 1);
-
   const allRows = await loadInvestorRows(user);
-  const filtered = filterInvestorRows(allRows, filters);
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const staff = await getStore().listStaffUsers();
-  const advisors = staff.filter((s) => s.active);
-  const states = [...new Set(allRows.map((r) => r.lead.state).filter((s): s is string => Boolean(s)))].sort();
+  const q = param(params, "q");
+  const searched = q ? filterInvestorRows(allRows, { search: q }) : allRows;
 
-  const activeQuery = new URLSearchParams(
-    Object.entries(params).flatMap(([k, v]) => (typeof v === "string" && v !== "" ? [[k, v]] : [])),
-  );
+  const chipKey = param(params, "chip") ?? "all";
+  const activeChip = CHIPS.find((c) => c.key === chipKey) ?? CHIPS[0];
+  const rows = activeChip.stages
+    ? searched.filter((r) => activeChip.stages!.includes(r.lead.current_stage))
+    : searched;
+
+  const countFor = (chip: (typeof CHIPS)[number]) =>
+    chip.stages ? searched.filter((r) => chip.stages!.includes(r.lead.current_stage)).length : searched.length;
+
+  const hrefFor = (chip: (typeof CHIPS)[number]) => {
+    const query = new URLSearchParams();
+    if (q) query.set("q", q);
+    if (chip.key !== "all") query.set("chip", chip.key);
+    const qs = query.toString();
+    return qs ? `${basePath}?${qs}` : basePath;
+  };
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-serif text-2xl font-semibold text-foreground">{title}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {filtered.length} of {allRows.length} client{allRows.length === 1 ? "" : "s"}
+          <h1 className="text-[21px] font-extrabold tracking-[-0.01em] text-foreground">{title}</h1>
+          <p className="text-[13px] text-muted-foreground">
+            {allRows.length} active client{allRows.length === 1 ? "" : "s"}
+            {q && ` · matching “${q}”`}
           </p>
         </div>
-        {isAdmin(user) && (
-          <a
-            href="/api/advisor/export"
-            className="rounded-control border border-border bg-card px-3 py-2 text-sm text-secondary-foreground hover:bg-surface"
-          >
-            Export CSV
-          </a>
-        )}
+        <Link
+          href="/create-lead"
+          className="inline-flex items-center gap-1.5 rounded-[9px] bg-primary px-3.5 py-2 text-[13px] font-bold text-white shadow-[0_2px_6px_rgb(36_99_235/0.3)] transition-colors hover:bg-primary-hover"
+        >
+          <Plus className="size-4" />
+          Add Client
+        </Link>
       </div>
 
-      <Card>
-        <CardContent className="p-4">
-          <form method="get" className="flex flex-wrap items-end gap-3">
-            <div className="min-w-52 flex-1">
-              <label htmlFor="q" className="mb-1 block text-xs font-medium text-muted-foreground">
-                Search
-              </label>
-              <input
-                id="q"
-                name="q"
-                type="search"
-                defaultValue={filters.search ?? ""}
-                placeholder="Name, email, or phone"
-                className="block w-full rounded-control border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-              />
-            </div>
-            <div>
-              <label htmlFor="stage" className="mb-1 block text-xs font-medium text-muted-foreground">
-                Stage
-              </label>
-              <select id="stage" name="stage" defaultValue={filters.stage ?? ""} className={selectClass}>
-                <option value="">All stages</option>
-                {INVESTOR_STAGES.map((stage) => (
-                  <option key={stage} value={stage}>
-                    {STAGE_LABELS[stage]}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="advisor" className="mb-1 block text-xs font-medium text-muted-foreground">
-                Advisor
-              </label>
-              <select id="advisor" name="advisor" defaultValue={filters.advisorId ?? ""} className={selectClass}>
-                <option value="">All advisors</option>
-                {advisors.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.first_name} {a.last_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="state" className="mb-1 block text-xs font-medium text-muted-foreground">
-                State
-              </label>
-              <select id="state" name="state" defaultValue={filters.state ?? ""} className={selectClass}>
-                <option value="">All states</option>
-                {states.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label
-                htmlFor="consultation"
-                className="mb-1 block text-xs font-medium text-muted-foreground"
-              >
-                Consultation
-              </label>
-              <select
-                id="consultation"
-                name="consultation"
-                defaultValue={filters.consultation ?? ""}
-                className={selectClass}
-              >
-                <option value="">Any</option>
-                <option value="scheduled">Scheduled</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-                <option value="none">None</option>
-              </select>
-            </div>
-            <div>
-              <label htmlFor="fdd" className="mb-1 block text-xs font-medium text-muted-foreground">
-                FDD
-              </label>
-              <select id="fdd" name="fdd" defaultValue={filters.fdd ?? ""} className={selectClass}>
-                <option value="">Any</option>
-                <option value="requested">Requested</option>
-                <option value="sent">Sent</option>
-                <option value="acknowledged">Acknowledged</option>
-                <option value="none">Not requested</option>
-              </select>
-            </div>
-            <div>
-              <label
-                htmlFor="questionnaire"
-                className="mb-1 block text-xs font-medium text-muted-foreground"
-              >
-                Questionnaire
-              </label>
-              <select
-                id="questionnaire"
-                name="questionnaire"
-                defaultValue={filters.questionnaire ?? ""}
-                className={selectClass}
-              >
-                <option value="">Any</option>
-                <option value="completed">Completed</option>
-                <option value="incomplete">Incomplete</option>
-              </select>
-            </div>
-            <div>
-              <label htmlFor="active" className="mb-1 block text-xs font-medium text-muted-foreground">
-                Activity
-              </label>
-              <select id="active" name="active" defaultValue={String(filters.activeWithinHours ?? "")} className={selectClass}>
-                <option value="">Any time</option>
-                <option value="24">Last 24 hours</option>
-                <option value="72">Last 3 days</option>
-                <option value="168">Last 7 days</option>
-              </select>
-            </div>
-            <label className="flex items-center gap-2 pb-2 text-sm text-secondary-foreground">
-              <input type="checkbox" name="followUp" value="1" defaultChecked={filters.followUpOnly} />
-              Needs follow-up
-            </label>
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                className="rounded-control bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary-hover"
-              >
-                Apply
-              </button>
-              <Link
-                href={basePath}
-                className="rounded-control border border-border px-4 py-2 text-sm text-secondary-foreground hover:bg-surface"
-              >
-                Clear
-              </Link>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+      {/* Filter chips */}
+      <div className="flex flex-wrap gap-2">
+        {CHIPS.map((chip) => {
+          const active = chip.key === activeChip.key;
+          const count = countFor(chip);
+          return (
+            <Link
+              key={chip.key}
+              href={hrefFor(chip)}
+              aria-current={active ? "true" : undefined}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] transition-colors",
+                active
+                  ? "border-[#b9cffc] bg-primary-soft font-bold text-primary"
+                  : "border-border bg-card font-semibold text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {chip.label}
+              <span className={cn("text-[11.5px] font-semibold", active ? "text-[#7fa4f5]" : "text-faint-foreground")}>
+                {count}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
 
-      <Card>
-        <CardContent className="p-0">
-          <InvestorTable
-            rows={pageRows}
-            showNextAction
-            emptyMessage="No clients match these filters."
-          />
-        </CardContent>
-      </Card>
-
-      {totalPages > 1 && (
-        <nav className="flex items-center justify-center gap-2" aria-label="Pagination">
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
-            const query = new URLSearchParams(activeQuery);
-            query.set("page", String(p));
-            return (
-              <Link
-                key={p}
-                href={`${basePath}?${query.toString()}`}
-                aria-current={p === page ? "page" : undefined}
-                className={
-                  p === page
-                    ? "rounded-control bg-primary px-3 py-1.5 text-sm text-primary-foreground"
-                    : "rounded-control border border-border px-3 py-1.5 text-sm text-secondary-foreground hover:bg-surface"
-                }
-              >
-                {p}
-              </Link>
-            );
-          })}
-        </nav>
-      )}
+      <ClientsWithPanel rows={rows.map(toListRow)} />
     </div>
   );
 }

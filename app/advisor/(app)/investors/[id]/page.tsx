@@ -4,37 +4,33 @@ import { requireStaffUser } from "@/lib/advisor/auth";
 import { canAccessLead, isAdmin } from "@/lib/advisor/access";
 import { getStore } from "@/lib/store";
 import { evaluateFollowUp } from "@/lib/advisor/followUp";
-import { suggestNextAction } from "@/lib/advisor/nextAction";
-import { labelForValue } from "@/lib/advisor/questionnaireCatalog";
-import {
-  eventLabel,
-  eventSourceLabel,
-  formatDateTime,
-  formatRelative,
-  formatWatchTime,
-} from "@/lib/advisor/format";
-import { effectiveFddStatus, FDD_STATUS_LABELS } from "@/lib/fdd/status";
+import { deriveNextBestAction } from "@/lib/advisor/nextBestAction";
+import { eventLabel, formatDate } from "@/lib/advisor/format";
+import { effectiveFddStatus } from "@/lib/fdd/status";
 import { resolveClientFromLead } from "@/lib/domain/clients";
 import { listOpportunitiesForClient } from "@/lib/domain/opportunities";
 import { getAppUrl } from "@/lib/config/env";
+import type { MilestoneTone } from "@/lib/advisor/milestones";
 import type { BrandRecord, ClientRecord, OpportunityRecord } from "@/types/domain";
-import { StageBadge } from "@/components/advisor/StageBadge";
-import { StageSelect } from "@/components/advisor/StageSelect";
-import { AssignAdvisorSelect } from "@/components/advisor/AssignAdvisorSelect";
-import { NoteForm } from "@/components/advisor/NoteForm";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { OwnershipProfileCard } from "@/components/advisor/OwnershipProfileCard";
+import { ClientHeaderCard } from "@/components/advisor/investorDetail/ClientHeaderCard";
+import { NextBestActionCard } from "@/components/advisor/investorDetail/NextBestActionCard";
+import { ClientProgressCard } from "@/components/advisor/investorDetail/ClientProgressCard";
+import { ProcessMilestonesCard } from "@/components/advisor/investorDetail/ProcessMilestonesCard";
+import { VideoEngagementCard } from "@/components/advisor/investorDetail/VideoEngagementCard";
+import { LeadSourceCard } from "@/components/advisor/investorDetail/LeadSourceCard";
+import { ActivityTimelineCard } from "@/components/advisor/investorDetail/ActivityTimelineCard";
+import { AdvisorNotesCard } from "@/components/advisor/investorDetail/AdvisorNotesCard";
+import { QualificationOverviewCard } from "@/components/advisor/investorDetail/QualificationOverviewCard";
+import { QuestionnaireResponsesCard } from "@/components/advisor/investorDetail/QuestionnaireResponsesCard";
+import { AttributionCard } from "@/components/advisor/investorDetail/AttributionCard";
 
 export const metadata: Metadata = { title: "Client" };
 export const dynamic = "force-dynamic";
 
-function Field({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-faint-foreground">{label}</p>
-      <div className="mt-0.5 text-sm text-foreground">{value ?? "—"}</div>
-    </div>
-  );
+function withinHours(iso: string | null | undefined, hours: number): boolean {
+  if (!iso) return false;
+  return Date.now() - new Date(iso).getTime() <= hours * 3_600_000;
 }
 
 export default async function InvestorDetailPage({
@@ -44,22 +40,32 @@ export default async function InvestorDetailPage({
 }) {
   const user = await requireStaffUser();
   const { id } = await params;
+  const isAdminUser = isAdmin(user);
 
   const store = getStore();
   const lead = await store.getLeadById(id);
   // 404 for both missing and unauthorized — never confirm existence.
   if (!lead || !canAccessLead(user, lead)) notFound();
 
-  const [questionnaire, submissions, video, appointments, fddAudit, notes, events, staff] =
+  const [
+    questionnaire,
+    submissions,
+    video,
+    appointments,
+    notes,
+    events,
+    staff,
+    ownershipProfile,
+  ] =
     await Promise.all([
       store.getQuestionnaire(lead.id),
       store.getSubmissionsForLead(lead.id),
       store.getVideoProgress(lead.id),
       store.getAppointmentsForLead(lead.id),
-      store.listFddAudit(lead.id),
       store.getNotesForLead(lead.id),
       store.getEventsForLead(lead.id),
       store.listStaffUsers(),
+      store.getOwnershipProfile(lead.id),
     ]);
 
   // Platform domain: the client record and ALL of their opportunities (a
@@ -84,423 +90,111 @@ export default async function InvestorDetailPage({
   const primaryBrand = primaryOpportunity ? brandById.get(primaryOpportunity.brand_id) : null;
 
   const staffById = new Map(staff.map((s) => [s.id, s]));
+  const staffNameById = Object.fromEntries(
+    staff.map((s) => [s.id, `${s.first_name} ${s.last_name}`]),
+  );
   const advisor = lead.assigned_advisor_id ? staffById.get(lead.assigned_advisor_id) : null;
   const followUp = evaluateFollowUp({ lead, appointments, video });
-  const nextAction = suggestNextAction(lead, appointments, video);
-  const fddStatus = effectiveFddStatus(lead);
-  const activeAppointment = appointments.find(
-    (a) => a.status === "SCHEDULED" || a.status === "RESCHEDULED",
+  const nextBestAction = deriveNextBestAction(
+    lead,
+    questionnaire,
+    video,
+    appointments,
+    events,
+    notes.length,
   );
   const latestSubmission = submissions[0] ?? null;
   const portalUrl = `${getAppUrl()}/p/${lead.portal_token}`;
+  const lastActivityLabel = events[0] ? eventLabel(events[0].event_name) : null;
+  // Same field the header's "Last activity" reads — no separate hotness
+  // score, just a presentation threshold over real recency data.
+  const isHotLead = withinHours(lead.last_activity_at ?? lead.created_at, 24);
+
+  // Consultation summary for the Client Progress rail.
+  const activeAppointment = appointments.find(
+    (a) => a.status === "SCHEDULED" || a.status === "RESCHEDULED",
+  );
+  const completedAppointment = appointments.some((a) => a.status === "COMPLETED");
+  const consultation: { label: string; tone: MilestoneTone; date: string | null } = activeAppointment
+    ? {
+        label: activeAppointment.status === "RESCHEDULED" ? "Rescheduled" : "Scheduled",
+        tone: "amber",
+        date: formatDate(activeAppointment.scheduled_start),
+      }
+    : completedAppointment
+      ? { label: "Completed", tone: "green", date: null }
+      : lead.booked_at
+        ? { label: "Scheduled", tone: "amber", date: formatDate(lead.appointment_start_at) }
+        : { label: "Not booked", tone: "neutral", date: null };
+
+  const fddStatus = effectiveFddStatus(lead);
+  const fddInFlight = fddStatus !== "not_requested" && fddStatus !== "error_manual_review";
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <Card>
-        <CardContent className="p-5">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="font-serif text-2xl font-semibold text-foreground">
-                  {lead.first_name} {lead.last_name}
-                </h1>
-                <StageBadge stage={lead.current_stage} />
-                {followUp.needed && (
-                  <Badge className="bg-[#fef3c7] text-[#92400e]">Needs follow-up</Badge>
-                )}
-              </div>
-              <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-secondary-foreground">
-                <a href={`mailto:${lead.email}`} className="hover:text-primary">
-                  {lead.email}
-                </a>
-                {lead.phone && (
-                  <a href={`tel:${lead.phone}`} className="hover:text-primary">
-                    {lead.phone}
-                  </a>
-                )}
-                {lead.state && <span>{lead.state}</span>}
-                <span className="text-muted-foreground">
-                  Source: {lead.source ?? "—"}
-                  {lead.campaign ? ` / ${lead.campaign}` : ""}
-                </span>
-              </div>
-              {followUp.needed && (
-                <ul className="mt-2 space-y-0.5 text-sm text-[#92400e]">
-                  {followUp.reasons.map((reason) => (
-                    <li key={reason}>• {reason}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            <div className="grid gap-3 text-sm sm:grid-cols-2">
-              <Field label="Assigned advisor" value={advisor ? `${advisor.first_name} ${advisor.last_name}` : "Unassigned"} />
-              {primaryBrand && <Field label="Brand" value={primaryBrand.name} />}
-              {clientOpportunities.length > 1 && (
-                <Field
-                  label="Opportunities"
-                  value={clientOpportunities
-                    .map((o) => brandById.get(o.brand_id)?.name ?? "Unknown brand")
-                    .join(", ")}
-                />
-              )}
-              <Field label="Last activity" value={formatRelative(lead.last_activity_at ?? lead.created_at)} />
-              <Field
-                label="Next consultation"
-                value={
-                  activeAppointment?.scheduled_start
-                    ? formatDateTime(activeAppointment.scheduled_start, activeAppointment.time_zone)
-                    : lead.appointment_start_at
-                      ? formatDateTime(lead.appointment_start_at)
-                      : "None scheduled"
-                }
-              />
-              <Field label="Suggested next action" value={nextAction} />
-            </div>
-          </div>
+    <div className="space-y-2.5">
+      <ClientHeaderCard
+        lead={lead}
+        advisor={advisor ?? null}
+        brandName={
+          primaryBrand?.name ??
+          (clientOpportunities.length > 1
+            ? clientOpportunities.map((o) => brandById.get(o.brand_id)?.name ?? "Unknown brand").join(", ")
+            : null)
+        }
+        isAdminUser={isAdminUser}
+        staff={staff}
+        portalUrl={portalUrl}
+        needsFollowUp={followUp.needed}
+        isHotLead={isHotLead}
+        lastActivityLabel={lastActivityLabel}
+      />
 
-          <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-border-soft pt-4">
-            <div className="w-56">
-              <p className="mb-1 text-xs font-medium text-muted-foreground">Stage</p>
-              <StageSelect investorId={lead.id} currentStage={lead.current_stage} />
-            </div>
-            {isAdmin(user) && (
-              <div className="w-56">
-                <p className="mb-1 text-xs font-medium text-muted-foreground">Assigned advisor</p>
-                <AssignAdvisorSelect
-                  investorId={lead.id}
-                  currentAdvisorId={lead.assigned_advisor_id}
-                  advisors={staff
-                    .filter((s) => s.active)
-                    .map((s) => ({ id: s.id, name: `${s.first_name} ${s.last_name}` }))}
-                />
-              </div>
-            )}
-            <div className="min-w-64 flex-1">
-              <p className="mb-1 text-xs font-medium text-muted-foreground">Portal link</p>
-              <p className="truncate rounded-control border border-border bg-surface px-3 py-2 text-xs text-muted-foreground">
-                {portalUrl}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="space-y-5 lg:col-span-2">
-          {/* Qualification overview */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Qualification Overview</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {questionnaire ? (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Liquid capital" value={labelForValue(questionnaire.liquid_capital)} />
-                  <Field label="Estimated net worth" value={labelForValue(questionnaire.net_worth)} />
-                  <Field
-                    label="Investment timeline"
-                    value={labelForValue(questionnaire.investment_timeline)}
-                  />
-                  <Field
-                    label="Business ownership"
-                    value={labelForValue(questionnaire.business_ownership)}
-                  />
-                  <Field
-                    label="Decision participants"
-                    value={labelForValue(questionnaire.decision_participants)}
-                  />
-                  <Field
-                    label="Qualification score"
-                    value={
-                      lead.qualification_score !== null
-                        ? `${lead.qualification_score} (${lead.qualification_result === "qualified" ? "qualified" : "review required"})`
-                        : "—"
-                    }
-                  />
-                  <div className="sm:col-span-2">
-                    <Field label="What interested them" value={questionnaire.primary_interest} />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <Field
-                      label="Questions for the consultation"
-                      value={questionnaire.remaining_questions}
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <Field label="Decision criteria" value={questionnaire.decision_criteria} />
-                  </div>
-                </div>
-              ) : (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field
-                    label="Liquid capital (from lead form)"
-                    value={labelForValue(lead.initial_liquid_capital)}
-                  />
-                  <Field
-                    label="Net worth (from lead form)"
-                    value={labelForValue(lead.initial_net_worth)}
-                  />
-                  <div className="sm:col-span-2">
-                    <p className="text-sm text-muted-foreground">
-                      Questionnaire not completed yet.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Questionnaire snapshot */}
-          {latestSubmission && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Questionnaire Responses</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Submitted {formatDateTime(latestSubmission.submitted_at)} · Version{" "}
-                  {latestSubmission.questionnaire_version}
-                </p>
-              </CardHeader>
-              <CardContent>
-                <dl className="space-y-4">
-                  {latestSubmission.answers.map((answer) => (
-                    <div key={answer.id}>
-                      <dt className="text-sm font-medium text-secondary-foreground">
-                        {answer.question_text}
-                      </dt>
-                      <dd className="mt-0.5 text-sm text-foreground">
-                        {answer.answer_display_value}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Activity timeline */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Activity Timeline</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {events.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No activity recorded yet.</p>
-              ) : (
-                <ol className="space-y-3">
-                  {events.map((event) => {
-                    const author = event.created_by_staff_user_id
-                      ? staffById.get(event.created_by_staff_user_id)
-                      : null;
-                    const detail =
-                      event.event_name === "stage_changed" && event.event_data
-                        ? `${String(event.event_data.oldStage ?? "")} → ${String(event.event_data.newStage ?? "")}`
-                        : event.event_name.startsWith("video_progress") && event.event_data?.percent
-                          ? `${String(event.event_data.percent)}% watched`
-                          : null;
-                    return (
-                      <li key={event.id} className="flex gap-3 text-sm">
-                        <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" aria-hidden />
-                        <div className="min-w-0">
-                          <p className="font-medium text-foreground">
-                            {eventLabel(event.event_name)}
-                            {detail && (
-                              <span className="ml-2 font-normal text-muted-foreground">{detail}</span>
-                            )}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDateTime(event.occurred_at ?? event.created_at)} ·{" "}
-                            {eventSourceLabel(event.event_source)}
-                            {author ? ` · ${author.first_name} ${author.last_name}` : ""}
-                          </p>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ol>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-5">
-          {/* Video engagement */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Video Engagement</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {video ? (
-                <div className="space-y-3">
-                  <Field label="Percent watched" value={`${Math.round(video.highest_percent_watched)}%`} />
-                  <Field
-                    label="Total watch time"
-                    value={formatWatchTime(video.accumulated_seconds_watched)}
-                  />
-                  <Field label="Play count" value={String(video.play_count)} />
-                  <Field label="First played" value={formatDateTime(video.first_played_at)} />
-                  <Field label="Last played" value={formatDateTime(video.last_event_at)} />
-                  <Field
-                    label="Completed"
-                    value={
-                      video.completed ? (
-                        <Badge variant="success">Yes</Badge>
-                      ) : (
-                        <Badge variant="neutral">No</Badge>
-                      )
-                    }
-                  />
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No video activity yet.</p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Appointments */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Consultations</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {appointments.length === 0 && !lead.booked_at ? (
-                <p className="text-sm text-muted-foreground">No consultation booked yet.</p>
-              ) : appointments.length === 0 ? (
-                <div className="space-y-3">
-                  <Field label="Status" value={<Badge variant="primary">Scheduled</Badge>} />
-                  <Field label="Date" value={formatDateTime(lead.appointment_start_at)} />
-                  <Field label="External ID" value={lead.appointment_id ?? "—"} />
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {appointments.map((appointment) => (
-                    <div key={appointment.id} className="space-y-3 border-b border-border-soft pb-3 last:border-0 last:pb-0">
-                      <Field
-                        label="Status"
-                        value={
-                          <Badge variant={appointment.status === "COMPLETED" ? "success" : "primary"}>
-                            {appointment.status}
-                          </Badge>
-                        }
-                      />
-                      <Field
-                        label="Date & time"
-                        value={formatDateTime(appointment.scheduled_start, appointment.time_zone)}
-                      />
-                      <Field label="Time zone" value={appointment.time_zone ?? "—"} />
-                      <Field
-                        label="Advisor"
-                        value={
-                          appointment.advisor_id
-                            ? `${staffById.get(appointment.advisor_id)?.first_name ?? ""} ${staffById.get(appointment.advisor_id)?.last_name ?? ""}`.trim() || "—"
-                            : "—"
-                        }
-                      />
-                      <Field label="External ID" value={appointment.external_appointment_id ?? "—"} />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* FDD */}
-          <Card>
-            <CardHeader>
-              <CardTitle>FDD Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {fddStatus === "not_requested" ? (
-                <p className="text-sm text-muted-foreground">FDD not requested yet.</p>
-              ) : (
-                <div className="space-y-3">
-                  <Field
-                    label="Status"
-                    value={
-                      <Badge
-                        variant={
-                          fddStatus === "fdd_received" ||
-                          fddStatus === "waiting_period_active" ||
-                          fddStatus === "eligible_for_agreement"
-                            ? "success"
-                            : fddStatus === "error_manual_review"
-                              ? "outline"
-                              : "neutral"
-                        }
-                      >
-                        {FDD_STATUS_LABELS[fddStatus]}
-                      </Badge>
-                    }
-                  />
-                  <Field label="Requested" value={formatDateTime(lead.fdd_requested_at)} />
-                  <Field label="Sent" value={formatDateTime(lead.fdd_sent_at)} />
-                  <Field label="Delivered" value={formatDateTime(lead.fdd_delivered_at)} />
-                  <Field label="Received (acknowledged)" value={formatDateTime(lead.fdd_received_at)} />
-                  <Field
-                    label="Eligible for franchise agreement"
-                    value={formatDateTime(lead.fdd_eligible_at)}
-                  />
-                  {lead.fdd_last_error && (
-                    <Field
-                      label="Last error"
-                      value={<span className="text-destructive">{lead.fdd_last_error}</span>}
-                    />
-                  )}
-                  {fddAudit.length > 0 && (
-                    <details className="pt-1">
-                      <summary className="cursor-pointer text-sm text-primary">
-                        Audit trail ({fddAudit.length})
-                      </summary>
-                      <ol className="mt-2 space-y-2 border-l border-border-soft pl-3">
-                        {fddAudit.map((entry) => (
-                          <li key={entry.id} className="text-xs">
-                            <p className="font-medium text-foreground">{entry.event.replace(/_/g, " ")}</p>
-                            <p className="text-muted-foreground">
-                              {formatDateTime(entry.created_at)} · {entry.source}
-                              {entry.error ? ` · ${entry.error}` : ""}
-                            </p>
-                          </li>
-                        ))}
-                      </ol>
-                    </details>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Notes */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Advisor Notes</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <NoteForm investorId={lead.id} />
-              {notes.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No notes yet.</p>
-              ) : (
-                <ul className="space-y-3">
-                  {notes.map((note) => {
-                    const author = staffById.get(note.staff_user_id);
-                    return (
-                      <li key={note.id} className="rounded-control border border-border-soft bg-surface p-3">
-                        <p className="whitespace-pre-wrap text-sm text-foreground">{note.note}</p>
-                        <p className="mt-1.5 text-xs text-muted-foreground">
-                          {author ? `${author.first_name} ${author.last_name}` : "Unknown"} ·{" "}
-                          {formatDateTime(note.created_at)}
-                          {note.updated_at !== note.created_at
-                            ? ` · edited ${formatDateTime(note.updated_at)}`
-                            : ""}
-                        </p>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+      {/* Row A — the actionable pair: what to do next, where the client is. */}
+      <div className="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(330px,1fr))]">
+        <NextBestActionCard action={nextBestAction} email={lead.email} portalUrl={portalUrl} />
+        <ClientProgressCard
+          investorId={lead.id}
+          email={lead.email}
+          portalUrl={portalUrl}
+          consultation={consultation}
+          fddStatus={fddStatus}
+          fddInFlight={fddInFlight}
+          questionnaire={questionnaire}
+          questionnaireCompleted={Boolean(lead.questionnaire_completed_at ?? questionnaire)}
+          questionnaireStarted={Boolean(lead.questionnaire_started_at)}
+        />
       </div>
+
+      {/* Row B — milestones, engagement, source. */}
+      <div className="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(290px,1fr))]">
+        <ProcessMilestonesCard investorId={lead.id} milestones={lead.process_milestones ?? null} />
+        <VideoEngagementCard video={video} />
+        <LeadSourceCard lead={lead} questionnaire={questionnaire} />
+      </div>
+
+      {/* Row C — the working surfaces. */}
+      <div className="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(370px,1fr))]">
+        <ActivityTimelineCard events={events} />
+        <AdvisorNotesCard
+          investorId={lead.id}
+          notes={notes}
+          staffNameById={staffNameById}
+          currentStaffId={user.id}
+        />
+      </div>
+
+      {/* Static facts, next to the questionnaire they came from. */}
+      <QualificationOverviewCard lead={lead} questionnaire={questionnaire} />
+
+      {latestSubmission && (
+        <QuestionnaireResponsesCard questionnaire={questionnaire} submission={latestSubmission} />
+      )}
+
+      <AttributionCard lead={lead} />
+
+      {/* What the investor says they want from ownership (self-reported,
+          not a qualification signal). */}
+      <OwnershipProfileCard profile={ownershipProfile} />
     </div>
   );
 }

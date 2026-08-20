@@ -15,6 +15,26 @@ export type LeadStatus =
 
 export type QualificationResultValue = "qualified" | "review_required";
 
+/** How the lead reached us — drives the Lead Source card's two states. */
+export type LeadType = "organic" | "broker";
+
+/** The four sequential steps to close a franchise sale (migration 0015).
+ * Statuses are per-milestone (see lib/advisor/milestones.ts); dates apply
+ * where the step has one (ops call attended-at, founder call booked-for,
+ * signing day date). */
+export type MilestoneKey =
+  | "ops_zoom_call"
+  | "founder_intro_call"
+  | "territory_designed"
+  | "signing_day";
+
+export interface MilestoneState {
+  status: string;
+  date: string | null;
+}
+
+export type ProcessMilestones = Partial<Record<MilestoneKey, MilestoneState>>;
+
 export interface LeadRecord {
   id: string;
   portal_token: string;
@@ -46,6 +66,9 @@ export interface LeadRecord {
   video_completed_at: string | null;
   questionnaire_started_at: string | null;
   questionnaire_completed_at: string | null;
+  /** In-progress questionnaire answers (autosave); cleared on final submit. */
+  questionnaire_draft: Record<string, unknown> | null;
+  questionnaire_draft_saved_at: string | null;
   qualified_at: string | null;
   calendar_viewed_at: string | null;
   booked_at: string | null;
@@ -70,6 +93,76 @@ export interface LeadRecord {
   client_id: string | null;
   primary_opportunity_id: string | null;
   brand_id: string | null;
+
+  // ---------------------------------------------------------------------
+  // Attribution — first touch (see lib/tracking/attribution.ts). Written
+  // once, at lead creation or the prospect's first portal visit, and never
+  // overwritten afterward.
+  // ---------------------------------------------------------------------
+  first_utm_source: string | null;
+  first_utm_medium: string | null;
+  first_utm_campaign: string | null;
+  first_utm_content: string | null;
+  first_utm_term: string | null;
+  first_fbclid: string | null;
+  first_gclid: string | null;
+  first_msclkid: string | null;
+  first_fbp: string | null;
+  first_fbc: string | null;
+  first_referrer: string | null;
+  first_landing_page: string | null;
+  first_touch_at: string | null;
+
+  // ---------------------------------------------------------------------
+  // Attribution — latest touch. May update on later qualified visits (e.g.
+  // an email-reminder click); the conversion event itself always retains
+  // the first-touch values above for advertising reporting.
+  // ---------------------------------------------------------------------
+  last_utm_source: string | null;
+  last_utm_medium: string | null;
+  last_utm_campaign: string | null;
+  last_utm_content: string | null;
+  last_utm_term: string | null;
+  last_fbclid: string | null;
+  last_referrer: string | null;
+  last_landing_page: string | null;
+  last_touch_at: string | null;
+
+  // ---------------------------------------------------------------------
+  // Facebook Lead Ads — extended IDs. Populated via the lead creation API
+  // (CRM automation today; a direct Lead Ads webhook is a future
+  // extension point, see docs/tracking-attribution.md).
+  // ---------------------------------------------------------------------
+  facebook_campaign_id: string | null;
+  facebook_adset_id: string | null;
+  facebook_ad_id: string | null;
+  facebook_form_id: string | null;
+  facebook_page_id: string | null;
+
+  // ---------------------------------------------------------------------
+  // Advisor presentation/routing attribution (future multi-advisor
+  // reporting — Darko/Glenn). Not sent to advertising platforms.
+  // ---------------------------------------------------------------------
+  advisor_presented: string | null;
+  advisor_selected: string | null;
+  advisor_booked: string | null;
+  overflow_used: boolean;
+
+  // ---------------------------------------------------------------------
+  // Client detail workspace fields (migration 0015). All advisor-entered
+  // or CRM-supplied; absent (undefined) on dev-store records created
+  // before the migration, so read them with `?? null`.
+  // ---------------------------------------------------------------------
+  /** Advisor's estimate of how many territories/units the client wants —
+   * from conversations, NOT the questionnaire. */
+  territories_wanted?: number | null;
+  /** null is treated as "organic". */
+  lead_type?: LeadType | null;
+  broker_name?: string | null;
+  broker_network?: string | null;
+  broker_email?: string | null;
+  broker_phone?: string | null;
+  process_milestones?: ProcessMilestones | null;
 }
 
 export interface CreateLeadInput {
