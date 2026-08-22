@@ -345,10 +345,28 @@ main:has(.ti-workspace) + aside {
   animation: op-celebrate 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* Interactive flow tap targets: a tactile press so every answer lands. */
+.ownership-flow-option {
+  transition:
+    transform 120ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+
+.ownership-flow-option:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ownership-profile-step,
   .ownership-profile-celebrate {
     animation: none;
+  }
+
+  .ownership-flow-option,
+  .ownership-flow-option:active:not(:disabled) {
+    transition: none;
+    transform: none;
   }
 }
 
