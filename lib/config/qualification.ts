@@ -68,3 +68,14 @@ export function getVideoCompletionThreshold(): number {
   const value = intFromEnv("VIDEO_COMPLETION_THRESHOLD", 85);
   return Math.min(100, Math.max(1, value));
 }
+
+/**
+ * Percent of the video (0–100) at or above which a prospect counts as
+ * "high engagement" but not yet complete — the middle tier between barely
+ * started and finished, used to give the HighLevel follow-up workflow a
+ * distinct branch (someone at 75% is not the same lead as someone at 3%).
+ */
+export function getVideoHighEngagementThreshold(): number {
+  const value = intFromEnv("VIDEO_HIGH_ENGAGEMENT_THRESHOLD", 50);
+  return Math.min(100, Math.max(1, value));
+}

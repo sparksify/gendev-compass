@@ -1,9 +1,9 @@
 import { getStore } from "@/lib/store";
-import { getVideoCompletionThreshold } from "@/lib/config/qualification";
+import { getVideoCompletionThreshold, getVideoHighEngagementThreshold } from "@/lib/config/qualification";
 import { statusRank } from "@/lib/store/types";
 import { trackEvent } from "@/lib/portal/events";
 import { autoAdvanceStage } from "@/lib/advisor/stages";
-import { syncVideoProgressToGhl } from "@/lib/portal/ghlVideoSync";
+import { syncVideoProgressToGhl, type VideoSyncStatus } from "@/lib/portal/ghlVideoSync";
 import type { LeadRecord } from "@/types/lead";
 import type { VideoProgressRecord } from "@/types/portal";
 import type { PortalEventName } from "@/types/analytics";
@@ -45,6 +45,11 @@ const GHL_SYNC_STEP_PERCENT = 5;
  * but high enough to reject dragging the playhead straight to the end.
  */
 const MIN_WATCH_RATIO = 0.5;
+
+/** "in_progress" below the high-engagement threshold, "high_engagement" from there up to completion. Completion is handled separately, always explicit. */
+function ghlStatusFor(percent: number): VideoSyncStatus {
+  return percent >= getVideoHighEngagementThreshold() ? "high_engagement" : "in_progress";
+}
 
 export interface ApplyProgressResult {
   progress: VideoProgressRecord;
@@ -128,7 +133,7 @@ export async function applyVideoProgress(
     }
     await autoAdvanceStage(lead, "ENGAGED", "portal");
     await trackEvent(lead, "video_started", { mediaId: update.mediaId ?? null });
-    await syncVideoProgressToGhl(lead, { percent: highestPercent, status: "in_progress" });
+    await syncVideoProgressToGhl(lead, { percent: highestPercent, status: ghlStatusFor(highestPercent) });
   } else if (
     statusRank(lead.status) < statusRank("video_in_progress") &&
     update.eventType !== "play"
@@ -146,11 +151,15 @@ export async function applyVideoProgress(
   // Keep HighLevel's percent field current every GHL_SYNC_STEP_PERCENT
   // points (not just at 25/50/75) — otherwise anyone who stalls at, say,
   // 15% never shows up as anything but "in_progress at whatever percent
-  // they started at," which is most prospects.
+  // they started at," which is most prospects. Also sync immediately on
+  // crossing into "high_engagement" even off the 5-point grid, so a custom
+  // (non-multiple-of-5) threshold still fires exactly when it should.
+  const highEngagementThreshold = getVideoHighEngagementThreshold();
   const previousGhlStep = Math.floor(previousPercent / GHL_SYNC_STEP_PERCENT);
   const currentGhlStep = Math.floor(highestPercent / GHL_SYNC_STEP_PERCENT);
-  if (currentGhlStep > previousGhlStep && !completedNow) {
-    await syncVideoProgressToGhl(lead, { percent: highestPercent, status: "in_progress" });
+  const crossedHighEngagement = previousPercent < highEngagementThreshold && highestPercent >= highEngagementThreshold;
+  if ((currentGhlStep > previousGhlStep || crossedHighEngagement) && !completedNow) {
+    await syncVideoProgressToGhl(lead, { percent: highestPercent, status: ghlStatusFor(highestPercent) });
   }
 
   if (completedNow) {

@@ -5,9 +5,14 @@ import type { LeadRecord } from "@/types/lead";
  * Pushes investor-overview video engagement to two HighLevel contact custom
  * fields so a Workflow's If/Else step can branch follow-up messaging on it:
  *
- *   contact.video_status    — "in_progress" | "completed" (empty = never
- *                              started; that's the "did you see your portal
- *                              link?" default branch, no value needed).
+ *   contact.video_status    — "in_progress" | "high_engagement" | "completed"
+ *                              (empty = never started; that's the "did you
+ *                              see your portal link?" default branch, no
+ *                              value needed). "high_engagement" kicks in at
+ *                              getVideoHighEngagementThreshold() (default
+ *                              50%) so a lead at 75% gets different
+ *                              follow-up copy than one at 3% — see
+ *                              lib/config/qualification.ts.
  *   contact.video__watched  — the percent, as plain text (e.g. "42"),
  *                              usable as a merge field in the message body.
  *
@@ -30,7 +35,7 @@ const SYNC_TIMEOUT_MS = 8000;
 const STATUS_FIELD_KEY = process.env.GHL_VIDEO_STATUS_FIELD_KEY ?? "contact.video_status";
 const PERCENT_FIELD_KEY = process.env.GHL_VIDEO_PERCENT_FIELD_KEY ?? "contact.video__watched";
 
-export type VideoSyncStatus = "in_progress" | "completed";
+export type VideoSyncStatus = "in_progress" | "high_engagement" | "completed";
 
 export async function syncVideoProgressToGhl(
   lead: LeadRecord,
