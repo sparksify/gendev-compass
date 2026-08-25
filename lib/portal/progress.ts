@@ -3,6 +3,7 @@ import { getVideoCompletionThreshold } from "@/lib/config/qualification";
 import { statusRank } from "@/lib/store/types";
 import { trackEvent } from "@/lib/portal/events";
 import { autoAdvanceStage } from "@/lib/advisor/stages";
+import { syncVideoProgressToGhl } from "@/lib/portal/ghlVideoSync";
 import type { LeadRecord } from "@/types/lead";
 import type { VideoProgressRecord } from "@/types/portal";
 import type { PortalEventName } from "@/types/analytics";
@@ -117,6 +118,7 @@ export async function applyVideoProgress(
     }
     await autoAdvanceStage(lead, "ENGAGED", "portal");
     await trackEvent(lead, "video_started", { mediaId: update.mediaId ?? null });
+    await syncVideoProgressToGhl(lead, { percent: highestPercent, status: "in_progress" });
   } else if (
     statusRank(lead.status) < statusRank("video_in_progress") &&
     update.eventType !== "play"
@@ -125,10 +127,18 @@ export async function applyVideoProgress(
   }
 
   // Milestones fire exactly once, on the crossing report.
+  let crossedMilestone = false;
   for (const milestone of MILESTONES) {
     if (previousPercent < milestone.percent && highestPercent >= milestone.percent) {
       await trackEvent(lead, milestone.event, { percent: milestone.percent });
+      crossedMilestone = true;
     }
+  }
+  // Keep the HighLevel percent field current on each milestone, not on
+  // every heartbeat — enough for "you got to X%" follow-up copy without
+  // hammering the contacts/upsert endpoint during active playback.
+  if (crossedMilestone && !completedNow) {
+    await syncVideoProgressToGhl(lead, { percent: highestPercent, status: "in_progress" });
   }
 
   if (completedNow) {
@@ -143,6 +153,7 @@ export async function applyVideoProgress(
       highestPercent,
       accumulatedSeconds: accumulated,
     });
+    await syncVideoProgressToGhl(lead, { percent: highestPercent, status: "completed" });
   }
 
   return { progress, completedNow, completed, highestPercent };
