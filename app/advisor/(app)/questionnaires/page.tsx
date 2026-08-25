@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Download, FileText } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageBody, PageHeader } from "@/components/advisor/PageHeader";
 import { Button } from "@/components/ui/button";
 import { InitialsAvatar } from "@/components/advisor/investorDetail/InitialsAvatar";
 import { requireStaffUser } from "@/lib/advisor/auth";
@@ -30,15 +31,13 @@ export default async function QuestionnairesPage() {
     });
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold text-foreground">Completed Questionnaires</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Every investor who has finished the qualification questionnaire, newest first.
-        </p>
-      </div>
-
-      <Card>
+    <>
+      <PageHeader
+        title="Questionnaires"
+        subtitle="Every investor who has finished qualification, newest first"
+      />
+      <PageBody>
+        <Card>
         <CardContent className="p-0">
           {rows.length === 0 ? (
             <p className="p-6 text-sm text-muted-foreground">
@@ -153,7 +152,8 @@ export default async function QuestionnairesPage() {
             </div>
           )}
         </CardContent>
-      </Card>
-    </div>
+        </Card>
+      </PageBody>
+    </>
   );
 }

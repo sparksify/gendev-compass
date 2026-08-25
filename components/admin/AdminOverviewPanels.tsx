@@ -2,17 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  Upload,
-  FolderPlus,
-  FlaskConical,
-  FileText,
-  MapPin,
-  Database,
-  ArrowRight,
-} from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { FDD_STATUS_STYLES, type FddLeadSummary } from "@/components/adminSections/FddSection";
+import { SectionRule } from "@/components/advisor/PageHeader";
+import { MetricRule } from "@/components/advisor/dashboard/panels";
+import { DISCOVERY_STAGES, SIGNAL } from "@/lib/advisor/discoveryStages";
+import type { FddLeadSummary } from "@/components/adminSections/FddSection";
 import type { CensusDataHealth } from "@/components/adminSections/CensusDataHealthSection";
 import { formatDateTime } from "@/components/adminSections/shared";
 
@@ -31,46 +24,98 @@ interface FddConfig {
 }
 
 const QUICK_ACTIONS = [
-  { href: "/advisor/platform/resources", label: "Add Resource", icon: FolderPlus },
-  { href: "/advisor/platform/branding", label: "Upload Brand Asset", icon: Upload },
-  { href: "/advisor/platform/test-leads", label: "Create Test Lead", icon: FlaskConical },
-  { href: "/advisor/platform/fdd", label: "Manage FDD Requests", icon: FileText },
-  { href: "/advisor/platform/zip-data", label: "Load ZIP Data", icon: MapPin },
-  { href: "/advisor/platform/census-health", label: "Census Data Health", icon: Database },
+  { href: "/advisor/platform/resources", label: "Add resource" },
+  { href: "/advisor/platform/branding", label: "Upload brand asset" },
+  { href: "/advisor/platform/test-leads", label: "Create test lead" },
+  { href: "/advisor/platform/fdd", label: "Manage FDD requests" },
+  { href: "/advisor/platform/zip-data", label: "Load ZIP data" },
+  { href: "/advisor/platform/census-health", label: "Census data health" },
 ];
 
-function KpiCard({ label, value, sublabel }: { label: string; value: string; sublabel: string }) {
+/** FDD statuses in the handoff's tones: sent amber, delivered violet,
+ * waiting/eligible green, error red, everything else neutral. */
+const FDD_TONE: Record<string, { color: string; tint: string }> = {
+  request_processing: { color: SIGNAL.warning, tint: SIGNAL.warningTint },
+  fdd_sent: { color: SIGNAL.warning, tint: SIGNAL.warningTint },
+  fdd_delivered: { color: DISCOVERY_STAGES[2].color, tint: DISCOVERY_STAGES[2].tint },
+  fdd_received: { color: DISCOVERY_STAGES[2].color, tint: DISCOVERY_STAGES[2].tint },
+  waiting_period_active: { color: SIGNAL.success, tint: SIGNAL.successTint },
+  eligible_for_agreement: { color: SIGNAL.success, tint: SIGNAL.successTint },
+  error_manual_review: { color: SIGNAL.alert, tint: SIGNAL.alertTint },
+};
+
+function StatusPill({ status }: { status: string }) {
+  const tone = FDD_TONE[status] ?? { color: SIGNAL.neutral, tint: SIGNAL.neutralTint };
+  const label =
+    status === "error_manual_review" ? "error · resend" : status.replaceAll("_", " ");
   return (
-    <Card>
-      <CardContent className="p-4">
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="mt-1 text-2xl font-semibold text-foreground">{value}</p>
-        <p className="mt-1 text-xs text-success">{sublabel}</p>
-      </CardContent>
-    </Card>
+    <span
+      className="shrink-0 rounded-full px-2.5 py-[3px] text-[10.5px] font-bold"
+      style={{ color: tone.color, backgroundColor: tone.tint }}
+    >
+      {label}
+    </span>
   );
 }
 
-function PanelHeader({ title, href, linkLabel }: { title: string; href?: string; linkLabel?: string }) {
+function Fact({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-border-soft px-5 py-4">
-      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-      {href && (
-        <Link href={href} className="text-xs font-medium text-primary hover:underline">
-          {linkLabel ?? "View all"}
-        </Link>
-      )}
-    </div>
+    <span>
+      <span className="block text-[10px] text-faint-foreground">{label}</span>
+      <strong className="tabular font-bold" style={color ? { color } : undefined}>
+        {value}
+      </strong>
+    </span>
   );
 }
 
-function StatusDot({ ok }: { ok: boolean }) {
+function IntegrationRow({
+  ok,
+  label,
+  value,
+  emphasize,
+}: {
+  ok: boolean;
+  label: string;
+  value: string;
+  emphasize?: boolean;
+}) {
   return (
-    <span className={`size-2 rounded-full ${ok ? "bg-success" : "bg-warning"}`} aria-hidden />
+    <span className="flex items-center gap-2 border-b border-[#f6f6f7] py-2 last:border-b-0">
+      <span
+        aria-hidden
+        className="size-[7px] shrink-0 rounded-full"
+        style={{ backgroundColor: ok ? SIGNAL.success : SIGNAL.warning }}
+      />
+      <strong className="font-bold text-foreground">{label}</strong>
+      <span
+        className="ml-auto text-[11.5px]"
+        style={
+          emphasize
+            ? { color: ok ? SIGNAL.success : SIGNAL.warning, fontWeight: 600 }
+            : { color: "#667085" }
+        }
+      >
+        {value}
+      </span>
+    </span>
   );
 }
 
-export function AdminOverviewPanels({ stats }: { stats: OverviewStats }) {
+/**
+ * Portal Admin's overview (handoff mock 8a): four KPI rules, recent FDD
+ * requests and census health on the left, quick actions / portal assets /
+ * integrations on the right. Investor KPIs are computed server-side; the
+ * operational panels fetch from the existing admin APIs.
+ */
+export function AdminOverviewPanels({
+  stats,
+  ghlCalendarConfigured,
+}: {
+  stats: OverviewStats;
+  /** Server-side check — the calendar's config never reaches the client. */
+  ghlCalendarConfigured: boolean;
+}) {
   const [fddLeads, setFddLeads] = useState<FddLeadSummary[] | null>(null);
   const [fddConfig, setFddConfig] = useState<FddConfig | null>(null);
   const [health, setHealth] = useState<CensusDataHealth | null>(null);
@@ -148,208 +193,258 @@ export function AdminOverviewPanels({ stats }: { stats: OverviewStats }) {
     .sort((a, b) => (b.fdd_requested_at ?? "").localeCompare(a.fdd_requested_at ?? ""))
     .slice(0, 5);
 
+  const assetsIncomplete = assetCounts !== null && assetCounts.configured < assetCounts.total;
+
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col gap-[26px]">
       {errors.length > 0 && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700" role="alert">
+        <p
+          className="rounded-card border px-3 py-2 text-xs"
+          style={{ borderColor: "#fda29b", backgroundColor: SIGNAL.alertTint, color: SIGNAL.alert }}
+          role="alert"
+        >
           Some panels could not load: {errors.join(", ")}. Refresh to retry.
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard
-          label="Total Investors"
+      <div className="grid gap-8 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricRule
+          label="Total investors"
           value={stats.totalInvestors.toLocaleString()}
-          sublabel={`+${stats.newThisWeek} this week`}
+          color="#101828"
+          footnote={
+            <>
+              <strong className="font-bold" style={{ color: SIGNAL.success }}>
+                +{stats.newThisWeek}
+              </strong>{" "}
+              this week
+            </>
+          }
         />
-        <KpiCard
-          label="Active Journeys"
+        <MetricRule
+          label="Active journeys"
           value={stats.activeJourneys.toLocaleString()}
-          sublabel={
+          color={DISCOVERY_STAGES[0].color}
+          footnote={
             stats.totalInvestors > 0
               ? `${Math.round((stats.activeJourneys / stats.totalInvestors) * 100)}% of investors`
               : "no investors yet"
           }
         />
-        <KpiCard
-          label="FDD Requests"
+        <MetricRule
+          label="FDD requests"
           value={stats.fddRequested.toLocaleString()}
-          sublabel={`${stats.fddInFlight} in flight`}
+          color={DISCOVERY_STAGES[2].color}
+          footnote={`${stats.fddInFlight} in flight`}
         />
-        <KpiCard
+        <MetricRule
           label="Resources"
           value={resourceCount === null ? "—" : resourceCount.toLocaleString()}
-          sublabel="on the prospect portal"
+          color="#101828"
+          footnote="on the prospect portal"
         />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="space-y-5 lg:col-span-2">
-          <Card className="overflow-hidden">
-            <PanelHeader title="Recent FDD Requests" href="/advisor/platform/fdd" />
-            <div className="divide-y divide-border-soft">
-              {fddLeads === null ? (
-                <p className="px-5 py-4 text-xs text-muted-foreground">Loading…</p>
-              ) : recentFdd.length === 0 ? (
-                <p className="px-5 py-4 text-xs text-muted-foreground">No FDD requests yet.</p>
-              ) : (
-                recentFdd.map((lead) => (
-                  <div key={lead.id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-foreground">{lead.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">{lead.email}</p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-3">
-                      <p className="text-xs text-muted-foreground">
-                        {formatDateTime(lead.fdd_requested_at)}
-                      </p>
-                      <span
-                        className={`rounded-full border px-2.5 py-1 text-xs font-medium ${FDD_STATUS_STYLES[lead.fdd_effective_status] ?? "border-border bg-surface text-secondary-foreground"}`}
-                      >
-                        {lead.fdd_effective_status.replaceAll("_", " ")}
-                      </span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </Card>
+      <div className="grid gap-10 xl:grid-cols-[1.6fr_1fr]">
+        <div className="flex flex-col gap-6">
+          {/* Recent FDD requests */}
+          <div>
+            <SectionRule
+              label="Recent FDD requests"
+              meta={
+                <Link href="/advisor/platform/fdd" className="font-semibold text-foreground underline">
+                  View all
+                </Link>
+              }
+              className="mb-1.5"
+            />
+            {fddLeads === null ? (
+              <p className="py-2 text-xs text-muted-foreground">Loading…</p>
+            ) : recentFdd.length === 0 ? (
+              <p className="py-2 text-xs text-muted-foreground">No FDD requests yet.</p>
+            ) : (
+              recentFdd.map((lead) => (
+                <div
+                  key={lead.id}
+                  className="flex flex-wrap items-center gap-3.5 border-b border-border-soft py-2.5 last:border-b-0"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-bold text-foreground">
+                      {lead.name}
+                    </span>
+                    <span className="block truncate text-[11px] text-faint-foreground">
+                      {lead.email}
+                    </span>
+                  </span>
+                  <span className="tabular shrink-0 text-[11.5px] text-faint-foreground">
+                    {formatDateTime(lead.fdd_requested_at)}
+                  </span>
+                  <StatusPill status={lead.fdd_effective_status} />
+                </div>
+              ))
+            )}
+          </div>
 
-          <Card className="overflow-hidden">
-            <PanelHeader title="Census Data Health" href="/advisor/platform/census-health" linkLabel="Details" />
-            <div className="px-5 py-4">
-              {health === null ? (
-                <p className="text-xs text-muted-foreground">Loading…</p>
-              ) : (
-                <>
-                  <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
-                    <div>
-                      <dt className="text-[11px] text-muted-foreground">Active ACS vintage</dt>
-                      <dd className="text-sm font-medium text-foreground">{health.vintage}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-[11px] text-muted-foreground">Geography records</dt>
-                      <dd className="text-sm font-medium text-foreground">
-                        {health.totalGeographyRecords.toLocaleString()}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-[11px] text-muted-foreground">Demographic records</dt>
-                      <dd className="text-sm font-medium text-foreground">
-                        {health.totalDemographicRecords.toLocaleString()}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-[11px] text-muted-foreground">Coverage</dt>
-                      <dd className="text-sm font-medium text-foreground">
-                        {health.coveragePercent}% · {health.statesCovered}/{health.statesTotal} states
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-[11px] text-muted-foreground">Last successful import</dt>
-                      <dd className="text-sm font-medium text-foreground">
-                        {health.lastSuccessfulImport
-                          ? formatDateTime(health.lastSuccessfulImport.finishedAt)
-                          : "Never"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-[11px] text-muted-foreground">Import job</dt>
-                      <dd className="text-sm font-medium text-foreground">
-                        {health.currentJob
-                          ? `Running — ${health.currentJob.statesDone}/${health.currentJob.statesTotal} states`
-                          : "Idle"}
-                      </dd>
-                    </div>
-                  </dl>
-                  {health.lastFailedImport?.error && (
-                    <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                      Last failure: {health.lastFailedImport.error}
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-          </Card>
+          {/* Census data health */}
+          <div>
+            <SectionRule
+              label="Census data health"
+              meta={
+                <Link
+                  href="/advisor/platform/census-health"
+                  className="font-semibold text-foreground underline"
+                >
+                  Details
+                </Link>
+              }
+              className="mb-3"
+            />
+            {health === null ? (
+              <p className="text-xs text-muted-foreground">Loading…</p>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-x-5 gap-y-3.5 text-[12.5px] sm:grid-cols-3">
+                  <Fact label="Active ACS vintage" value={health.vintage} />
+                  <Fact
+                    label="Geography records"
+                    value={health.totalGeographyRecords.toLocaleString()}
+                  />
+                  <Fact
+                    label="Demographic records"
+                    value={health.totalDemographicRecords.toLocaleString()}
+                  />
+                  <Fact
+                    label="Coverage"
+                    value={`${health.coveragePercent}% · ${health.statesCovered}/${health.statesTotal} states`}
+                    color={DISCOVERY_STAGES[0].color}
+                  />
+                  <Fact
+                    label="Last successful import"
+                    value={
+                      health.lastSuccessfulImport
+                        ? formatDateTime(health.lastSuccessfulImport.finishedAt)
+                        : "Never"
+                    }
+                  />
+                  <Fact
+                    label="Import job"
+                    value={
+                      health.currentJob
+                        ? `Running — ${health.currentJob.statesDone}/${health.currentJob.statesTotal} states`
+                        : "Idle"
+                    }
+                    color={health.currentJob ? SIGNAL.warning : SIGNAL.success}
+                  />
+                </div>
+                <div className="mt-3.5 h-2 overflow-hidden rounded-full bg-border-soft">
+                  <span
+                    className="block h-2 rounded-full"
+                    style={{
+                      width: `${health.coveragePercent}%`,
+                      backgroundColor: DISCOVERY_STAGES[0].color,
+                    }}
+                  />
+                </div>
+                {health.lastFailedImport?.error && (
+                  <p
+                    className="mt-3 rounded-card border px-3 py-2 text-xs"
+                    style={{
+                      borderColor: "#fde68a",
+                      backgroundColor: SIGNAL.warningTint,
+                      color: SIGNAL.warning,
+                    }}
+                  >
+                    Last failure: {health.lastFailedImport.error}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
-        <div className="space-y-5">
-          <Card className="overflow-hidden">
-            <PanelHeader title="Quick Actions" />
-            <div className="p-3">
-              {QUICK_ACTIONS.map((action) => {
-                const Icon = action.icon;
-                return (
-                  <Link
-                    key={action.href + action.label}
-                    href={action.href}
-                    className="flex items-center gap-2.5 rounded-control px-2.5 py-2 text-sm font-medium text-secondary-foreground transition-colors hover:bg-surface hover:text-foreground"
-                  >
-                    <Icon className="size-4 shrink-0 text-muted-foreground" />
-                    {action.label}
-                    <ArrowRight className="ml-auto size-3.5 text-faint-foreground" />
-                  </Link>
-                );
-              })}
+        {/* Right rail */}
+        <div className="flex flex-col gap-6">
+          <div>
+            <SectionRule label="Quick actions" className="mb-1.5" />
+            <div className="flex flex-col text-[13px] font-semibold text-secondary-foreground">
+              {QUICK_ACTIONS.map((action) => (
+                <Link
+                  key={action.href}
+                  href={action.href}
+                  className="flex items-center gap-2.5 border-b border-[#f6f6f7] py-2 last:border-b-0 hover:text-foreground"
+                >
+                  {action.label}
+                  <span aria-hidden className="ml-auto text-ghost-foreground">
+                    →
+                  </span>
+                </Link>
+              ))}
             </div>
-          </Card>
+          </div>
 
-          <Card className="overflow-hidden">
-            <PanelHeader title="Portal Assets" />
-            <div className="divide-y divide-border-soft">
+          <div>
+            <SectionRule label="Portal assets" className="mb-1.5" />
+            <div className="flex flex-col text-[12.5px]">
               <Link
                 href="/advisor/platform/resources"
-                className="flex items-center justify-between px-5 py-3 text-sm transition-colors hover:bg-surface"
+                className="flex justify-between border-b border-dotted border-border-leader py-2"
               >
-                <span className="font-medium text-foreground">Resources</span>
-                <span className="text-xs text-muted-foreground">
-                  {resourceCount === null ? "…" : `${resourceCount} file${resourceCount === 1 ? "" : "s"}`}
+                <strong className="font-bold text-foreground">Resources</strong>
+                <span className="tabular text-muted-foreground">
+                  {resourceCount === null
+                    ? "…"
+                    : `${resourceCount} file${resourceCount === 1 ? "" : "s"}`}
                 </span>
               </Link>
-              <Link
-                href="/advisor/platform/branding"
-                className="flex items-center justify-between px-5 py-3 text-sm transition-colors hover:bg-surface"
-              >
-                <span className="font-medium text-foreground">Brand Assets</span>
-                <span className="text-xs text-muted-foreground">
-                  {assetCounts === null ? "…" : `${assetCounts.configured}/${assetCounts.total} configured`}
+              <Link href="/advisor/platform/branding" className="flex justify-between py-2">
+                <strong className="font-bold text-foreground">Brand assets</strong>
+                <span
+                  className="tabular"
+                  style={
+                    assetsIncomplete
+                      ? { color: SIGNAL.warning, fontWeight: 700 }
+                      : { color: "#667085" }
+                  }
+                >
+                  {assetCounts === null
+                    ? "…"
+                    : `${assetCounts.configured}/${assetCounts.total} configured`}
                 </span>
               </Link>
             </div>
-          </Card>
+          </div>
 
-          <Card className="overflow-hidden">
-            <PanelHeader title="Integrations" />
-            <div className="space-y-2.5 px-5 py-4 text-sm">
-              {fddConfig === null ? (
-                <p className="text-xs text-muted-foreground">Loading…</p>
-              ) : (
-                <>
-                  <p className="flex items-center gap-2">
-                    <StatusDot ok={fddConfig.ghlConfigured} />
-                    <span className="text-secondary-foreground">GoHighLevel</span>
-                    <span className="ml-auto text-xs text-muted-foreground">
-                      {fddConfig.ghlConfigured ? "Connected" : "Not configured"}
-                    </span>
-                  </p>
-                  <p className="flex items-center gap-2">
-                    <StatusDot ok={fddConfig.webhookSecretConfigured} />
-                    <span className="text-secondary-foreground">FDD webhook secret</span>
-                    <span className="ml-auto text-xs text-muted-foreground">
-                      {fddConfig.webhookSecretConfigured ? "Set" : "Not set"}
-                    </span>
-                  </p>
-                  <p className="flex items-center gap-2">
-                    <StatusDot ok />
-                    <span className="text-secondary-foreground">FDD waiting period</span>
-                    <span className="ml-auto text-xs text-muted-foreground">
-                      {fddConfig.waitingPeriodDays} days
-                    </span>
-                  </p>
-                </>
-              )}
-            </div>
-          </Card>
+          <div>
+            <SectionRule label="Integrations" className="mb-1.5" />
+            {fddConfig === null ? (
+              <p className="py-2 text-xs text-muted-foreground">Loading…</p>
+            ) : (
+              <div className="flex flex-col text-[12.5px]">
+                <IntegrationRow
+                  ok={fddConfig.ghlConfigured}
+                  label="GoHighLevel"
+                  value={fddConfig.ghlConfigured ? "Connected" : "Not configured"}
+                  emphasize
+                />
+                <IntegrationRow
+                  ok={fddConfig.webhookSecretConfigured}
+                  label="FDD webhook secret"
+                  value={fddConfig.webhookSecretConfigured ? "Set" : "Not set"}
+                />
+                <IntegrationRow
+                  ok={ghlCalendarConfigured}
+                  label="GHL calendar"
+                  value={ghlCalendarConfigured ? "Connected" : "Not configured"}
+                  emphasize={!ghlCalendarConfigured}
+                />
+                <IntegrationRow
+                  ok
+                  label="FDD waiting period"
+                  value={`${fddConfig.waitingPeriodDays} days`}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

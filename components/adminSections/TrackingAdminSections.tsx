@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { SECONDARY_BUTTON_SM } from "@/components/advisor/controls";
+import { SIGNAL } from "@/lib/advisor/discoveryStages";
 import type { PortalEventName } from "@/types/analytics";
 
 /**
- * /admin/tracking sections. Same pattern as components/adminSections/AdminSections.tsx:
- * self-contained "use client" sections, local state, fetch on mount, POST on
- * save. See docs/tracking-attribution.md for the underlying architecture.
+ * Tracking & Pixels settings (handoff mock 8b): one flat card per provider —
+ * title, status pill, toggle, then a row of label/value facts. The facts are
+ * the real inputs, styled as text so the card reads as a summary until you
+ * click into it. See docs/tracking-attribution.md for the architecture.
  */
 
 interface TrackingSettingsPayload {
@@ -23,7 +26,10 @@ interface TrackingSettingsPayload {
   metaTestEventCode: string | null;
   consentRequired: boolean;
   marketingTrackingDefault: "granted" | "denied";
-  eventOverrides: Record<string, { gtm?: boolean; metaBrowser?: boolean; metaCapi?: boolean; metaEventName?: string | null }>;
+  eventOverrides: Record<
+    string,
+    { gtm?: boolean; metaBrowser?: boolean; metaCapi?: boolean; metaEventName?: string | null }
+  >;
   lastGtmTestAt: string | null;
   lastMetaBrowserTestAt: string | null;
   lastMetaCapiSuccessAt: string | null;
@@ -41,22 +47,9 @@ interface TaxonomyRow {
   overridden: boolean;
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    connected: "bg-green-50 text-green-800",
-    not_configured: "bg-gray-100 text-gray-600",
-    configuration_error: "bg-red-50 text-red-800",
-  };
-  const labels: Record<string, string> = {
-    connected: "Connected",
-    not_configured: "Not Configured",
-    configuration_error: "Configuration Error",
-  };
-  return (
-    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${styles[status] ?? "bg-gray-100 text-gray-600"}`}>
-      {labels[status] ?? status}
-    </span>
-  );
+export interface TrackingSettingsApi {
+  save: () => void;
+  sendTestEvent: () => void;
 }
 
 function formatDateTime(iso: string | null): string {
@@ -64,7 +57,133 @@ function formatDateTime(iso: string | null): string {
   return new Date(iso).toLocaleString();
 }
 
-export function TrackingAdminSections({ authHeaders }: { authHeaders: Record<string, string> }) {
+/** Small uppercase state pill on a setting card's title row. */
+function Pill({ label, tone }: { label: string; tone: "ok" | "warn" | "bad" | "off" }) {
+  const colors = {
+    ok: { color: SIGNAL.success, tint: SIGNAL.successTint },
+    warn: { color: SIGNAL.warning, tint: SIGNAL.warningTint },
+    bad: { color: SIGNAL.alert, tint: SIGNAL.alertTint },
+    off: { color: SIGNAL.neutral, tint: SIGNAL.neutralTint },
+  }[tone];
+  return (
+    <span
+      className="rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em]"
+      style={{ color: colors.color, backgroundColor: colors.tint }}
+    >
+      {label}
+    </span>
+  );
+}
+
+/** 34×19px switch — green when on, per the handoff. */
+function Toggle({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className="relative h-[19px] w-[34px] shrink-0 rounded-full transition-colors"
+      style={{ backgroundColor: checked ? SIGNAL.success : "#d0d5dd" }}
+    >
+      <span
+        className="absolute top-0.5 size-[15px] rounded-full bg-white transition-all"
+        style={{ left: checked ? "17px" : "2px" }}
+      />
+    </button>
+  );
+}
+
+/** A label/value fact whose value is an input styled as text. */
+function FactInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+  disabled,
+  width = "w-[150px]",
+}: {
+  label: string;
+  value: string;
+  onChange: (next: string) => void;
+  placeholder?: string;
+  type?: "text" | "password";
+  disabled?: boolean;
+  width?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="block text-[10px] text-faint-foreground">{label}</span>
+      <input
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        disabled={disabled}
+        autoComplete="off"
+        className={`tabular mt-0.5 ${width} max-w-full rounded border border-transparent bg-transparent text-[12.5px] font-bold text-foreground placeholder:font-medium placeholder:text-ghost-foreground hover:border-border focus:border-border-strong focus:outline-none disabled:opacity-60`}
+      />
+    </label>
+  );
+}
+
+/** A read-only label/value fact. */
+function Fact({ label, value, color }: { label: string; value: string; color?: string }) {
+  return (
+    <span className="block">
+      <span className="block text-[10px] text-faint-foreground">{label}</span>
+      <strong className="text-[12.5px] font-bold" style={color ? { color } : undefined}>
+        {value}
+      </strong>
+    </span>
+  );
+}
+
+function SettingCard({
+  title,
+  pill,
+  checked,
+  onToggle,
+  children,
+}: {
+  title: string;
+  pill: React.ReactNode;
+  checked: boolean;
+  onToggle: (next: boolean) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-card border border-border px-5 py-4">
+      <div className="flex items-center gap-2.5">
+        <strong className="text-[13.5px] font-bold text-foreground">{title}</strong>
+        {pill}
+        <span className="ml-auto">
+          <Toggle checked={checked} onChange={onToggle} label={`Enable ${title}`} />
+        </span>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-x-6 gap-y-3">{children}</div>
+    </div>
+  );
+}
+
+export function TrackingAdminSections({
+  authHeaders,
+  onReady,
+}: {
+  authHeaders: Record<string, string>;
+  /** Hands the page header its Save / Send test event actions. */
+  onReady?: (api: TrackingSettingsApi) => void;
+}) {
   const [settings, setSettings] = useState<TrackingSettingsPayload | null>(null);
   const [taxonomy, setTaxonomy] = useState<TaxonomyRow[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -75,8 +194,9 @@ export function TrackingAdminSections({ authHeaders }: { authHeaders: Record<str
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [testMessage, setTestMessage] = useState<string | null>(null);
   const [testBusy, setTestBusy] = useState<string | null>(null);
+  const [showEventMap, setShowEventMap] = useState(false);
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       const response = await fetch("/api/admin/tracking", { headers: authHeaders });
       const data = await response.json();
@@ -92,18 +212,22 @@ export function TrackingAdminSections({ authHeaders }: { authHeaders: Record<str
     } catch {
       setError("Could not load tracking settings.");
     }
-  }
-
-  useEffect(() => {
-    load();
+    // authHeaders is a fresh object each render; the values never change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   function patch(fields: Partial<TrackingSettingsPayload>) {
     setSettings((prev) => (prev ? { ...prev, ...fields } : prev));
   }
 
-  function patchOverride(eventName: string, fields: { gtm?: boolean; metaBrowser?: boolean; metaCapi?: boolean; metaEventName?: string }) {
+  function patchOverride(
+    eventName: string,
+    fields: { gtm?: boolean; metaBrowser?: boolean; metaCapi?: boolean; metaEventName?: string },
+  ) {
     setTaxonomy((prev) =>
       prev.map((row) => (row.eventName === eventName ? { ...row, ...fields } : row)),
     );
@@ -155,11 +279,11 @@ export function TrackingAdminSections({ authHeaders }: { authHeaders: Record<str
     }
   }
 
-  async function disableAll() {
+  function disableAll() {
     if (!settings) return;
     if (!window.confirm("Disable GTM, Meta browser tracking, and Meta CAPI?")) return;
     patch({ gtmEnabled: false, metaEnabled: false, metaCapiEnabled: false });
-    setSaveMessage("Disabled — click Save to apply.");
+    setSaveMessage("Disabled — save to apply.");
   }
 
   async function runTest(action: "test_gtm" | "test_meta_browser" | "send_meta_capi_test") {
@@ -172,7 +296,9 @@ export function TrackingAdminSections({ authHeaders }: { authHeaders: Record<str
         body: JSON.stringify({ action }),
       });
       const data = await response.json();
-      setTestMessage(data.message ?? (data.success ? "Test event sent." : (data.error ?? "Test failed.")));
+      setTestMessage(
+        data.message ?? (data.success ? "Test event sent." : (data.error ?? "Test failed.")),
+      );
       await load();
     } catch {
       setTestMessage("Test failed. Check your connection.");
@@ -181,272 +307,316 @@ export function TrackingAdminSections({ authHeaders }: { authHeaders: Record<str
     }
   }
 
+  // Hand the page header its actions, without it needing this component's state.
+  const handlers = useRef({ save, runTest });
+  handlers.current = { save, runTest };
+  useEffect(() => {
+    onReady?.({
+      save: () => void handlers.current.save(),
+      sendTestEvent: () => void handlers.current.runTest("send_meta_capi_test"),
+    });
+  }, [onReady]);
+
   if (error) {
-    return <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs text-red-800">{error}</p>;
+    return (
+      <p
+        className="rounded-card border px-4 py-3 text-xs"
+        style={{ borderColor: "#fda29b", backgroundColor: SIGNAL.alertTint, color: SIGNAL.alert }}
+      >
+        {error}
+      </p>
+    );
   }
-  if (!settings) {
-    return <p className="text-xs text-gray-500">Loading…</p>;
-  }
+  if (!settings) return <p className="text-xs text-muted-foreground">Loading…</p>;
+
+  const gtmPill =
+    settings.gtmStatus === "connected"
+      ? { label: "Enabled", tone: "ok" as const }
+      : settings.gtmStatus === "configuration_error"
+        ? { label: "Config error", tone: "bad" as const }
+        : { label: "Not configured", tone: "off" as const };
+
+  const metaModeLabel =
+    settings.metaBrowserMode === "gtm"
+      ? "Through GTM"
+      : settings.metaBrowserMode === "direct"
+        ? "Direct mode"
+        : "Server only";
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-[22px]">
       {warnings.length > 0 && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-          {warnings.map((w) => (
-            <p key={w} className="text-xs text-amber-800">
-              ⚠ {w}
+        <div
+          className="rounded-card border px-4 py-3"
+          style={{ borderColor: "#fde68a", backgroundColor: SIGNAL.warningTint }}
+        >
+          {warnings.map((warning) => (
+            <p key={warning} className="text-xs" style={{ color: SIGNAL.warning }}>
+              ⚠ {warning}
             </p>
           ))}
         </div>
       )}
 
       {/* Google Tag Manager */}
-      <div className="rounded-xl border border-gray-200 bg-white p-5">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-900">Google Tag Manager</h3>
-          <StatusBadge status={settings.gtmStatus} />
-        </div>
-        <label className="mt-3 flex items-center gap-2 text-xs text-gray-700">
-          <input
-            type="checkbox"
-            checked={settings.gtmEnabled}
-            onChange={(e) => patch({ gtmEnabled: e.target.checked })}
-          />
-          Enable Google Tag Manager
-        </label>
-        <input
-          type="text"
+      <SettingCard
+        title="Google Tag Manager"
+        pill={<Pill label={gtmPill.label} tone={gtmPill.tone} />}
+        checked={settings.gtmEnabled}
+        onToggle={(next) => patch({ gtmEnabled: next })}
+      >
+        <FactInput
+          label="Container ID"
           value={settings.gtmContainerId ?? ""}
-          onChange={(e) => patch({ gtmContainerId: e.target.value })}
+          onChange={(value) => patch({ gtmContainerId: value })}
           placeholder="GTM-XXXXXXX"
-          className="mt-2 w-full max-w-xs rounded-lg border border-gray-300 px-3 py-1.5 text-xs"
         />
-        <p className="mt-2 text-[11px] text-gray-400">
-          GTM loads on every page automatically once enabled — no code change required. Last test:{" "}
-          {formatDateTime(settings.lastGtmTestAt)}
-        </p>
-        <button
-          onClick={() => runTest("test_gtm")}
-          disabled={testBusy === "test_gtm"}
-          className="mt-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-        >
-          {testBusy === "test_gtm" ? "Testing…" : "Test Installation"}
-        </button>
-      </div>
+        <Fact label="dataLayer contract" value="portal_event" />
+        <Fact label="Loaded on" value="portal pages only" />
+        <span className="flex items-end">
+          <button
+            type="button"
+            onClick={() => runTest("test_gtm")}
+            disabled={testBusy === "test_gtm"}
+            className={SECONDARY_BUTTON_SM}
+          >
+            {testBusy === "test_gtm" ? "Testing…" : "Test installation"}
+          </button>
+        </span>
+        <Fact label="Last test" value={formatDateTime(settings.lastGtmTestAt)} />
+      </SettingCard>
 
-      {/* Meta Browser Tracking */}
-      <div className="rounded-xl border border-gray-200 bg-white p-5">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-900">Meta Browser Tracking</h3>
-          <StatusBadge status={settings.metaBrowserStatus} />
-        </div>
-        <label className="mt-3 flex items-center gap-2 text-xs text-gray-700">
-          <input
-            type="checkbox"
-            checked={settings.metaEnabled}
-            onChange={(e) => patch({ metaEnabled: e.target.checked })}
+      {/* Meta Pixel */}
+      <SettingCard
+        title="Meta Pixel"
+        pill={
+          <Pill
+            label={metaModeLabel}
+            tone={settings.metaBrowserStatus === "connected" ? "ok" : "off"}
           />
-          Enable Meta Tracking
-        </label>
-        <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-700">
-          {(["gtm", "direct", "server_only"] as const).map((mode) => (
-            <label key={mode} className="flex items-center gap-1.5">
-              <input
-                type="radio"
-                name="metaBrowserMode"
-                checked={settings.metaBrowserMode === mode}
-                onChange={() => patch({ metaBrowserMode: mode })}
-              />
-              {mode === "gtm" ? "Through Google Tag Manager" : mode === "direct" ? "Direct Pixel Integration" : "Server Only"}
-            </label>
-          ))}
-        </div>
-        <input
-          type="text"
+        }
+        checked={settings.metaEnabled}
+        onToggle={(next) => patch({ metaEnabled: next })}
+      >
+        <FactInput
+          label="Pixel ID"
           value={settings.metaPixelId ?? ""}
-          onChange={(e) => patch({ metaPixelId: e.target.value })}
-          placeholder="Meta Pixel / Dataset ID"
-          className="mt-2 w-full max-w-xs rounded-lg border border-gray-300 px-3 py-1.5 text-xs"
+          onChange={(value) => patch({ metaPixelId: value })}
+          placeholder="Dataset ID"
         />
-        {settings.metaBrowserMode === "gtm" ? (
-          <p className="mt-2 text-[11px] text-gray-500">
-            The Pixel is NOT initialized directly. Browser events are provided to GTM through the
-            application&apos;s <code>dataLayer</code> (event: <code>portal_event</code>) — configure the Meta
-            Pixel tag inside your GTM container.
-          </p>
-        ) : (
-          <p className="mt-2 text-[11px] text-gray-400">Last test: {formatDateTime(settings.lastMetaBrowserTestAt)}</p>
-        )}
-        <button
-          onClick={() => runTest("test_meta_browser")}
-          disabled={testBusy === "test_meta_browser"}
-          className="mt-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-        >
-          {testBusy === "test_meta_browser" ? "Testing…" : "Test Installation"}
-        </button>
-      </div>
+        <label className="block">
+          <span className="block text-[10px] text-faint-foreground">Browser mode</span>
+          <select
+            value={settings.metaBrowserMode}
+            onChange={(event) =>
+              patch({ metaBrowserMode: event.target.value as TrackingSettingsPayload["metaBrowserMode"] })
+            }
+            className="mt-0.5 rounded border border-transparent bg-transparent text-[12.5px] font-bold text-foreground hover:border-border focus:border-border-strong focus:outline-none"
+          >
+            <option value="gtm">Through Google Tag Manager</option>
+            <option value="direct">Direct pixel integration</option>
+            <option value="server_only">Server only</option>
+          </select>
+        </label>
+        <Fact label="Event dedup" value="Browser + server IDs" color={SIGNAL.success} />
+        <Fact label="Financial data" value="never sent" />
+        <span className="flex items-end">
+          <button
+            type="button"
+            onClick={() => runTest("test_meta_browser")}
+            disabled={testBusy === "test_meta_browser"}
+            className={SECONDARY_BUTTON_SM}
+          >
+            {testBusy === "test_meta_browser" ? "Testing…" : "Test installation"}
+          </button>
+        </span>
+      </SettingCard>
 
       {/* Meta Conversions API */}
-      <div className="rounded-xl border border-gray-200 bg-white p-5">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-900">Meta Conversions API</h3>
-          <StatusBadge status={settings.metaCapiStatus} />
-        </div>
-        <label className="mt-3 flex items-center gap-2 text-xs text-gray-700">
-          <input
-            type="checkbox"
-            checked={settings.metaCapiEnabled}
-            onChange={(e) => patch({ metaCapiEnabled: e.target.checked })}
+      <SettingCard
+        title="Meta Conversions API"
+        pill={
+          <Pill
+            label={settings.metaCapiAccessTokenConfigured ? "Token set" : "No token"}
+            tone={settings.metaCapiAccessTokenConfigured ? "ok" : "off"}
           />
-          Enable Meta Conversions API
-        </label>
-        <p className="mt-2 text-[11px] text-gray-500">
-          Access token: {settings.metaCapiAccessTokenConfigured ? "configured (server-only, never shown)" : "not configured"}
-        </p>
-        {!encryptionAvailable && (
-          <p className="mt-1 text-[11px] text-amber-700">
-            TRACKING_ENCRYPTION_KEY is not set — tokens cannot be saved here. Use the META_CAPI_ACCESS_TOKEN
-            env var instead, or ask an engineer to set the encryption key.
-          </p>
-        )}
-        <input
+        }
+        checked={settings.metaCapiEnabled}
+        onToggle={(next) => patch({ metaCapiEnabled: next })}
+      >
+        <FactInput
+          label="Access token"
           type="password"
           value={metaCapiToken}
-          onChange={(e) => setMetaCapiToken(e.target.value)}
-          placeholder="Conversions API Access Token (leave blank to keep current)"
+          onChange={setMetaCapiToken}
+          placeholder={
+            settings.metaCapiAccessTokenConfigured ? "•••••••• · server-only" : "not configured"
+          }
           disabled={!encryptionAvailable}
-          autoComplete="off"
-          className="mt-2 w-full max-w-md rounded-lg border border-gray-300 px-3 py-1.5 text-xs disabled:bg-gray-50"
+          width="w-[200px]"
         />
-        <input
-          type="text"
+        <Fact
+          label="Last successful event"
+          value={formatDateTime(settings.lastMetaCapiSuccessAt)}
+          color={settings.lastMetaCapiSuccessAt ? SIGNAL.success : undefined}
+        />
+        <Fact label="Cron retry" value="hourly · bounded" />
+        <FactInput
+          label="Test event code"
           value={settings.metaTestEventCode ?? ""}
-          onChange={(e) => patch({ metaTestEventCode: e.target.value })}
-          placeholder="Test Event Code (optional)"
-          className="mt-2 w-full max-w-xs rounded-lg border border-gray-300 px-3 py-1.5 text-xs"
+          onChange={(value) => patch({ metaTestEventCode: value })}
+          placeholder="optional"
+          width="w-[110px]"
         />
-        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-gray-500 sm:grid-cols-2">
-          <div>Last successful event: {formatDateTime(settings.lastMetaCapiSuccessAt)}</div>
-          <div>Last failed event: {formatDateTime(settings.lastMetaCapiFailureAt)}</div>
-        </dl>
-        {settings.lastMetaCapiError && (
-          <p className="mt-1 rounded bg-red-50 p-2 text-[11px] text-red-800">{settings.lastMetaCapiError}</p>
+        <span className="flex items-end">
+          <button
+            type="button"
+            onClick={() => runTest("send_meta_capi_test")}
+            disabled={testBusy === "send_meta_capi_test"}
+            className={SECONDARY_BUTTON_SM}
+          >
+            {testBusy === "send_meta_capi_test" ? "Sending…" : "Send test event"}
+          </button>
+        </span>
+        {!encryptionAvailable && (
+          <p className="w-full text-[11px]" style={{ color: SIGNAL.warning }}>
+            TRACKING_ENCRYPTION_KEY is not set — tokens cannot be saved here. Use the
+            META_CAPI_ACCESS_TOKEN env var instead, or ask an engineer to set the encryption key.
+          </p>
         )}
-        <button
-          onClick={() => runTest("send_meta_capi_test")}
-          disabled={testBusy === "send_meta_capi_test"}
-          className="mt-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-        >
-          {testBusy === "send_meta_capi_test" ? "Sending…" : "Send Test Event"}
-        </button>
-      </div>
+        {settings.lastMetaCapiError && (
+          <p className="w-full text-[11px]" style={{ color: SIGNAL.alert }}>
+            Last failure ({formatDateTime(settings.lastMetaCapiFailureAt)}):{" "}
+            {settings.lastMetaCapiError}
+          </p>
+        )}
+      </SettingCard>
 
       {/* Consent */}
-      <div className="rounded-xl border border-gray-200 bg-white p-5">
-        <h3 className="text-sm font-semibold text-gray-900">Consent</h3>
-        <p className="mt-0.5 text-xs text-gray-500">
+      <SettingCard
+        title="Consent"
+        pill={
+          <Pill
+            label={settings.consentRequired ? "Banner required" : "No banner"}
+            tone={settings.consentRequired ? "warn" : "off"}
+          />
+        }
+        checked={settings.consentRequired}
+        onToggle={(next) => patch({ consentRequired: next })}
+      >
+        <label className="block">
+          <span className="block text-[10px] text-faint-foreground">Marketing default</span>
+          <select
+            value={settings.marketingTrackingDefault}
+            onChange={(event) =>
+              patch({
+                marketingTrackingDefault: event.target
+                  .value as TrackingSettingsPayload["marketingTrackingDefault"],
+              })
+            }
+            className="mt-0.5 rounded border border-transparent bg-transparent text-[12.5px] font-bold text-foreground hover:border-border focus:border-border-strong focus:outline-none"
+          >
+            <option value="denied">Off until accepted</option>
+            <option value="granted">On by default</option>
+          </select>
+        </label>
+        <Fact label="Attribution" value="First-touch kept · latest-touch updated" />
+        <p className="w-full text-[11px] text-faint-foreground">
           Placeholder consent behavior — have legal/privacy counsel review before relying on this for
           jurisdiction-specific compliance.
         </p>
-        <label className="mt-3 flex items-center gap-2 text-xs text-gray-700">
-          <input
-            type="checkbox"
-            checked={settings.consentRequired}
-            onChange={(e) => patch({ consentRequired: e.target.checked })}
-          />
-          Require marketing consent before Meta Pixel / advertising tags load
-        </label>
-        <div className="mt-2 flex gap-3 text-xs text-gray-700">
-          {(["denied", "granted"] as const).map((v) => (
-            <label key={v} className="flex items-center gap-1.5">
-              <input
-                type="radio"
-                name="marketingDefault"
-                checked={settings.marketingTrackingDefault === v}
-                onChange={() => patch({ marketingTrackingDefault: v })}
-              />
-              Default: {v === "granted" ? "Granted" : "Denied"}
-            </label>
-          ))}
-        </div>
-      </div>
+      </SettingCard>
 
-      {/* Event Mapping */}
-      <div className="rounded-xl border border-gray-200 bg-white p-5">
-        <h3 className="text-sm font-semibold text-gray-900">Event Mapping</h3>
-        <p className="mt-0.5 text-xs text-gray-500">
-          Enable/disable each provider per portal event and set the Meta event name it maps to.
-        </p>
-        <div className="mt-3 overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left text-xs">
-            <thead>
-              <tr className="border-b border-gray-200 text-gray-500">
-                <th className="py-1.5 pr-3 font-medium">Portal Event</th>
-                <th className="py-1.5 pr-3 font-medium">Tier</th>
-                <th className="py-1.5 pr-3 font-medium">GTM</th>
-                <th className="py-1.5 pr-3 font-medium">Meta Browser</th>
-                <th className="py-1.5 pr-3 font-medium">Meta CAPI</th>
-                <th className="py-1.5 font-medium">Meta Event</th>
-              </tr>
-            </thead>
-            <tbody>
-              {taxonomy.map((row) => (
-                <tr key={row.eventName} className="border-b border-gray-100 last:border-0">
-                  <td className="py-1.5 pr-3 font-mono text-[11px] text-gray-800">{row.eventName}</td>
-                  <td className="py-1.5 pr-3 text-gray-600">{row.tier}</td>
-                  <td className="py-1.5 pr-3">
-                    <input
-                      type="checkbox"
-                      checked={row.gtm}
-                      onChange={(e) => patchOverride(row.eventName, { gtm: e.target.checked })}
-                    />
-                  </td>
-                  <td className="py-1.5 pr-3">
-                    <input
-                      type="checkbox"
-                      checked={row.metaBrowser}
-                      onChange={(e) => patchOverride(row.eventName, { metaBrowser: e.target.checked })}
-                    />
-                  </td>
-                  <td className="py-1.5 pr-3">
-                    <input
-                      type="checkbox"
-                      checked={row.metaCapi}
-                      onChange={(e) => patchOverride(row.eventName, { metaCapi: e.target.checked })}
-                    />
-                  </td>
-                  <td className="py-1.5">
-                    <input
-                      type="text"
-                      value={row.metaEventName ?? ""}
-                      onChange={(e) => patchOverride(row.eventName, { metaEventName: e.target.value })}
-                      placeholder="(not sent to Meta)"
-                      className="w-40 rounded border border-gray-300 px-2 py-1 text-[11px]"
-                    />
-                  </td>
+      {/* Event mapping — not in the mock, but the page can't lose it. */}
+      <div className="rounded-card border border-border px-5 py-4">
+        <button
+          type="button"
+          onClick={() => setShowEventMap((open) => !open)}
+          aria-expanded={showEventMap}
+          className="flex w-full items-center gap-2.5 text-left"
+        >
+          <strong className="text-[13.5px] font-bold text-foreground">Event mapping</strong>
+          <span className="text-[11px] text-faint-foreground">{taxonomy.length} portal events</span>
+          <span className="ml-auto text-[11.5px] font-semibold text-foreground underline">
+            {showEventMap ? "Hide" : "Edit"}
+          </span>
+        </button>
+        {showEventMap && (
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left text-xs">
+              <thead>
+                <tr className="border-b border-border text-[9.5px] font-bold uppercase tracking-[0.12em] text-faint-foreground">
+                  <th className="py-2 pr-3">Portal event</th>
+                  <th className="py-2 pr-3">Tier</th>
+                  <th className="py-2 pr-3">GTM</th>
+                  <th className="py-2 pr-3">Meta browser</th>
+                  <th className="py-2 pr-3">Meta CAPI</th>
+                  <th className="py-2">Meta event</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {taxonomy.map((row) => (
+                  <tr key={row.eventName} className="border-b border-border-soft last:border-0">
+                    <td className="py-1.5 pr-3 font-mono text-[11px] text-secondary-foreground">
+                      {row.eventName}
+                    </td>
+                    <td className="py-1.5 pr-3 text-muted-foreground">{row.tier}</td>
+                    <td className="py-1.5 pr-3">
+                      <input
+                        type="checkbox"
+                        checked={row.gtm}
+                        aria-label={`Send ${row.eventName} to GTM`}
+                        onChange={(e) => patchOverride(row.eventName, { gtm: e.target.checked })}
+                      />
+                    </td>
+                    <td className="py-1.5 pr-3">
+                      <input
+                        type="checkbox"
+                        checked={row.metaBrowser}
+                        aria-label={`Send ${row.eventName} to Meta browser`}
+                        onChange={(e) =>
+                          patchOverride(row.eventName, { metaBrowser: e.target.checked })
+                        }
+                      />
+                    </td>
+                    <td className="py-1.5 pr-3">
+                      <input
+                        type="checkbox"
+                        checked={row.metaCapi}
+                        aria-label={`Send ${row.eventName} to Meta CAPI`}
+                        onChange={(e) => patchOverride(row.eventName, { metaCapi: e.target.checked })}
+                      />
+                    </td>
+                    <td className="py-1.5">
+                      <input
+                        type="text"
+                        value={row.metaEventName ?? ""}
+                        aria-label={`Meta event name for ${row.eventName}`}
+                        onChange={(e) =>
+                          patchOverride(row.eventName, { metaEventName: e.target.value })
+                        }
+                        placeholder="(not sent to Meta)"
+                        className="w-40 rounded border border-border px-2 py-1 text-[11px]"
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      <div className="sticky bottom-4 z-10 flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-md">
-        <button
-          onClick={save}
-          disabled={saving}
-          className="rounded-lg bg-gray-900 px-4 py-2 text-xs font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-        >
-          {saving ? "Saving…" : "Save"}
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="button" onClick={disableAll} className={SECONDARY_BUTTON_SM}>
+          Disable all
         </button>
-        <button
-          onClick={disableAll}
-          className="rounded-lg border border-gray-300 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
-        >
-          Disable All
-        </button>
-        {saveMessage && <span className="text-xs text-gray-600">{saveMessage}</span>}
-        {testMessage && <span className="text-xs text-gray-600">{testMessage}</span>}
+        {(saving || saveMessage) && (
+          <span className="text-[11.5px] text-muted-foreground">
+            {saving ? "Saving…" : saveMessage}
+          </span>
+        )}
+        {testMessage && <span className="text-[11.5px] text-muted-foreground">{testMessage}</span>}
       </div>
     </div>
   );

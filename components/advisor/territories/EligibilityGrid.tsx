@@ -1,55 +1,125 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { NativeSelect } from "@/components/ui/form-fields";
-import { Badge } from "@/components/ui/badge";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { US_STATES } from "@/lib/geocoding/states";
-import { STATE_ELIGIBILITY_LABELS, STATE_ELIGIBILITY_STATUSES } from "@/types/territory";
-import type { BrandStateEligibilityRecord, StateEligibilityStatus } from "@/types/territory";
+import { SIGNAL } from "@/lib/advisor/discoveryStages";
+import {
+  STATE_ELIGIBILITY_LABELS,
+  type BrandStateEligibilityRecord,
+  type StateEligibilityStatus,
+} from "@/types/territory";
 
-interface EligibilityGridProps {
-  brandId: string;
-  initialRows: BrandStateEligibilityRecord[];
+type ChipStatus = StateEligibilityStatus | "unconfigured";
+
+/**
+ * Cycle order when a chip is clicked, per the handoff: Available → Manual
+ * review → Not available. The store keeps six statuses; each maps onto one
+ * of these three tones, and clicking always lands on the canonical status
+ * for the next tone.
+ */
+const CYCLE: StateEligibilityStatus[] = ["approved", "manual_review", "not_registered"];
+
+type ToneKey = "available" | "manual" | "unavailable";
+
+const TONE_OF: Record<StateEligibilityStatus, ToneKey> = {
+  approved: "available",
+  exempt: "available",
+  pending: "manual",
+  manual_review: "manual",
+  not_registered: "unavailable",
+  restricted: "unavailable",
+};
+
+interface Tone {
+  color: string;
+  tint: string;
+  border: string;
+  label: string;
 }
 
-type RowState = { status: StateEligibilityStatus | "unconfigured"; updatedAt: string | null; dirty: boolean };
+/** Available green · manual-review amber · not-available gray. Unconfigured
+ * states default to manual review, so they wear the same amber tone with a
+ * softer label. */
+function toneKeyFor(status: ChipStatus): ToneKey {
+  return status === "unconfigured" ? "manual" : TONE_OF[status];
+}
 
-const FILTER_OPTIONS = ["all", ...STATE_ELIGIBILITY_STATUSES, "unconfigured"] as const;
+function toneFor(status: ChipStatus): Tone {
+  switch (toneKeyFor(status)) {
+    case "available":
+      return {
+        color: SIGNAL.success,
+        tint: SIGNAL.successTint,
+        border: "#d9e9dd",
+        label: "Available",
+      };
+    case "unavailable":
+      return { color: SIGNAL.neutral, tint: "#fafafb", border: "#ececf0", label: "Not available" };
+    default:
+      return {
+        color: SIGNAL.warning,
+        tint: SIGNAL.warningTint,
+        border: "#f3e2c8",
+        label: "Manual review",
+      };
+  }
+}
 
-export function EligibilityGrid({ brandId, initialRows }: EligibilityGridProps) {
-  const byState = useMemo(() => {
-    const map = new Map(initialRows.map((r) => [r.state_code, r]));
-    const initial: Record<string, RowState> = {};
+type RowState = { status: ChipStatus; dirty: boolean };
+
+/**
+ * State eligibility as a chip grid (handoff mock 7b): six per row, each an
+ * abbreviation plus a status dot. Clicking a chip cycles its status; "Save
+ * changes" in the page header persists everything that changed.
+ */
+export function EligibilityGrid({
+  brandId,
+  initialRows,
+  onDirtyChange,
+  saveSignal,
+}: {
+  brandId: string;
+  initialRows: BrandStateEligibilityRecord[];
+  /** Reports the unsaved count up to the page header's Save button. */
+  onDirtyChange?: (count: number) => void;
+  /** Incremented by the header's Save button to trigger a save. */
+  saveSignal?: number;
+}) {
+  const initial = useMemo(() => {
+    const byState = new Map(initialRows.map((row) => [row.state_code, row]));
+    const seed: Record<string, RowState> = {};
     for (const state of US_STATES) {
-      const existing = map.get(state.code);
-      initial[state.code] = existing
-        ? { status: existing.status, updatedAt: existing.updated_at, dirty: false }
-        : { status: "unconfigured", updatedAt: null, dirty: false };
+      const existing = byState.get(state.code);
+      seed[state.code] = { status: existing ? existing.status : "unconfigured", dirty: false };
     }
-    return initial;
+    return seed;
   }, [initialRows]);
 
-  const [rows, setRows] = useState(byState);
-  const [filter, setFilter] = useState<(typeof FILTER_OPTIONS)[number]>("all");
+  const [rows, setRows] = useState(initial);
   const [saving, setSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
-  function setStatus(code: string, status: StateEligibilityStatus) {
-    setRows((prev) => ({ ...prev, [code]: { ...prev[code], status, dirty: true } }));
-    setSaveMessage(null);
+  const dirtyCodes = Object.entries(rows)
+    .filter(([, row]) => row.dirty)
+    .map(([code]) => code);
+
+  function cycle(code: string) {
+    setRows((prev) => {
+      const currentTone = toneKeyFor(prev[code].status);
+      const index = CYCLE.findIndex((status) => TONE_OF[status] === currentTone);
+      const next = CYCLE[(index + 1) % CYCLE.length];
+      const updated = { ...prev, [code]: { status: next, dirty: true } };
+      onDirtyChange?.(Object.values(updated).filter((row) => row.dirty).length);
+      return updated;
+    });
+    setMessage(null);
   }
 
-  const dirtyCodes = Object.entries(rows).filter(([, r]) => r.dirty).map(([code]) => code);
-  const visibleStates = filter === "all" ? US_STATES : US_STATES.filter((s) => rows[s.code].status === filter);
-  const unconfiguredCount = US_STATES.filter((s) => rows[s.code].status === "unconfigured").length;
-
   async function saveAll() {
-    if (dirtyCodes.length === 0) return;
+    if (dirtyCodes.length === 0 || saving) return;
     setSaving(true);
-    setSaveMessage(null);
+    setMessage(null);
     try {
       const response = await fetch("/api/advisor/territories/eligibility", {
         method: "PUT",
@@ -63,106 +133,123 @@ export function EligibilityGrid({ brandId, initialRows }: EligibilityGridProps) 
       if (data.success) {
         setRows((prev) => {
           const next = { ...prev };
-          for (const code of dirtyCodes) next[code] = { ...next[code], dirty: false, updatedAt: new Date().toISOString() };
+          for (const code of dirtyCodes) next[code] = { ...next[code], dirty: false };
           return next;
         });
-        setSaveMessage(`Saved ${dirtyCodes.length} state${dirtyCodes.length === 1 ? "" : "s"}.`);
+        onDirtyChange?.(0);
+        setMessage(`Saved ${dirtyCodes.length} state${dirtyCodes.length === 1 ? "" : "s"}.`);
       } else {
-        setSaveMessage(data.error ?? "Save failed");
+        setMessage(data.error ?? "Save failed");
       }
     } catch {
-      setSaveMessage("Save failed — check your connection");
+      setMessage("Save failed — check your connection");
     } finally {
       setSaving(false);
     }
   }
 
+  // The page header owns the Save button; it bumps saveSignal to fire this.
+  const saveRef = useRef(saveAll);
+  saveRef.current = saveAll;
+  useEffect(() => {
+    if (!saveSignal) return;
+    void saveRef.current();
+  }, [saveSignal]);
+
+  const counts = {
+    available: US_STATES.filter((s) => toneKeyFor(rows[s.code].status) === "available").length,
+    manual: US_STATES.filter((s) => toneKeyFor(rows[s.code].status) === "manual").length,
+    notAvailable: US_STATES.filter((s) => toneKeyFor(rows[s.code].status) === "unavailable").length,
+  };
+
+  // Grouped by status, the way the handoff reads: everything available
+  // first, then what needs a look, then what is closed off.
+  const TONE_ORDER: Record<ToneKey, number> = { available: 0, manual: 1, unavailable: 2 };
+  const ordered = [...US_STATES].sort((a, b) => {
+    const byTone =
+      TONE_ORDER[toneKeyFor(rows[a.code].status)] - TONE_ORDER[toneKeyFor(rows[b.code].status)];
+    return byTone !== 0 ? byTone : a.code.localeCompare(b.code);
+  });
+  const visible = expanded ? ordered : ordered.slice(0, 35);
+  const hidden = ordered.length - visible.length;
+
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-[12.5px] text-muted-foreground">
-            {unconfiguredCount} state{unconfiguredCount === 1 ? "" : "s"} unconfigured (default to Manual Review)
-          </p>
+    <div>
+      <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-4 text-[11.5px] text-muted-foreground">
+          <Legend color={SIGNAL.success} label="Available" count={counts.available} />
+          <Legend color={SIGNAL.warning} label="Manual review" count={counts.manual} />
+          <Legend color={SIGNAL.neutral} label="Not available" count={counts.notAvailable} />
         </div>
-        <Button type="button" size="sm" disabled={saving || dirtyCodes.length === 0} onClick={saveAll}>
-          {saving && <Loader2 className="animate-spin" />}
-          Save {dirtyCodes.length > 0 ? `(${dirtyCodes.length})` : ""}
-        </Button>
+        <p className="text-[11px] text-faint-foreground">
+          Unconfigured states default to manual review
+        </p>
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
-        {FILTER_OPTIONS.map((option) => (
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+        {visible.map((state) => {
+          const status = rows[state.code].status;
+          const tone = toneFor(status);
+          return (
+            <button
+              key={state.code}
+              type="button"
+              onClick={() => cycle(state.code)}
+              title={`${state.name} — ${status === "unconfigured" ? "Unconfigured (manual review)" : STATE_ELIGIBILITY_LABELS[status]}`}
+              aria-label={`${state.name}: ${tone.label}. Click to change.`}
+              className="flex items-center justify-between rounded-control border px-[11px] py-2 text-xs font-bold transition-opacity hover:opacity-80"
+              style={{ borderColor: tone.border, backgroundColor: tone.tint, color: tone.color }}
+            >
+              {state.code}
+              <span
+                aria-hidden
+                className="size-1.5 rounded-full"
+                style={{ backgroundColor: tone.color }}
+              />
+            </button>
+          );
+        })}
+        {hidden > 0 && (
           <button
-            key={option}
             type="button"
-            onClick={() => setFilter(option)}
-            className={`rounded-full border px-2.5 py-1 text-[11.5px] font-medium transition-colors ${
-              filter === option ? "border-primary-soft-border bg-primary-soft text-primary" : "border-border text-muted-foreground hover:bg-surface"
-            }`}
+            onClick={() => setExpanded(true)}
+            className="flex items-center justify-between rounded-control border px-[11px] py-2 text-xs font-bold"
+            style={{ borderColor: "#f3e2c8", backgroundColor: SIGNAL.warningTint, color: SIGNAL.warning }}
           >
-            {option === "all" ? "All" : option === "unconfigured" ? "Unconfigured" : STATE_ELIGIBILITY_LABELS[option]}
+            +{hidden}
+            <span className="text-[10px] font-semibold">more</span>
           </button>
-        ))}
+        )}
       </div>
 
-      {saveMessage && <p className="text-[12.5px] text-muted-foreground">{saveMessage}</p>}
-
-      <Card>
-        <CardContent className="p-0">
-          <table className="w-full text-left text-[13px]">
-            <thead>
-              <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
-                <th className="px-4 py-2.5 font-medium">State</th>
-                <th className="px-4 py-2.5 font-medium">Status</th>
-                <th className="px-4 py-2.5 font-medium">Last updated</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleStates.map((state) => {
-                const row = rows[state.code];
-                return (
-                  <tr key={state.code} className="border-b border-border-soft last:border-0">
-                    <td className="px-4 py-2 font-medium text-foreground">
-                      {state.name} <span className="text-muted-foreground">({state.code})</span>
-                    </td>
-                    <td className="px-4 py-2">
-                      {row.status === "unconfigured" ? (
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline">Unconfigured</Badge>
-                          <NativeSelect
-                            className="!py-1.5 text-xs"
-                            value=""
-                            onChange={(e) => setStatus(state.code, e.target.value as StateEligibilityStatus)}
-                          >
-                            <option value="" disabled>Set status…</option>
-                            {STATE_ELIGIBILITY_STATUSES.map((s) => (
-                              <option key={s} value={s}>{STATE_ELIGIBILITY_LABELS[s]}</option>
-                            ))}
-                          </NativeSelect>
-                        </div>
-                      ) : (
-                        <NativeSelect
-                          className="!py-1.5 text-xs"
-                          value={row.status}
-                          onChange={(e) => setStatus(state.code, e.target.value as StateEligibilityStatus)}
-                        >
-                          {STATE_ELIGIBILITY_STATUSES.map((s) => (
-                            <option key={s} value={s}>{STATE_ELIGIBILITY_LABELS[s]}</option>
-                          ))}
-                        </NativeSelect>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-muted-foreground">
-                      {row.updatedAt ? new Date(row.updatedAt).toLocaleDateString() : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
+      <p className="mt-3.5 text-[11px] leading-relaxed text-faint-foreground">
+        Registration states are marked not available until the franchisor completes state
+        registration. Click a state to cycle its status
+        {dirtyCodes.length > 0 && (
+          <>
+            {" "}
+            —{" "}
+            <strong className="font-bold" style={{ color: SIGNAL.warning }}>
+              {dirtyCodes.length} unsaved
+            </strong>
+          </>
+        )}
+        .
+      </p>
+      {(message || saving) && (
+        <p className="mt-1.5 text-[11.5px] text-muted-foreground">
+          {saving ? "Saving…" : message}
+        </p>
+      )}
     </div>
+  );
+}
+
+function Legend({ color, label, count }: { color: string; label: string; count: number }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span aria-hidden className="size-[7px] rounded-full" style={{ backgroundColor: color }} />
+      {label} · {count}
+    </span>
   );
 }

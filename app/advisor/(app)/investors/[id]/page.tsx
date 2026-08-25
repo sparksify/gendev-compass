@@ -1,38 +1,80 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireStaffUser } from "@/lib/advisor/auth";
 import { canAccessLead, isAdmin } from "@/lib/advisor/access";
 import { getStore } from "@/lib/store";
 import { evaluateFollowUp } from "@/lib/advisor/followUp";
 import { deriveNextBestAction } from "@/lib/advisor/nextBestAction";
-import { eventLabel, formatDate } from "@/lib/advisor/format";
+import { formatDate, formatRelative } from "@/lib/advisor/format";
+import { labelForValue } from "@/lib/advisor/questionnaireCatalog";
+import { compactMoney } from "@/lib/advisor/money";
 import { effectiveFddStatus } from "@/lib/fdd/status";
 import { resolveClientFromLead } from "@/lib/domain/clients";
 import { listOpportunitiesForClient } from "@/lib/domain/opportunities";
 import { getAppUrl } from "@/lib/config/env";
-import type { MilestoneTone } from "@/lib/advisor/milestones";
+import { cn } from "@/lib/utils";
+import {
+  discoveryStageIdFor,
+  DISCOVERY_STAGES,
+  SIGNAL,
+  type DiscoveryStageId,
+} from "@/lib/advisor/discoveryStages";
 import type { BrandRecord, ClientRecord, OpportunityRecord } from "@/types/domain";
-import { OwnershipProfileCard } from "@/components/advisor/OwnershipProfileCard";
-import { ClientHeaderCard } from "@/components/advisor/investorDetail/ClientHeaderCard";
-import { NextBestActionCard } from "@/components/advisor/investorDetail/NextBestActionCard";
-import { ClientProgressCard } from "@/components/advisor/investorDetail/ClientProgressCard";
+import { PageBody, PageHeader, SectionRule } from "@/components/advisor/PageHeader";
+import { INK_BUTTON, SECONDARY_BUTTON } from "@/components/advisor/controls";
+import { DiscoveryStageStrip } from "@/components/advisor/investorDetail/DiscoveryStageStrip";
+import { VideoEngagementHero } from "@/components/advisor/investorDetail/VideoEngagementHero";
+import { ActivityRail } from "@/components/advisor/investorDetail/ActivityRail";
+import { NotesRail } from "@/components/advisor/investorDetail/NotesRail";
+import { AdvisorAssignmentControl } from "@/components/advisor/investorDetail/AdvisorAssignmentControl";
+import { StageStatusControl } from "@/components/advisor/investorDetail/StageStatusControl";
+import { TerritoriesWantedControl } from "@/components/advisor/investorDetail/TerritoriesWantedControl";
+import { CopyPortalButton } from "@/components/advisor/investorDetail/CopyPortalButton";
 import { ProcessMilestonesCard } from "@/components/advisor/investorDetail/ProcessMilestonesCard";
-import { VideoEngagementCard } from "@/components/advisor/investorDetail/VideoEngagementCard";
-import { LeadSourceCard } from "@/components/advisor/investorDetail/LeadSourceCard";
-import { ActivityTimelineCard } from "@/components/advisor/investorDetail/ActivityTimelineCard";
-import { AdvisorNotesCard } from "@/components/advisor/investorDetail/AdvisorNotesCard";
-import { QualificationOverviewCard } from "@/components/advisor/investorDetail/QualificationOverviewCard";
 import { QuestionnaireResponsesCard } from "@/components/advisor/investorDetail/QuestionnaireResponsesCard";
 import { AttributionCard } from "@/components/advisor/investorDetail/AttributionCard";
+import { OwnershipProfileCard } from "@/components/advisor/OwnershipProfileCard";
+import { watchColor } from "@/components/advisor/VideoWatchedBar";
 
 export const metadata: Metadata = { title: "Client" };
 export const dynamic = "force-dynamic";
 
-function withinHours(iso: string | null | undefined, hours: number): boolean {
-  if (!iso) return false;
-  return Date.now() - new Date(iso).getTime() <= hours * 3_600_000;
+function KeyStat({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div>
+      <p className="text-[9.5px] font-bold uppercase tracking-[0.15em] text-faint-foreground">
+        {label}
+      </p>
+      <p
+        className={cn(
+          "tabular mt-1 font-extrabold tracking-[-0.03em]",
+          value === "—" ? "text-lg text-ghost-foreground" : "text-2xl",
+        )}
+        style={value === "—" ? undefined : { color }}
+      >
+        {value}
+      </p>
+    </div>
+  );
 }
 
+/** A dotted-leader fact row — the qualification block's anatomy. */
+function LeaderRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <span className="flex items-center justify-between gap-4 border-b border-dotted border-border-leader py-2 last:border-b-0">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-right font-bold text-foreground">{value}</span>
+    </span>
+  );
+}
+
+/**
+ * The client detail page (handoff mock 5c): who they are and the three
+ * numbers that matter, the 5-stage discovery strip, the video-engagement
+ * hero, and a right rail carrying the next best action, the qualification
+ * facts and the notes.
+ */
 export default async function InvestorDetailPage({
   params,
 }: {
@@ -47,16 +89,7 @@ export default async function InvestorDetailPage({
   // 404 for both missing and unauthorized — never confirm existence.
   if (!lead || !canAccessLead(user, lead)) notFound();
 
-  const [
-    questionnaire,
-    submissions,
-    video,
-    appointments,
-    notes,
-    events,
-    staff,
-    ownershipProfile,
-  ] =
+  const [questionnaire, submissions, video, appointments, notes, events, staff, ownershipProfile] =
     await Promise.all([
       store.getQuestionnaire(lead.id),
       store.getSubmissionsForLead(lead.id),
@@ -88,14 +121,13 @@ export default async function InvestorDetailPage({
     clientOpportunities.find((o) => o.source_lead_id === lead.id) ??
     null;
   const primaryBrand = primaryOpportunity ? brandById.get(primaryOpportunity.brand_id) : null;
+  const stage = primaryOpportunity?.stage ?? lead.current_stage;
 
-  const staffById = new Map(staff.map((s) => [s.id, s]));
   const staffNameById = Object.fromEntries(
     staff.map((s) => [s.id, `${s.first_name} ${s.last_name}`]),
   );
-  const advisor = lead.assigned_advisor_id ? staffById.get(lead.assigned_advisor_id) : null;
   const followUp = evaluateFollowUp({ lead, appointments, video });
-  const nextBestAction = deriveNextBestAction(
+  const action = deriveNextBestAction(
     lead,
     questionnaire,
     video,
@@ -105,96 +137,233 @@ export default async function InvestorDetailPage({
   );
   const latestSubmission = submissions[0] ?? null;
   const portalUrl = `${getAppUrl()}/p/${lead.portal_token}`;
-  const lastActivityLabel = events[0] ? eventLabel(events[0].event_name) : null;
-  // Same field the header's "Last activity" reads — no separate hotness
-  // score, just a presentation threshold over real recency data.
-  const isHotLead = withinHours(lead.last_activity_at ?? lead.created_at, 24);
+  const fddStatus = effectiveFddStatus(lead);
 
-  // Consultation summary for the Client Progress rail.
+  const name = `${lead.first_name} ${lead.last_name}`;
+  const percent = video ? Math.min(100, Math.max(0, Math.round(video.highest_percent_watched))) : null;
+  const capital = compactMoney(
+    labelForValue(questionnaire?.liquid_capital ?? lead.initial_liquid_capital),
+  );
+  const netWorth = compactMoney(
+    labelForValue(questionnaire?.net_worth ?? lead.initial_net_worth),
+  );
+
+  const reminderHref = action.reminder
+    ? `mailto:${lead.email}?subject=${encodeURIComponent(action.reminder.subject)}&body=${encodeURIComponent(action.reminder.body)}`
+    : `mailto:${lead.email}`;
+
+  // What each discovery stage says about this client right now — dates for
+  // what's done, a live read for where they are.
+  const activeStageId = discoveryStageIdFor(stage);
   const activeAppointment = appointments.find(
     (a) => a.status === "SCHEDULED" || a.status === "RESCHEDULED",
   );
-  const completedAppointment = appointments.some((a) => a.status === "COMPLETED");
-  const consultation: { label: string; tone: MilestoneTone; date: string | null } = activeAppointment
-    ? {
-        label: activeAppointment.status === "RESCHEDULED" ? "Rescheduled" : "Scheduled",
-        tone: "amber",
-        date: formatDate(activeAppointment.scheduled_start),
-      }
-    : completedAppointment
-      ? { label: "Completed", tone: "green", date: null }
-      : lead.booked_at
-        ? { label: "Scheduled", tone: "amber", date: formatDate(lead.appointment_start_at) }
-        : { label: "Not booked", tone: "neutral", date: null };
+  const stageContext: Partial<Record<DiscoveryStageId, string>> = {
+    1: lead.portal_first_opened_at ? formatDate(lead.portal_first_opened_at) : undefined,
+    2: lead.questionnaire_completed_at
+      ? `questionnaire ${formatDate(lead.questionnaire_completed_at)}`
+      : percent !== null
+        ? `video ${percent}%`
+        : undefined,
+    3: lead.fdd_sent_at ? `FDD ${fddStatus.replaceAll("_", " ")}` : undefined,
+    4: activeAppointment?.scheduled_start
+      ? `booked ${formatDate(activeAppointment.scheduled_start)}`
+      : undefined,
+    5: lead.current_stage === "CLOSED_INVESTED" ? "committed" : undefined,
+  };
+  if (activeStageId === 2 && activeAppointment) {
+    stageContext[2] = `consultation ${formatDate(activeAppointment.scheduled_start)}`;
+  }
 
-  const fddStatus = effectiveFddStatus(lead);
-  const fddInFlight = fddStatus !== "not_requested" && fddStatus !== "error_manual_review";
+  const meta = [
+    lead.email,
+    lead.phone,
+    lead.state,
+    lead.source ? `${lead.source} lead` : null,
+    `joined ${formatRelative(lead.created_at)}`,
+    primaryBrand?.name ?? null,
+  ].filter(Boolean);
 
   return (
-    <div className="space-y-2.5">
-      <ClientHeaderCard
-        lead={lead}
-        advisor={advisor ?? null}
-        brandName={
-          primaryBrand?.name ??
-          (clientOpportunities.length > 1
-            ? clientOpportunities.map((o) => brandById.get(o.brand_id)?.name ?? "Unknown brand").join(", ")
-            : null)
+    <>
+      <PageHeader
+        breadcrumb={{ href: "/advisor/investors", label: "Clients", current: name }}
+        actions={
+          <>
+            <Link href="#notes" className={SECONDARY_BUTTON}>
+              Add note
+            </Link>
+            <a href={reminderHref} className={INK_BUTTON}>
+              Send reminder
+            </a>
+          </>
         }
-        isAdminUser={isAdminUser}
-        staff={staff}
-        portalUrl={portalUrl}
-        needsFollowUp={followUp.needed}
-        isHotLead={isHotLead}
-        lastActivityLabel={lastActivityLabel}
       />
 
-      {/* Row A — the actionable pair: what to do next, where the client is. */}
-      <div className="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(330px,1fr))]">
-        <NextBestActionCard action={nextBestAction} email={lead.email} portalUrl={portalUrl} />
-        <ClientProgressCard
-          investorId={lead.id}
-          email={lead.email}
-          portalUrl={portalUrl}
-          consultation={consultation}
-          fddStatus={fddStatus}
-          fddInFlight={fddInFlight}
-          questionnaire={questionnaire}
-          questionnaireCompleted={Boolean(lead.questionnaire_completed_at ?? questionnaire)}
-          questionnaireStarted={Boolean(lead.questionnaire_started_at)}
-        />
-      </div>
+      <PageBody className="flex flex-col gap-[26px]">
+        {/* Identity + the three numbers that matter */}
+        <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-5">
+          <div className="min-w-[320px] flex-1">
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="text-[26px] font-extrabold tracking-[-0.03em] text-foreground">{name}</h2>
+              {followUp.needed && (
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-[3px] text-[9.5px] font-bold tracking-[0.08em]"
+                  style={{ color: SIGNAL.alert, backgroundColor: SIGNAL.alertTint }}
+                  title={followUp.reasons.join(" ")}
+                >
+                  <span
+                    aria-hidden
+                    className="size-[5px] rounded-full"
+                    style={{ backgroundColor: SIGNAL.alert }}
+                  />
+                  FOLLOW-UP DUE
+                </span>
+              )}
+            </div>
+            <p className="mt-1.5 text-[12.5px] text-muted-foreground">{meta.join(" · ")}</p>
+          </div>
+          <div className="flex shrink-0 gap-x-9 gap-y-4 text-right">
+            <KeyStat
+              label="Video watched"
+              value={percent === null ? "—" : `${percent}%`}
+              color={
+                percent === null
+                  ? SIGNAL.neutral
+                  : watchColor(percent, video?.completed ?? false)
+              }
+            />
+            <KeyStat label="Liquid capital" value={capital} color={SIGNAL.success} />
+            <KeyStat
+              label="Score"
+              value={lead.qualification_score === null ? "—" : String(lead.qualification_score)}
+              color={DISCOVERY_STAGES[2].color}
+            />
+          </div>
+        </div>
 
-      {/* Row B — milestones, engagement, source. */}
-      <div className="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(290px,1fr))]">
-        <ProcessMilestonesCard investorId={lead.id} milestones={lead.process_milestones ?? null} />
-        <VideoEngagementCard video={video} />
-        <LeadSourceCard lead={lead} questionnaire={questionnaire} />
-      </div>
+        {/* Discovery stage strip — clicking a stage sets it. */}
+        <DiscoveryStageStrip investorId={lead.id} currentStage={stage} context={stageContext} />
 
-      {/* Row C — the working surfaces. */}
-      <div className="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(370px,1fr))]">
-        <ActivityTimelineCard events={events} />
-        <AdvisorNotesCard
-          investorId={lead.id}
-          notes={notes}
-          staffNameById={staffNameById}
-          currentStaffId={user.id}
-        />
-      </div>
+        <div className="grid gap-10 xl:grid-cols-[1.5fr_1fr] xl:gap-11">
+          <div className="flex flex-col gap-6">
+            <VideoEngagementHero video={video} />
 
-      {/* Static facts, next to the questionnaire they came from. */}
-      <QualificationOverviewCard lead={lead} questionnaire={questionnaire} />
+            <div>
+              <SectionRule label="Activity" className="mb-1.5" />
+              <ActivityRail events={events} />
+            </div>
+          </div>
 
-      {latestSubmission && (
-        <QuestionnaireResponsesCard questionnaire={questionnaire} submission={latestSubmission} />
-      )}
+          <div className="flex flex-col gap-6">
+            {/* Next best action */}
+            <div className="rounded-card border border-[#fde68a] bg-[linear-gradient(180deg,#fffdf5,#fffaeb)] px-[18px] py-4">
+              <p
+                className="text-[9.5px] font-bold uppercase tracking-[0.15em]"
+                style={{ color: SIGNAL.warning }}
+              >
+                Next best action
+              </p>
+              <p className="mt-2 text-sm font-bold text-foreground">{action.title}</p>
+              <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                {action.description}
+              </p>
+              {action.whyItMatters && (
+                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                  {action.whyItMatters}
+                </p>
+              )}
+              {action.reminder && (
+                <a href={reminderHref} className={`${INK_BUTTON} mt-3`}>
+                  {action.ctaLabel}
+                </a>
+              )}
+            </div>
 
-      <AttributionCard lead={lead} />
+            {/* Qualification */}
+            <div>
+              <SectionRule label="Qualification" className="mb-1" />
+              <div className="flex flex-col text-[12.5px]">
+                <LeaderRow label="Liquid capital" value={<span className="tabular">{capital}</span>} />
+                <LeaderRow label="Net worth" value={<span className="tabular">{netWorth}</span>} />
+                <LeaderRow
+                  label="Timeline"
+                  value={labelForValue(questionnaire?.investment_timeline)}
+                />
+                <LeaderRow label="Funding" value={labelForValue(questionnaire?.financing_need)} />
+                <LeaderRow
+                  label="Score"
+                  value={
+                    lead.qualification_score === null ? (
+                      "—"
+                    ) : (
+                      <span className="tabular" style={{ color: DISCOVERY_STAGES[2].color }}>
+                        {lead.qualification_score} / 100
+                        {lead.qualification_result
+                          ? ` · ${lead.qualification_result === "qualified" ? "Qualified" : "Review required"}`
+                          : ""}
+                      </span>
+                    )
+                  }
+                />
+              </div>
+            </div>
 
-      {/* What the investor says they want from ownership (self-reported,
-          not a qualification signal). */}
-      <OwnershipProfileCard profile={ownershipProfile} />
-    </div>
+            <NotesRail investorId={lead.id} notes={notes} staffNameById={staffNameById} />
+
+            {/* The record's editable facts — assignment, territories, the
+                granular pipeline stage, and the prospect's portal link. */}
+            <div>
+              <SectionRule label="Record" className="mb-1" />
+              <div className="flex flex-col text-[12.5px]">
+                <LeaderRow
+                  label="Pipeline stage"
+                  value={<StageStatusControl investorId={lead.id} currentStage={lead.current_stage} />}
+                />
+                <LeaderRow
+                  label="Advisor"
+                  value={
+                    isAdminUser ? (
+                      <AdvisorAssignmentControl
+                        investorId={lead.id}
+                        advisors={staff.map((s) => ({
+                          id: s.id,
+                          name: `${s.first_name} ${s.last_name}`,
+                        }))}
+                        currentAdvisorId={lead.assigned_advisor_id}
+                      />
+                    ) : lead.assigned_advisor_id ? (
+                      (staffNameById[lead.assigned_advisor_id] ?? "—")
+                    ) : (
+                      "Unassigned"
+                    )
+                  }
+                />
+                <LeaderRow
+                  label="Territories wanted"
+                  value={
+                    <TerritoriesWantedControl
+                      investorId={lead.id}
+                      value={lead.territories_wanted ?? null}
+                    />
+                  }
+                />
+                <LeaderRow label="Portal link" value={<CopyPortalButton portalUrl={portalUrl} />} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* The full record: everything the summary above doesn't carry. */}
+        <div className="flex flex-col gap-4 border-t border-border pt-6">
+          <ProcessMilestonesCard investorId={lead.id} milestones={lead.process_milestones ?? null} />
+          {latestSubmission && (
+            <QuestionnaireResponsesCard questionnaire={questionnaire} submission={latestSubmission} />
+          )}
+          <OwnershipProfileCard profile={ownershipProfile} />
+          <AttributionCard lead={lead} />
+        </div>
+      </PageBody>
+    </>
   );
 }

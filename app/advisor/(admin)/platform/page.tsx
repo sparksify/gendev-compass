@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { requireStaffUser } from "@/lib/advisor/auth";
 import { loadInvestorRows } from "@/lib/advisor/investors";
+import { isGhlCalendarConfigured } from "@/lib/calendar/ghl";
 import { AdminOverviewPanels } from "@/components/admin/AdminOverviewPanels";
+import { PlatformPageShell } from "@/components/admin/PlatformPageShell";
+import { INK_BUTTON } from "@/components/advisor/controls";
 
 export const metadata: Metadata = { title: "Portal Admin Dashboard" };
 export const dynamic = "force-dynamic";
@@ -12,9 +16,10 @@ function withinDays(iso: string | null | undefined, days: number, now: Date): bo
 }
 
 /**
- * Admin overview: investor KPIs are computed server-side from the same
- * rows the advisor dashboard uses; the operational panels (FDD, census
- * health, portal assets) fetch client-side from the existing admin APIs.
+ * Admin overview (handoff mock 8a): investor KPIs are computed server-side
+ * from the same rows the advisor dashboard uses; the operational panels
+ * (FDD, census health, portal assets) fetch client-side from the existing
+ * admin APIs.
  */
 export default async function PlatformDashboardPage() {
   const user = await requireStaffUser();
@@ -33,17 +38,14 @@ export default async function PlatformDashboardPage() {
   ).length;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-sm text-muted-foreground">Welcome back, {user.first_name}</p>
-        <h2 className="mt-0.5 font-serif text-2xl font-semibold text-foreground">
-          Portal Admin Dashboard
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage your portal content, data, and platform settings.
-        </p>
-      </div>
-
+    <PlatformPageShell
+      subtitle="Manage portal content, data, and platform settings"
+      actions={
+        <Link href="/advisor/platform/test-leads" className={INK_BUTTON}>
+          Create test lead
+        </Link>
+      }
+    >
       <AdminOverviewPanels
         stats={{
           totalInvestors: rows.length,
@@ -52,7 +54,8 @@ export default async function PlatformDashboardPage() {
           fddRequested,
           fddInFlight,
         }}
+        ghlCalendarConfigured={isGhlCalendarConfigured()}
       />
-    </div>
+    </PlatformPageShell>
   );
 }

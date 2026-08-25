@@ -1,5 +1,6 @@
 import { getStore } from "@/lib/store";
 import { ReviewQueue } from "@/components/advisor/territories/ReviewQueue";
+import { TerritoryPageShell } from "@/components/advisor/territories/TerritoryPageShell";
 
 export const dynamic = "force-dynamic";
 
@@ -25,9 +26,11 @@ export default async function ReviewRequestsPage() {
   }));
 
   return (
-    <ReviewQueue
-      rows={rows}
-      staff={staff.filter((s) => s.active).map((s) => ({ id: s.id, name: `${s.first_name} ${s.last_name}` }))}
-    />
+    <TerritoryPageShell subtitle="Prospect territory requests waiting on a decision">
+      <ReviewQueue
+        rows={rows}
+        staff={staff.filter((s) => s.active).map((s) => ({ id: s.id, name: `${s.first_name} ${s.last_name}` }))}
+      />
+    </TerritoryPageShell>
   );
 }
