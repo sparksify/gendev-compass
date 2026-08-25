@@ -208,13 +208,43 @@ async function questionnaireCompleted(context: TemplateContext): Promise<EmailBo
   const { html, text } = renderEmail({
     eyebrow: "Investor Qualification",
     headline: `${name} completed the ${brand.brandName} Investor Qualification.`,
-    intro: "Their responses are below and on the full record in Compass.",
+    intro: "Their responses are below, attached as a PDF, and on the full record in Compass.",
     rows,
     cta: cta(lead),
     footnote: "You receive this because qualification completions are set to notify immediately.",
   });
 
-  return { subject: `Investor Qualification Completed — ${name}`, html, text };
+  // Attach the formatted questionnaire report. Best-effort: a PDF render
+  // failure must not cost the advisor the notification itself.
+  let attachments: EmailBody["attachments"];
+  if (questionnaire) {
+    try {
+      const { renderQuestionnairePdf } = await import("@/lib/advisor/questionnairePdf");
+      const submissions = await store.getSubmissionsForLead(lead.id).catch(() => []);
+      const latest = submissions[0] ?? null;
+      const pdf = await renderQuestionnairePdf({
+        lead,
+        questionnaire,
+        submittedAt:
+          latest?.submitted_at ?? lead.questionnaire_completed_at ?? questionnaire.created_at,
+        questionnaireVersion: latest?.questionnaire_version ?? null,
+      });
+      const safeName = `${lead.first_name}-${lead.last_name}`
+        .toLowerCase()
+        .replace(/[^a-z0-9-]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      attachments = [
+        {
+          filename: `investor-qualification-${safeName || lead.id}.pdf`,
+          contentBase64: Buffer.from(pdf).toString("base64"),
+        },
+      ];
+    } catch (error) {
+      console.error(`[notifications] questionnaire PDF attach failed for lead ${lead.id}:`, error);
+    }
+  }
+
+  return { subject: `Investor Qualification Completed — ${name}`, html, text, attachments };
 }
 
 // ---------------------------------------------------------------------------

@@ -6,14 +6,23 @@
  * sibling of resend.ts and changing getEmailProvider() — nothing else.
  */
 
+export interface EmailAttachment {
+  filename: string;
+  /** File bytes, base64-encoded. */
+  contentBase64: string;
+}
+
 export interface EmailMessage {
   to: string;
+  /** Additional recipients (deduped against `to` by the caller). */
+  cc?: string[];
   subject: string;
   html: string;
   /** Plain-text alternative; improves deliverability and accessibility. */
   text: string;
   /** Lets an advisor reply straight to the investor. */
   replyTo?: string | null;
+  attachments?: EmailAttachment[];
 }
 
 export type EmailSendResult =
