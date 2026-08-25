@@ -59,7 +59,18 @@ async function dispatch({
   }
 
   const store = getStore();
-  const recipient = await resolveAdvisorRecipient(lead);
+  const resolved = await resolveAdvisorRecipient(lead);
+  // Rule-level fixed recipients (e.g. every completed questionnaire also
+  // goes to the founder inbox). Deduped against the resolved advisor; when
+  // no advisor resolves at all the first CC becomes the primary recipient
+  // so the notification is never lost.
+  const ccPool = (rule.ccEmails ?? []).filter(
+    (email) => email.toLowerCase() !== resolved?.email.toLowerCase(),
+  );
+  const recipient =
+    resolved ??
+    (ccPool.length > 0 ? { email: ccPool[0], name: null, source: "default" as const } : null);
+  const cc = ccPool.filter((email) => email.toLowerCase() !== recipient?.email.toLowerCase());
   const dedupeKey = buildDedupeKey(lead.id, rule, eventData);
 
   // Claiming the key is the atomic gate. A duplicate returns null and stops
@@ -100,11 +111,15 @@ async function dispatch({
 
   const result = await provider.send({
     to: recipient.email,
+    ...(cc.length > 0 ? { cc } : {}),
     subject: body.subject,
     html: body.html,
     text: body.text,
     // Replying to the alert reaches the investor directly.
     replyTo: lead.email,
+    ...(body.attachments && body.attachments.length > 0
+      ? { attachments: body.attachments }
+      : {}),
   });
 
   if (!result.ok) {

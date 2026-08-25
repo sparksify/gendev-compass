@@ -299,21 +299,74 @@ describe("recipient resolution", () => {
     expect(sentPayload().to).toEqual(["default-advisor@example.test"]);
   });
 
-  it("records a failed delivery, and sends nothing, when no recipient is configured", async () => {
+  it("promotes the rule's CC to primary recipient when no advisor recipient resolves", async () => {
+    // The questionnaire rule always CCs the founder inbox; with no assigned
+    // advisor and no default inbox, that CC becomes the recipient rather
+    // than losing the notification.
     const previous = process.env.DEFAULT_ADVISOR_NOTIFICATION_EMAIL;
     delete process.env.DEFAULT_ADVISOR_NOTIFICATION_EMAIL;
     try {
       const lead = await makeStoredLead();
       await recordLeadEvent(lead, "questionnaire_submitted", { questionnaireVersion: "1.0" });
 
-      expect(fetchMock).not.toHaveBeenCalled();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(sentPayload().to).toEqual(["darko@frangendev.com"]);
       const [delivery] = await store.listNotificationDeliveriesForLead(lead.id);
-      expect(delivery.status).toBe("failed");
-      expect(delivery.recipient).toBeNull();
-      expect(delivery.error_message).toContain("No recipient");
+      expect(delivery.status).toBe("sent");
+      expect(delivery.recipient).toBe("darko@frangendev.com");
     } finally {
       process.env.DEFAULT_ADVISOR_NOTIFICATION_EMAIL = previous;
     }
+  });
+
+  it("CCs the founder inbox on questionnaire emails sent to an advisor", async () => {
+    const lead = await makeStoredLead();
+    await recordLeadEvent(lead, "questionnaire_submitted", { questionnaireVersion: "1.0" });
+
+    expect(sentPayload().to).toEqual(["default-advisor@example.test"]);
+    expect(sentPayload().cc).toEqual(["darko@frangendev.com"]);
+  });
+
+  it("attaches the questionnaire PDF when the lead has a questionnaire", async () => {
+    const lead = await makeStoredLead();
+    await store.createQuestionnaire({
+      lead_id: lead.id,
+      investment_timeline: "within-30-days",
+      liquid_capital: "lt-100k",
+      net_worth: "lt-500k",
+      business_ownership: "no",
+      primary_interest: "Freedom.",
+      remaining_questions: "None.",
+      decision_criteria: "Clear.",
+      decision_participants: "independent",
+      accuracy_confirmed: true,
+      opportunity_id: null,
+      address_line_1: null,
+      address_line_2: null,
+      city: null,
+      state: null,
+      postal_code: null,
+      country: null,
+      estimated_credit_score_range: null,
+      anticipated_funding_sources: null,
+      financing_need: null,
+      preferred_financing_percentage: null,
+      available_cash_contribution: null,
+      lender_status: null,
+      funding_assistance_requested: null,
+      funding_followup_requested: false,
+      existing_business_entity: null,
+      prior_business_financing_experience: null,
+    });
+    await recordLeadEvent(lead, "questionnaire_submitted", { questionnaireVersion: "1.1" });
+
+    const attachments = sentPayload().attachments as Array<{
+      filename: string;
+      content: string;
+    }>;
+    expect(attachments).toHaveLength(1);
+    expect(attachments[0].filename).toMatch(/^investor-qualification-.*\.pdf$/);
+    expect(Buffer.from(attachments[0].content, "base64").subarray(0, 5).toString()).toBe("%PDF-");
   });
 });
 

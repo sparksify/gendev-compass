@@ -36,10 +36,19 @@ export function createResendProvider(): EmailProvider {
           body: JSON.stringify({
             from,
             to: [message.to],
+            ...(message.cc && message.cc.length > 0 ? { cc: message.cc } : {}),
             subject: message.subject,
             html: message.html,
             text: message.text,
             ...(message.replyTo ? { reply_to: [message.replyTo] } : {}),
+            ...(message.attachments && message.attachments.length > 0
+              ? {
+                  attachments: message.attachments.map((a) => ({
+                    filename: a.filename,
+                    content: a.contentBase64,
+                  })),
+                }
+              : {}),
           }),
           signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
         });

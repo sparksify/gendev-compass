@@ -14,6 +14,7 @@ export interface EmailBody {
   subject: string;
   html: string;
   text: string;
+  attachments?: Array<{ filename: string; contentBase64: string }>;
 }
 
 export interface DetailRow {
