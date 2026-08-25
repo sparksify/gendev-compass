@@ -8,6 +8,7 @@ import { financingDetailsApply, questionnaireSchema } from "@/lib/validation/que
 import { autoAdvanceStage } from "@/lib/advisor/stages";
 import { buildAnswerSnapshot, QUESTIONNAIRE_VERSION } from "@/lib/advisor/questionnaireCatalog";
 import { ensureLeadDomainChain, type LeadDomainChain } from "@/lib/domain/chain";
+import { uploadQuestionnairePdfToGhl } from "@/lib/ghl/questionnaireUpload";
 import { syncPrimaryOpportunityQualification } from "@/lib/domain/opportunities";
 import type { QuestionnaireInput } from "@/types/questionnaire";
 
@@ -148,6 +149,16 @@ export async function POST(
     });
 
     await autoAdvanceStage(lead, "QUESTIONNAIRE_COMPLETED", "portal");
+
+    // Push the completed-questionnaire PDF into the GoHighLevel contact's
+    // cq_upload file field. Fire-safe by contract — a CRM hiccup never
+    // blocks the prospect, and failures are logged inside the helper.
+    const ghlUpload = await uploadQuestionnairePdfToGhl(updatedLead);
+    if (ghlUpload.ok) {
+      await trackEvent(updatedLead, "crm_questionnaire_uploaded", {
+        contactId: ghlUpload.contactId,
+      });
+    }
 
     // `updatedLead` rather than `lead`: the advisor notification renders the
     // qualification result and score, which only exist after the update

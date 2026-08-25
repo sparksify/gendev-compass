@@ -24,6 +24,8 @@ export type PortalEventName =
   // Self-reported "I scheduled" click with no calendar-detected booking —
   // internal advisor signal only, never a conversion.
   | "booking_claimed"
+  // Completed-questionnaire PDF pushed into the GoHighLevel contact record.
+  | "crm_questionnaire_uploaded"
   | "portal_completed"
   | "fdd_requested"
   | "fdd_request_failed"
