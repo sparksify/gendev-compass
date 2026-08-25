@@ -42,6 +42,27 @@ export interface NotificationRule {
    * version is a legitimately new completion and may email again.
    */
   dedupeScope?: (eventData: Record<string, unknown> | null) => string | null;
+  /**
+   * Fixed additional recipients CC'd on every send of this rule, on top of
+   * the resolved advisor. Deduped against the primary recipient at send
+   * time; when no advisor resolves at all, the first CC is promoted to the
+   * primary recipient so the notification is never lost.
+   */
+  ccEmails?: string[];
+}
+
+/**
+ * Everyone who must see every completed questionnaire, regardless of which
+ * advisor the investor is assigned to. Override (comma-separated) via
+ * QUESTIONNAIRE_NOTIFICATION_CC; set it to an empty string to disable.
+ */
+function questionnaireCcEmails(): string[] {
+  const raw = process.env.QUESTIONNAIRE_NOTIFICATION_CC;
+  if (raw === undefined) return ["darko@frangendev.com"];
+  return raw
+    .split(",")
+    .map((email) => email.trim())
+    .filter(Boolean);
 }
 
 export type EmailTemplateKey =
@@ -74,6 +95,7 @@ const IMMEDIATE: Partial<Record<PortalEventName, NotificationRule>> = {
     templateKey: "questionnaire_completed",
     dedupeGroup: "questionnaire_completed",
     dedupeScope: (data) => asString(data?.questionnaireVersion),
+    ccEmails: questionnaireCcEmails(),
   },
 
   // Rich pre-call context: what the investor wants from ownership, in their
