@@ -69,6 +69,7 @@ export function eventLabel(eventName: string): string {
     calendar_opened: "Calendar opened",
     calendar_booking_completed: "Booking detected (calendar widget)",
     booking_claimed: "Client says they booked — needs verification",
+    crm_questionnaire_uploaded: "Questionnaire PDF synced to CRM",
     consultation_booked: "Consultation booked (calendar verified)",
     consultation_rescheduled: "Consultation rescheduled",
     consultation_cancelled: "Consultation cancelled",
