@@ -29,6 +29,16 @@ const MILESTONES: Array<{ percent: number; event: PortalEventName }> = [
 const MAX_ACCUMULATION_STEP_SECONDS = 30;
 
 /**
+ * How often (in percentage points) to push the live percent to HighLevel's
+ * contact.video__watched field — independent of the 25/50/75 internal event
+ * milestones above, which stay coarse for Meta/GTM/funnel tracking. Most
+ * prospects stall well before 25%, so a follow-up workflow keyed only to
+ * those milestones would see nothing for them; 5-point steps mean anyone
+ * who watched at all (5%, 10%, 15%, ...) shows up in HighLevel.
+ */
+const GHL_SYNC_STEP_PERCENT = 5;
+
+/**
  * Fraction of the threshold duration that must be genuinely accumulated
  * (wall-clock while playing / Wistia secondsWatched) before completion is
  * accepted. Below 1.0 to tolerate missed heartbeats and faster playback,
@@ -127,17 +137,19 @@ export async function applyVideoProgress(
   }
 
   // Milestones fire exactly once, on the crossing report.
-  let crossedMilestone = false;
   for (const milestone of MILESTONES) {
     if (previousPercent < milestone.percent && highestPercent >= milestone.percent) {
       await trackEvent(lead, milestone.event, { percent: milestone.percent });
-      crossedMilestone = true;
     }
   }
-  // Keep the HighLevel percent field current on each milestone, not on
-  // every heartbeat — enough for "you got to X%" follow-up copy without
-  // hammering the contacts/upsert endpoint during active playback.
-  if (crossedMilestone && !completedNow) {
+
+  // Keep HighLevel's percent field current every GHL_SYNC_STEP_PERCENT
+  // points (not just at 25/50/75) — otherwise anyone who stalls at, say,
+  // 15% never shows up as anything but "in_progress at whatever percent
+  // they started at," which is most prospects.
+  const previousGhlStep = Math.floor(previousPercent / GHL_SYNC_STEP_PERCENT);
+  const currentGhlStep = Math.floor(highestPercent / GHL_SYNC_STEP_PERCENT);
+  if (currentGhlStep > previousGhlStep && !completedNow) {
     await syncVideoProgressToGhl(lead, { percent: highestPercent, status: "in_progress" });
   }
 
