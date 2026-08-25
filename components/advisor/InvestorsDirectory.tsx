@@ -3,8 +3,14 @@ import { Plus } from "lucide-react";
 import { requireStaffUser } from "@/lib/advisor/auth";
 import { filterInvestorRows, loadInvestorRows, type InvestorRow } from "@/lib/advisor/investors";
 import { labelForValue } from "@/lib/advisor/questionnaireCatalog";
+import { LIQUID_CAPITAL_RANGES, NET_WORTH_RANGES } from "@/types/questionnaire";
 import { cn } from "@/lib/utils";
 import { ClientsWithPanel, type ClientListRow } from "@/components/advisor/clientsPanel/ClientsWithPanel";
+
+// Ordinal position of each range, so the table can sort "Liquid Capital" /
+// "Net Worth" by actual dollar order instead of alphabetically.
+const liquidCapitalOrder: Map<string, number> = new Map(LIQUID_CAPITAL_RANGES.map((r, i) => [r.value, i]));
+const netWorthOrder: Map<string, number> = new Map(NET_WORTH_RANGES.map((r, i) => [r.value, i]));
 
 export type InvestorsSearchParams = Record<string, string | string[] | undefined>;
 
@@ -36,6 +42,8 @@ const CHIPS: Array<{ key: string; label: string; stages: string[] | null }> = [
 ];
 
 function toListRow(row: InvestorRow): ClientListRow {
+  const liquidCapitalValue = row.questionnaire?.liquid_capital ?? row.lead.initial_liquid_capital;
+  const netWorthValue = row.questionnaire?.net_worth ?? row.lead.initial_net_worth;
   return {
     id: row.lead.id,
     name: `${row.lead.first_name} ${row.lead.last_name}`,
@@ -46,8 +54,12 @@ function toListRow(row: InvestorRow): ClientListRow {
     territories: row.lead.territories_wanted ?? null,
     videoPercent: row.video ? Math.min(100, Math.max(0, row.video.highest_percent_watched)) : null,
     videoCompleted: row.video?.completed ?? false,
-    liquidCapital: labelForValue(row.questionnaire?.liquid_capital ?? row.lead.initial_liquid_capital),
-    netWorth: labelForValue(row.questionnaire?.net_worth ?? row.lead.initial_net_worth),
+    liquidCapital: labelForValue(liquidCapitalValue),
+    liquidCapitalRank: liquidCapitalValue ? (liquidCapitalOrder.get(liquidCapitalValue) ?? null) : null,
+    netWorth: labelForValue(netWorthValue),
+    netWorthRank: netWorthValue ? (netWorthOrder.get(netWorthValue) ?? null) : null,
+    createdAt: row.lead.created_at,
+    lastActivityAt: row.lastActivityAt,
   };
 }
 
