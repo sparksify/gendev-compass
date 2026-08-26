@@ -48,7 +48,7 @@ function actionFor(def: MilestoneDef, status: string): { label: string; next?: s
 
 /**
  * The four sequential steps to close a franchise sale. The status pill is
- * itself a select (same pattern as StageStatusControl); the right-hand link
+ * itself a select (same pattern as PipelineStageSlider); the right-hand link
  * is a one-click shortcut for the most likely next move.
  */
 export function ProcessMilestonesCard({

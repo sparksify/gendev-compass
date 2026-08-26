@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Mail, Phone } from "lucide-react";
 import { requireStaffUser } from "@/lib/advisor/auth";
 import { canAccessLead, isAdmin } from "@/lib/advisor/access";
 import { getStore } from "@/lib/store";
@@ -9,26 +10,24 @@ import { deriveNextBestAction } from "@/lib/advisor/nextBestAction";
 import { formatDate, formatRelative } from "@/lib/advisor/format";
 import { labelForValue } from "@/lib/advisor/questionnaireCatalog";
 import { compactMoney } from "@/lib/advisor/money";
-import { effectiveFddStatus } from "@/lib/fdd/status";
+import { effectiveFddStatus, FDD_STATUS_LABELS } from "@/lib/fdd/status";
 import { resolveClientFromLead } from "@/lib/domain/clients";
 import { listOpportunitiesForClient } from "@/lib/domain/opportunities";
 import { getAppUrl } from "@/lib/config/env";
 import { cn } from "@/lib/utils";
-import {
-  discoveryStageIdFor,
-  DISCOVERY_STAGES,
-  SIGNAL,
-  type DiscoveryStageId,
-} from "@/lib/advisor/discoveryStages";
+import { DISCOVERY_STAGES, SIGNAL } from "@/lib/advisor/discoveryStages";
+import { pipelineProgress } from "@/lib/advisor/pipelineProgress";
 import type { BrandRecord, ClientRecord, OpportunityRecord } from "@/types/domain";
 import { PageBody, PageHeader, SectionRule } from "@/components/advisor/PageHeader";
 import { INK_BUTTON, SECONDARY_BUTTON } from "@/components/advisor/controls";
-import { DiscoveryStageStrip } from "@/components/advisor/investorDetail/DiscoveryStageStrip";
+import { PipelineStageSlider } from "@/components/advisor/investorDetail/PipelineStageSlider";
 import { VideoEngagementHero } from "@/components/advisor/investorDetail/VideoEngagementHero";
 import { ActivityRail } from "@/components/advisor/investorDetail/ActivityRail";
-import { NotesRail } from "@/components/advisor/investorDetail/NotesRail";
+import {
+  NotesRail,
+  type UpcomingActivity,
+} from "@/components/advisor/investorDetail/NotesRail";
 import { AdvisorAssignmentControl } from "@/components/advisor/investorDetail/AdvisorAssignmentControl";
-import { StageStatusControl } from "@/components/advisor/investorDetail/StageStatusControl";
 import { TerritoriesWantedControl } from "@/components/advisor/investorDetail/TerritoriesWantedControl";
 import { CopyPortalButton } from "@/components/advisor/investorDetail/CopyPortalButton";
 import { ProcessMilestonesCard } from "@/components/advisor/investorDetail/ProcessMilestonesCard";
@@ -152,32 +151,34 @@ export default async function InvestorDetailPage({
     ? `mailto:${lead.email}?subject=${encodeURIComponent(action.reminder.subject)}&body=${encodeURIComponent(action.reminder.body)}`
     : `mailto:${lead.email}`;
 
-  // What each discovery stage says about this client right now — dates for
-  // what's done, a live read for where they are.
-  const activeStageId = discoveryStageIdFor(stage);
+  // Where this client sits on the 12-stage pipeline, and how long they have
+  // been sitting there.
+  const progress = pipelineProgress(stage, events, lead.created_at);
+
+  // The next scheduled touch, attached under the pinned note.
   const activeAppointment = appointments.find(
     (a) => a.status === "SCHEDULED" || a.status === "RESCHEDULED",
   );
-  const stageContext: Partial<Record<DiscoveryStageId, string>> = {
-    1: lead.portal_first_opened_at ? formatDate(lead.portal_first_opened_at) : undefined,
-    2: lead.questionnaire_completed_at
-      ? `questionnaire ${formatDate(lead.questionnaire_completed_at)}`
-      : percent !== null
-        ? `video ${percent}%`
-        : undefined,
-    3: lead.fdd_sent_at ? `FDD ${fddStatus.replaceAll("_", " ")}` : undefined,
-    4: activeAppointment?.scheduled_start
-      ? `booked ${formatDate(activeAppointment.scheduled_start)}`
-      : undefined,
-    5: lead.current_stage === "CLOSED_INVESTED" ? "committed" : undefined,
-  };
-  if (activeStageId === 2 && activeAppointment) {
-    stageContext[2] = `consultation ${formatDate(activeAppointment.scheduled_start)}`;
-  }
+  const upcoming: UpcomingActivity | null = activeAppointment
+    ? {
+        id: activeAppointment.id,
+        type: "Consultation",
+        meta: [
+          activeAppointment.scheduled_start
+            ? formatDate(activeAppointment.scheduled_start)
+            : "Unscheduled",
+          activeAppointment.advisor_id
+            ? (staffNameById[activeAppointment.advisor_id] ?? null)
+            : null,
+          `${lead.first_name} ${lead.last_name}`,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      }
+    : null;
 
+  // The faint half of the contact line — email and phone lead it separately.
   const meta = [
-    lead.email,
-    lead.phone,
     lead.state,
     lead.source ? `${lead.source} lead` : null,
     `joined ${formatRelative(lead.created_at)}`,
@@ -221,7 +222,32 @@ export default async function InvestorDetailPage({
                 </span>
               )}
             </div>
-            <p className="mt-1.5 text-[14px] text-muted-foreground">{meta.join(" · ")}</p>
+            {/* Two tiers: what you'd act on (email, phone) reads stronger
+                than what merely describes them. */}
+            <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[14px]">
+              <a
+                href={`mailto:${lead.email}`}
+                className="inline-flex items-center gap-1.5 font-semibold text-secondary-foreground hover:underline"
+              >
+                <Mail className="size-[13px] shrink-0 text-ghost-foreground" strokeWidth={1.8} />
+                {lead.email}
+              </a>
+              {lead.phone && (
+                <a
+                  href={`tel:${lead.phone}`}
+                  className="inline-flex items-center gap-1.5 font-semibold text-secondary-foreground hover:underline"
+                >
+                  <Phone className="size-[13px] shrink-0 text-ghost-foreground" strokeWidth={1.8} />
+                  {lead.phone}
+                </a>
+              )}
+              {meta.length > 0 && (
+                <>
+                  <span aria-hidden className="h-[13px] w-px bg-border" />
+                  <span className="text-muted-foreground">{meta.join(" · ")}</span>
+                </>
+              )}
+            </p>
           </div>
           <div className="flex shrink-0 gap-x-9 gap-y-4 text-right">
             <KeyStat
@@ -242,8 +268,8 @@ export default async function InvestorDetailPage({
           </div>
         </div>
 
-        {/* Discovery stage strip — clicking a stage sets it. */}
-        <DiscoveryStageStrip investorId={lead.id} currentStage={stage} context={stageContext} />
+        {/* Where they are in the pipeline — the label's chevron changes it. */}
+        <PipelineStageSlider investorId={lead.id} progress={progress} />
 
         <div className="grid gap-10 xl:grid-cols-[1.5fr_1fr] xl:gap-11 [&>*]:min-w-0">
           <div className="flex flex-col gap-6">
@@ -309,17 +335,18 @@ export default async function InvestorDetailPage({
               </div>
             </div>
 
-            <NotesRail investorId={lead.id} notes={notes} staffNameById={staffNameById} />
+            <NotesRail
+              investorId={lead.id}
+              notes={notes}
+              staffNameById={staffNameById}
+              upcoming={upcoming}
+            />
 
-            {/* The record's editable facts — assignment, territories, the
-                granular pipeline stage, and the prospect's portal link. */}
+            {/* The record's editable facts — assignment, territories, FDD and
+                the prospect's portal link. Stage lives in the slider above. */}
             <div>
               <SectionRule label="Record" className="mb-1" />
               <div className="flex flex-col text-[14px]">
-                <LeaderRow
-                  label="Pipeline stage"
-                  value={<StageStatusControl investorId={lead.id} currentStage={lead.current_stage} />}
-                />
                 <LeaderRow
                   label="Advisor"
                   value={
@@ -348,6 +375,7 @@ export default async function InvestorDetailPage({
                     />
                   }
                 />
+                <LeaderRow label="FDD" value={FDD_STATUS_LABELS[fddStatus]} />
                 <LeaderRow label="Portal link" value={<CopyPortalButton portalUrl={portalUrl} />} />
               </div>
             </div>
