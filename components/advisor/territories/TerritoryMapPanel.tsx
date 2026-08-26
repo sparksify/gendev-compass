@@ -169,7 +169,7 @@ export function TerritoryMapPanel() {
 
   if (error) {
     return (
-      <div className="rounded-card border border-border bg-surface p-6 text-sm text-muted-foreground">
+      <div className="rounded-card border border-border bg-surface p-6 text-[15.5px] leading-[1.45] text-muted-foreground">
         {error}
       </div>
     );
@@ -184,20 +184,20 @@ export function TerritoryMapPanel() {
           {[...usedStatuses].map((status) => {
             const meta = TERRITORY_COLORS[status] ?? TERRITORY_COLORS.pending;
             return (
-              <span key={status} className="inline-flex items-center gap-1.5 text-xs text-secondary-foreground">
+              <span key={status} className="inline-flex items-center gap-1.5 text-[13.5px] leading-[1.45] text-secondary-foreground">
                 <span className="size-3 rounded-sm" style={{ backgroundColor: meta.color, opacity: 0.7 }} />
                 {meta.label}
               </span>
             );
           })}
           {usedStatuses.size === 0 && data && (
-            <span className="text-xs text-muted-foreground">
+            <span className="text-[13.5px] leading-[1.45] text-muted-foreground">
               No territories defined yet — add records under Territory Records.
             </span>
           )}
         </div>
         {data && (
-          <span className="text-xs text-muted-foreground">
+          <span className="text-[13.5px] leading-[1.45] text-muted-foreground">
             {data.brand.name} · {data.territories.length} territor{data.territories.length === 1 ? "y" : "ies"}
           </span>
         )}
@@ -206,12 +206,12 @@ export function TerritoryMapPanel() {
         <div ref={containerRef} className="isolate h-[560px] w-full" role="application" aria-label="Territory map" />
       </div>
       {missingBoundaries > 0 && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-[13.5px] leading-[1.45] text-muted-foreground">
           {missingBoundaries} territory ZIP{missingBoundaries === 1 ? "" : "s"} have no boundary shape
           loaded yet — load state polygons from the Admin page (Territory ZIP Data).
         </p>
       )}
-      <p className="text-xs text-muted-foreground">
+      <p className="text-[13.5px] leading-[1.45] text-muted-foreground">
         Internal map — exact territory boundaries are never shown to prospects.
       </p>
     </div>

@@ -43,18 +43,18 @@ export default async function SearchActivityPage({
   return (
     <TerritoryPageShell subtitle="Every territory search a prospect has run">
       <div className="flex flex-wrap items-center gap-4">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-[15.5px] leading-[1.45] text-muted-foreground">
           {filtered.length} of {allSearches.length} searches
         </p>
         <div className="flex flex-wrap gap-1.5">
-          <Link href={buildHref({ status: undefined })} className={`rounded-full border px-2.5 py-1 text-[11.5px] font-medium ${!params.status ? "border-primary-soft-border bg-primary-soft text-primary" : "border-border text-muted-foreground"}`}>
+          <Link href={buildHref({ status: undefined })} className={`rounded-full border px-2.5 py-1 text-[13px] font-medium ${!params.status ? "border-primary-soft-border bg-primary-soft text-primary" : "border-border text-muted-foreground"}`}>
             All results
           </Link>
           {TERRITORY_RESULT_STATUSES.map((status) => (
             <Link
               key={status}
               href={buildHref({ status })}
-              className={`rounded-full border px-2.5 py-1 text-[11.5px] font-medium ${params.status === status ? "border-primary-soft-border bg-primary-soft text-primary" : "border-border text-muted-foreground"}`}
+              className={`rounded-full border px-2.5 py-1 text-[13px] font-medium ${params.status === status ? "border-primary-soft-border bg-primary-soft text-primary" : "border-border text-muted-foreground"}`}
             >
               {STATUS_META[status].label}
             </Link>
@@ -64,11 +64,11 @@ export default async function SearchActivityPage({
 
       {states.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          <Link href={buildHref({ state: undefined })} className={`rounded-full border px-2.5 py-1 text-[11.5px] font-medium ${!params.state ? "border-primary-soft-border bg-primary-soft text-primary" : "border-border text-muted-foreground"}`}>
+          <Link href={buildHref({ state: undefined })} className={`rounded-full border px-2.5 py-1 text-[13px] font-medium ${!params.state ? "border-primary-soft-border bg-primary-soft text-primary" : "border-border text-muted-foreground"}`}>
             All states
           </Link>
           {states.map((s) => (
-            <Link key={s} href={buildHref({ state: s })} className={`rounded-full border px-2.5 py-1 text-[11.5px] font-medium ${params.state === s ? "border-primary-soft-border bg-primary-soft text-primary" : "border-border text-muted-foreground"}`}>
+            <Link key={s} href={buildHref({ state: s })} className={`rounded-full border px-2.5 py-1 text-[13px] font-medium ${params.state === s ? "border-primary-soft-border bg-primary-soft text-primary" : "border-border text-muted-foreground"}`}>
               {s}
             </Link>
           ))}
@@ -77,9 +77,9 @@ export default async function SearchActivityPage({
 
       <Card>
         <CardContent className="p-0">
-          <table className="w-full text-left text-[13px]">
+          <table className="w-full text-left text-[14.5px]">
             <thead>
-              <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
+              <tr className="border-b border-border text-[12.5px] uppercase tracking-wide text-muted-foreground">
                 <th className="px-4 py-2.5 font-medium">Prospect</th>
                 <th className="px-4 py-2.5 font-medium">Brand</th>
                 <th className="px-4 py-2.5 font-medium">Query</th>
@@ -106,7 +106,7 @@ export default async function SearchActivityPage({
                     <td className="px-4 py-2.5 text-muted-foreground">{brandById.get(s.brand_id)?.name ?? "—"}</td>
                     <td className="px-4 py-2.5">
                       <p className="text-foreground">{s.normalized_location ?? s.raw_query}</p>
-                      <p className="text-[11.5px] text-muted-foreground">&ldquo;{s.raw_query}&rdquo; · {s.radius_miles ?? "—"} mi</p>
+                      <p className="text-[13px] text-muted-foreground">&ldquo;{s.raw_query}&rdquo; · {s.radius_miles ?? "—"} mi</p>
                     </td>
                     <td className="px-4 py-2.5">
                       <Badge className={meta.badgeClass}>{meta.label}</Badge>

@@ -31,7 +31,7 @@ export function HeaderTabs({ tabs }: { tabs: HeaderTab[] }) {
             href={tab.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex shrink-0 items-center gap-1.5 whitespace-nowrap pb-3 text-[12.5px] font-semibold transition-colors",
+              "flex shrink-0 items-center gap-1.5 whitespace-nowrap pb-3 text-[14px] font-semibold transition-colors",
               active
                 ? "font-bold text-foreground shadow-[inset_0_-2px_0_#101828]"
                 : "text-muted-foreground hover:text-foreground",
@@ -40,7 +40,7 @@ export function HeaderTabs({ tabs }: { tabs: HeaderTab[] }) {
             {tab.label}
             {tab.badge !== undefined && tab.badge > 0 && (
               <span
-                className="tabular inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9.5px] font-bold text-white"
+                className="tabular inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[11px] font-bold text-white"
                 style={{ backgroundColor: tab.badgeColor ?? "#b45309" }}
               >
                 {tab.badge}

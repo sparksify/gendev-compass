@@ -14,7 +14,7 @@ interface StaffUserSummary {
 }
 
 const INPUT_CLASS =
-  "mt-1 block w-full rounded-control border-2 border-border-strong bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15";
+  "mt-1 block w-full rounded-control border-2 border-border-strong bg-card px-3 py-2 text-[15.5px] leading-[1.45] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15";
 
 function formatWhen(iso: string | null): string {
   if (!iso) return "never";
@@ -59,7 +59,7 @@ function CreateUserForm({ onCreated }: { onCreated: (user: StaffUserSummary) => 
   return (
     <form onSubmit={submit} className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
       <div>
-        <label className="text-xs font-medium text-secondary-foreground">
+        <label className="text-[13.5px] leading-[1.45] font-medium text-secondary-foreground">
           First name
           <input
             required
@@ -70,7 +70,7 @@ function CreateUserForm({ onCreated }: { onCreated: (user: StaffUserSummary) => 
         </label>
       </div>
       <div>
-        <label className="text-xs font-medium text-secondary-foreground">
+        <label className="text-[13.5px] leading-[1.45] font-medium text-secondary-foreground">
           Last name
           <input
             required
@@ -81,7 +81,7 @@ function CreateUserForm({ onCreated }: { onCreated: (user: StaffUserSummary) => 
         </label>
       </div>
       <div>
-        <label className="text-xs font-medium text-secondary-foreground">
+        <label className="text-[13.5px] leading-[1.45] font-medium text-secondary-foreground">
           Email
           <input
             required
@@ -93,7 +93,7 @@ function CreateUserForm({ onCreated }: { onCreated: (user: StaffUserSummary) => 
         </label>
       </div>
       <div>
-        <label className="text-xs font-medium text-secondary-foreground">
+        <label className="text-[13.5px] leading-[1.45] font-medium text-secondary-foreground">
           Role
           <select
             value={form.role}
@@ -106,7 +106,7 @@ function CreateUserForm({ onCreated }: { onCreated: (user: StaffUserSummary) => 
         </label>
       </div>
       <div className="sm:col-span-2">
-        <label className="text-xs font-medium text-secondary-foreground">
+        <label className="text-[13.5px] leading-[1.45] font-medium text-secondary-foreground">
           Temporary password (12+ characters — they should change it after first login)
           <input
             required
@@ -123,12 +123,12 @@ function CreateUserForm({ onCreated }: { onCreated: (user: StaffUserSummary) => 
         <button
           type="submit"
           disabled={busy}
-          className="rounded-control bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-60"
+          className="rounded-control bg-primary px-4 py-2 text-[15.5px] leading-[1.45] font-semibold text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-60"
         >
           {busy ? "Creating…" : "Add Team Member"}
         </button>
         {message && (
-          <p className={`text-xs font-medium ${message.ok ? "text-success" : "text-destructive"}`} role="status">
+          <p className={`text-[13.5px] leading-[1.45] font-medium ${message.ok ? "text-success" : "text-destructive"}`} role="status">
             {message.text}
           </p>
         )}
@@ -173,7 +173,7 @@ function ChangePasswordForm() {
 
   return (
     <form onSubmit={submit} className="mt-4 grid max-w-md grid-cols-1 gap-3">
-      <label className="text-xs font-medium text-secondary-foreground">
+      <label className="text-[13.5px] leading-[1.45] font-medium text-secondary-foreground">
         Current password
         <input
           required
@@ -184,7 +184,7 @@ function ChangePasswordForm() {
           autoComplete="current-password"
         />
       </label>
-      <label className="text-xs font-medium text-secondary-foreground">
+      <label className="text-[13.5px] leading-[1.45] font-medium text-secondary-foreground">
         New password (12+ characters)
         <input
           required
@@ -196,7 +196,7 @@ function ChangePasswordForm() {
           autoComplete="new-password"
         />
       </label>
-      <label className="text-xs font-medium text-secondary-foreground">
+      <label className="text-[13.5px] leading-[1.45] font-medium text-secondary-foreground">
         Confirm new password
         <input
           required
@@ -212,12 +212,12 @@ function ChangePasswordForm() {
         <button
           type="submit"
           disabled={busy}
-          className="rounded-control bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-60"
+          className="rounded-control bg-primary px-4 py-2 text-[15.5px] leading-[1.45] font-semibold text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-60"
         >
           {busy ? "Saving…" : "Change Password"}
         </button>
         {message && (
-          <p className={`text-xs font-medium ${message.ok ? "text-success" : "text-destructive"}`} role="status">
+          <p className={`text-[13.5px] leading-[1.45] font-medium ${message.ok ? "text-success" : "text-destructive"}`} role="status">
             {message.text}
           </p>
         )}
@@ -254,12 +254,12 @@ export function TeamPanel({ isAdminUser }: { isAdminUser: boolean }) {
     <div className="space-y-4">
       {isAdminUser && (
         <div className="rounded-card border border-border bg-card p-5">
-          <h2 className="text-sm font-semibold text-foreground">Team Members</h2>
-          {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+          <h2 className="text-[15.5px] leading-[1.45] font-semibold text-foreground">Team Members</h2>
+          {error && <p className="mt-2 text-[13.5px] leading-[1.45] text-destructive">{error}</p>}
           <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="w-full text-left text-[15.5px] leading-[1.45]">
               <thead>
-                <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
+                <tr className="border-b border-border text-[12.5px] uppercase tracking-wide text-muted-foreground">
                   <th className="py-2 pr-4 font-medium">Name</th>
                   <th className="py-2 pr-4 font-medium">Email</th>
                   <th className="py-2 pr-4 font-medium">Role</th>
@@ -269,7 +269,7 @@ export function TeamPanel({ isAdminUser }: { isAdminUser: boolean }) {
               <tbody>
                 {users === null && !error && (
                   <tr>
-                    <td colSpan={4} className="py-3 text-xs text-muted-foreground">
+                    <td colSpan={4} className="py-3 text-[13.5px] leading-[1.45] text-muted-foreground">
                       Loading…
                     </td>
                   </tr>
@@ -278,22 +278,22 @@ export function TeamPanel({ isAdminUser }: { isAdminUser: boolean }) {
                   <tr key={user.id} className="border-b border-border-soft">
                     <td className="py-2.5 pr-4 font-medium text-foreground">
                       {user.first_name} {user.last_name}
-                      {!user.active && <span className="ml-2 text-[11px] text-muted-foreground">(inactive)</span>}
+                      {!user.active && <span className="ml-2 text-[12.5px] text-muted-foreground">(inactive)</span>}
                     </td>
                     <td className="py-2.5 pr-4 text-secondary-foreground">{user.email}</td>
                     <td className="py-2.5 pr-4">
-                      <span className="rounded-full bg-primary-soft px-2 py-0.5 text-[11px] font-semibold text-primary">
+                      <span className="rounded-full bg-primary-soft px-2 py-0.5 text-[12.5px] font-semibold text-primary">
                         {user.role}
                       </span>
                     </td>
-                    <td className="py-2.5 pr-4 text-xs text-muted-foreground">{formatWhen(user.last_login_at)}</td>
+                    <td className="py-2.5 pr-4 text-[13.5px] leading-[1.45] text-muted-foreground">{formatWhen(user.last_login_at)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          <h3 className="mt-6 text-sm font-semibold text-foreground">Add Team Member</h3>
+          <h3 className="mt-6 text-[15.5px] leading-[1.45] font-semibold text-foreground">Add Team Member</h3>
           <CreateUserForm
             onCreated={(user) => setUsers((prev) => (prev ? [...prev, user] : [user]))}
           />
@@ -301,8 +301,8 @@ export function TeamPanel({ isAdminUser }: { isAdminUser: boolean }) {
       )}
 
       <div className="rounded-card border border-border bg-card p-5">
-        <h2 className="text-sm font-semibold text-foreground">My Password</h2>
-        <p className="mt-0.5 text-xs text-muted-foreground">
+        <h2 className="text-[15.5px] leading-[1.45] font-semibold text-foreground">My Password</h2>
+        <p className="mt-0.5 text-[13.5px] leading-[1.45] text-muted-foreground">
           Change the password you use to sign in to this dashboard.
         </p>
         <ChangePasswordForm />

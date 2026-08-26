@@ -67,7 +67,7 @@ function Pill({ label, tone }: { label: string; tone: "ok" | "warn" | "bad" | "o
   }[tone];
   return (
     <span
-      className="rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em]"
+      className="rounded-full px-2.5 py-0.5 text-[11.5px] font-bold uppercase tracking-[0.04em]"
       style={{ color: colors.color, backgroundColor: colors.tint }}
     >
       {label}
@@ -123,7 +123,7 @@ function FactInput({
 }) {
   return (
     <label className="block">
-      <span className="block text-[10px] text-faint-foreground">{label}</span>
+      <span className="block text-[11.5px] text-faint-foreground">{label}</span>
       <input
         type={type}
         value={value}
@@ -131,7 +131,7 @@ function FactInput({
         placeholder={placeholder}
         disabled={disabled}
         autoComplete="off"
-        className={`tabular mt-0.5 ${width} max-w-full rounded border border-transparent bg-transparent text-[12.5px] font-bold text-foreground placeholder:font-medium placeholder:text-ghost-foreground hover:border-border focus:border-border-strong focus:outline-none disabled:opacity-60`}
+        className={`tabular mt-0.5 ${width} max-w-full rounded border border-transparent bg-transparent text-[14px] font-bold text-foreground placeholder:font-medium placeholder:text-ghost-foreground hover:border-border focus:border-border-strong focus:outline-none disabled:opacity-60`}
       />
     </label>
   );
@@ -141,8 +141,8 @@ function FactInput({
 function Fact({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <span className="block">
-      <span className="block text-[10px] text-faint-foreground">{label}</span>
-      <strong className="text-[12.5px] font-bold" style={color ? { color } : undefined}>
+      <span className="block text-[11.5px] text-faint-foreground">{label}</span>
+      <strong className="text-[14px] font-bold" style={color ? { color } : undefined}>
         {value}
       </strong>
     </span>
@@ -165,7 +165,7 @@ function SettingCard({
   return (
     <div className="rounded-card border border-border px-5 py-4">
       <div className="flex items-center gap-2.5">
-        <strong className="text-[13.5px] font-bold text-foreground">{title}</strong>
+        <strong className="text-[15px] font-bold text-foreground">{title}</strong>
         {pill}
         <span className="ml-auto">
           <Toggle checked={checked} onChange={onToggle} label={`Enable ${title}`} />
@@ -320,14 +320,14 @@ export function TrackingAdminSections({
   if (error) {
     return (
       <p
-        className="rounded-card border px-4 py-3 text-xs"
+        className="rounded-card border px-4 py-3 text-[13.5px] leading-[1.45]"
         style={{ borderColor: "#fda29b", backgroundColor: SIGNAL.alertTint, color: SIGNAL.alert }}
       >
         {error}
       </p>
     );
   }
-  if (!settings) return <p className="text-xs text-muted-foreground">Loading…</p>;
+  if (!settings) return <p className="text-[13.5px] leading-[1.45] text-muted-foreground">Loading…</p>;
 
   const gtmPill =
     settings.gtmStatus === "connected"
@@ -351,7 +351,7 @@ export function TrackingAdminSections({
           style={{ borderColor: "#fde68a", backgroundColor: SIGNAL.warningTint }}
         >
           {warnings.map((warning) => (
-            <p key={warning} className="text-xs" style={{ color: SIGNAL.warning }}>
+            <p key={warning} className="text-[13.5px] leading-[1.45]" style={{ color: SIGNAL.warning }}>
               ⚠ {warning}
             </p>
           ))}
@@ -405,13 +405,13 @@ export function TrackingAdminSections({
           placeholder="Dataset ID"
         />
         <label className="block">
-          <span className="block text-[10px] text-faint-foreground">Browser mode</span>
+          <span className="block text-[11.5px] text-faint-foreground">Browser mode</span>
           <select
             value={settings.metaBrowserMode}
             onChange={(event) =>
               patch({ metaBrowserMode: event.target.value as TrackingSettingsPayload["metaBrowserMode"] })
             }
-            className="mt-0.5 rounded border border-transparent bg-transparent text-[12.5px] font-bold text-foreground hover:border-border focus:border-border-strong focus:outline-none"
+            className="mt-0.5 rounded border border-transparent bg-transparent text-[14px] font-bold text-foreground hover:border-border focus:border-border-strong focus:outline-none"
           >
             <option value="gtm">Through Google Tag Manager</option>
             <option value="direct">Direct pixel integration</option>
@@ -479,13 +479,13 @@ export function TrackingAdminSections({
           </button>
         </span>
         {!encryptionAvailable && (
-          <p className="w-full text-[11px]" style={{ color: SIGNAL.warning }}>
+          <p className="w-full text-[12.5px]" style={{ color: SIGNAL.warning }}>
             TRACKING_ENCRYPTION_KEY is not set — tokens cannot be saved here. Use the
             META_CAPI_ACCESS_TOKEN env var instead, or ask an engineer to set the encryption key.
           </p>
         )}
         {settings.lastMetaCapiError && (
-          <p className="w-full text-[11px]" style={{ color: SIGNAL.alert }}>
+          <p className="w-full text-[12.5px]" style={{ color: SIGNAL.alert }}>
             Last failure ({formatDateTime(settings.lastMetaCapiFailureAt)}):{" "}
             {settings.lastMetaCapiError}
           </p>
@@ -505,7 +505,7 @@ export function TrackingAdminSections({
         onToggle={(next) => patch({ consentRequired: next })}
       >
         <label className="block">
-          <span className="block text-[10px] text-faint-foreground">Marketing default</span>
+          <span className="block text-[11.5px] text-faint-foreground">Marketing default</span>
           <select
             value={settings.marketingTrackingDefault}
             onChange={(event) =>
@@ -514,14 +514,14 @@ export function TrackingAdminSections({
                   .value as TrackingSettingsPayload["marketingTrackingDefault"],
               })
             }
-            className="mt-0.5 rounded border border-transparent bg-transparent text-[12.5px] font-bold text-foreground hover:border-border focus:border-border-strong focus:outline-none"
+            className="mt-0.5 rounded border border-transparent bg-transparent text-[14px] font-bold text-foreground hover:border-border focus:border-border-strong focus:outline-none"
           >
             <option value="denied">Off until accepted</option>
             <option value="granted">On by default</option>
           </select>
         </label>
         <Fact label="Attribution" value="First-touch kept · latest-touch updated" />
-        <p className="w-full text-[11px] text-faint-foreground">
+        <p className="w-full text-[12.5px] text-faint-foreground">
           Placeholder consent behavior — have legal/privacy counsel review before relying on this for
           jurisdiction-specific compliance.
         </p>
@@ -535,17 +535,17 @@ export function TrackingAdminSections({
           aria-expanded={showEventMap}
           className="flex w-full items-center gap-2.5 text-left"
         >
-          <strong className="text-[13.5px] font-bold text-foreground">Event mapping</strong>
-          <span className="text-[11px] text-faint-foreground">{taxonomy.length} portal events</span>
-          <span className="ml-auto text-[11.5px] font-semibold text-foreground underline">
+          <strong className="text-[15px] font-bold text-foreground">Event mapping</strong>
+          <span className="text-[12.5px] text-faint-foreground">{taxonomy.length} portal events</span>
+          <span className="ml-auto text-[13px] font-semibold text-foreground underline">
             {showEventMap ? "Hide" : "Edit"}
           </span>
         </button>
         {showEventMap && (
           <div className="mt-3 overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-xs">
+            <table className="w-full min-w-[640px] text-left text-[13.5px] leading-[1.45]">
               <thead>
-                <tr className="border-b border-border text-[9.5px] font-bold uppercase tracking-[0.12em] text-faint-foreground">
+                <tr className="border-b border-border text-[11px] font-bold uppercase tracking-[0.12em] text-faint-foreground">
                   <th className="py-2 pr-3">Portal event</th>
                   <th className="py-2 pr-3">Tier</th>
                   <th className="py-2 pr-3">GTM</th>
@@ -557,7 +557,7 @@ export function TrackingAdminSections({
               <tbody>
                 {taxonomy.map((row) => (
                   <tr key={row.eventName} className="border-b border-border-soft last:border-0">
-                    <td className="py-1.5 pr-3 font-mono text-[11px] text-secondary-foreground">
+                    <td className="py-1.5 pr-3 font-mono text-[12.5px] text-secondary-foreground">
                       {row.eventName}
                     </td>
                     <td className="py-1.5 pr-3 text-muted-foreground">{row.tier}</td>
@@ -596,7 +596,7 @@ export function TrackingAdminSections({
                           patchOverride(row.eventName, { metaEventName: e.target.value })
                         }
                         placeholder="(not sent to Meta)"
-                        className="w-40 rounded border border-border px-2 py-1 text-[11px]"
+                        className="w-40 rounded border border-border px-2 py-1 text-[12.5px]"
                       />
                     </td>
                   </tr>
@@ -612,11 +612,11 @@ export function TrackingAdminSections({
           Disable all
         </button>
         {(saving || saveMessage) && (
-          <span className="text-[11.5px] text-muted-foreground">
+          <span className="text-[13px] text-muted-foreground">
             {saving ? "Saving…" : saveMessage}
           </span>
         )}
-        {testMessage && <span className="text-[11.5px] text-muted-foreground">{testMessage}</span>}
+        {testMessage && <span className="text-[13px] text-muted-foreground">{testMessage}</span>}
       </div>
     </div>
   );

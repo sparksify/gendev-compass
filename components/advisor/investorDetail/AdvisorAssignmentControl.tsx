@@ -78,14 +78,14 @@ export function AdvisorAssignmentControl({
             </option>
           ))}
         </select>
-        <span className="pointer-events-none flex items-center gap-1.5 text-sm font-medium text-foreground">
+        <span className="pointer-events-none flex items-center gap-1.5 text-[15.5px] leading-[1.45] font-medium text-foreground">
           {current && <InitialsAvatar name={current.name} size="sm" />}
           {current ? current.name.split(" ")[0] : "Unassigned"}
           <ChevronDown className="size-3 text-muted-foreground" />
         </span>
       </div>
       {error && (
-        <p role="alert" className="text-[11px] text-destructive">
+        <p role="alert" className="text-[12.5px] text-destructive">
           {error}
         </p>
       )}

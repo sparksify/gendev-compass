@@ -38,13 +38,13 @@ function Group({
         <span className={cn("flex size-[22px] shrink-0 items-center justify-center rounded-md", chipClass)}>
           <Icon className="size-3" />
         </span>
-        <span className="text-[12.5px] font-semibold text-foreground">{name}</span>
+        <span className="text-[14px] font-semibold text-foreground">{name}</span>
       </p>
       <dl className="mt-2 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-3 gap-y-[5px]">
         {fields.map(([label, value]) => (
           <div key={label} className="contents">
-            <dt className="text-xs text-muted-foreground">{label}</dt>
-            <dd className="text-xs font-medium text-foreground">{value ?? "—"}</dd>
+            <dt className="text-[13.5px] leading-[1.45] text-muted-foreground">{label}</dt>
+            <dd className="text-[13.5px] leading-[1.45] font-medium text-foreground">{value ?? "—"}</dd>
           </div>
         ))}
       </dl>
@@ -69,10 +69,10 @@ export function QuestionnaireResponsesCard({
       <CardContent className="px-[15px] py-[13px]">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <p className="text-[15px] font-bold text-foreground">
+            <p className="text-[16.5px] font-bold text-foreground">
               Questionnaire responses
             </p>
-            <p className="flex items-center gap-1 text-[11.5px] text-[#15803d]">
+            <p className="flex items-center gap-1 text-[13px] text-[#15803d]">
               <CheckCircle2 className="size-3" />
               Submitted {formatDateTime(submission.submitted_at)} · Version {submission.questionnaire_version}
             </p>
@@ -217,8 +217,8 @@ export function QuestionnaireResponsesCard({
           <dl className="space-y-2.5">
             {submission.answers.map((answer) => (
               <div key={answer.id}>
-                <dt className="text-xs font-medium text-secondary-foreground">{answer.question_text}</dt>
-                <dd className="mt-0.5 text-xs text-foreground">{answer.answer_display_value}</dd>
+                <dt className="text-[13.5px] leading-[1.45] font-medium text-secondary-foreground">{answer.question_text}</dt>
+                <dd className="mt-0.5 text-[13.5px] leading-[1.45] text-foreground">{answer.answer_display_value}</dd>
               </div>
             ))}
           </dl>

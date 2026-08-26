@@ -29,8 +29,8 @@ function Row({ label, value }: { label: string; value: string | null }) {
   if (!value) return null;
   return (
     <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-faint-foreground">{label}</p>
-      <div className="mt-0.5 text-sm text-foreground">{value}</div>
+      <p className="text-[13.5px] leading-[1.45] font-medium uppercase tracking-wide text-faint-foreground">{label}</p>
+      <div className="mt-0.5 text-[15.5px] leading-[1.45] text-foreground">{value}</div>
     </div>
   );
 }
@@ -77,7 +77,7 @@ export function OwnershipProfileCard({
             <Row label="Background" value={list(experienceLabels(toOwnershipProfileInput(profile)))} />
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">Ownership Profile not started yet.</p>
+          <p className="text-[15.5px] leading-[1.45] text-muted-foreground">Ownership Profile not started yet.</p>
         )}
       </CardContent>
     </Card>

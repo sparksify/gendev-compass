@@ -66,7 +66,7 @@ export function TerritoriesWantedControl({
           if (e.key === "Enter") inputRef.current?.blur();
           if (e.key === "Escape") setEditing(false);
         }}
-        className="w-16 rounded-md border border-primary bg-card px-2 py-[3px] text-[15px] font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+        className="w-16 rounded-md border border-primary bg-card px-2 py-[3px] text-[16.5px] font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
       />
     );
   }
@@ -77,8 +77,8 @@ export function TerritoriesWantedControl({
       onClick={startEditing}
       className="inline-flex items-baseline gap-1.5 rounded-md border border-border bg-card px-2 py-[3px] transition-colors hover:border-[#bfd4ff] hover:bg-[#f8faff]"
     >
-      <span className="text-[15px] font-bold text-foreground">{current ?? "—"}</span>
-      <span className="text-[11px] font-medium text-muted-foreground">units</span>
+      <span className="text-[16.5px] font-bold text-foreground">{current ?? "—"}</span>
+      <span className="text-[12.5px] font-medium text-muted-foreground">units</span>
       <Pencil className="size-[11px] self-center text-faint-foreground" />
       {error && <span className="sr-only">Save failed</span>}
     </button>

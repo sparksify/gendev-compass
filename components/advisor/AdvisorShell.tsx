@@ -89,14 +89,14 @@ export function AdvisorShell({
           {/* eslint-disable-next-line @next/next/no-img-element -- dynamic
               admin-uploaded asset URL; shown in its natural color on white */}
           <img src={logoUrl} alt="" className="size-[22px] shrink-0" />
-          <span className="text-sm font-extrabold tracking-[-0.02em] text-foreground">Compass</span>
+          <span className="text-[15.5px] leading-[1.45] font-extrabold tracking-[-0.02em] text-foreground">Compass</span>
         </Link>
 
         <nav className="flex min-h-0 flex-1 flex-col overflow-y-auto" aria-label="Advisor">
           {groups.map((items, index) => (
             <div key={index}>
               {index > 0 && (
-                <p className="px-[22px] pb-2 pt-5 text-[9.5px] font-bold uppercase tracking-[0.14em] text-ghost-foreground">
+                <p className="px-[22px] pb-2 pt-5 text-[11px] font-bold uppercase tracking-[0.14em] text-ghost-foreground">
                   Administration
                 </p>
               )}
@@ -109,7 +109,7 @@ export function AdvisorShell({
                     href={item.href}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex items-center gap-[11px] px-[22px] py-[9px] text-[13px] transition-colors",
+                      "flex items-center gap-[11px] px-[22px] py-[9px] text-[14.5px] transition-colors",
                       active
                         ? "bg-surface-raised font-bold text-foreground shadow-[inset_2px_0_0_#101828]"
                         : "font-medium text-muted-foreground hover:text-foreground",
@@ -118,12 +118,12 @@ export function AdvisorShell({
                     <Icon className="size-[15px] shrink-0" strokeWidth={1.8} />
                     {item.label}
                     {item.count !== undefined && (
-                      <span className="tabular ml-auto text-[10.5px] font-bold text-faint-foreground">
+                      <span className="tabular ml-auto text-[12px] font-bold text-faint-foreground">
                         {item.count}
                       </span>
                     )}
                     {item.badge !== undefined && item.badge > 0 && (
-                      <span className="ml-auto inline-flex size-4 items-center justify-center rounded-full bg-foreground text-[9.5px] font-bold text-white">
+                      <span className="ml-auto inline-flex size-4 items-center justify-center rounded-full bg-foreground text-[11px] font-bold text-white">
                         {item.badge}
                       </span>
                     )}
@@ -137,19 +137,19 @@ export function AdvisorShell({
         {/* Footer user chip */}
         <div className="mx-[22px] mt-auto border-t border-border pt-[18px]">
           <div className="flex items-center gap-2.5">
-            <span className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-foreground text-xs font-bold text-white">
+            <span className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-foreground text-[13.5px] leading-[1.45] font-bold text-white">
               {userName.charAt(0).toUpperCase()}
             </span>
             <span className="min-w-0">
-              <span className="block truncate text-[12.5px] font-bold text-foreground">{userName}</span>
-              <span className="block text-[10.5px] text-faint-foreground">
+              <span className="block truncate text-[14px] font-bold text-foreground">{userName}</span>
+              <span className="block text-[12px] text-faint-foreground">
                 {isAdmin ? "Administrator" : "Advisor"}
               </span>
             </span>
           </div>
           <LogoutButton
             variant="link"
-            className="mt-2 h-auto p-0 text-[11.5px] font-semibold text-faint-foreground hover:text-foreground"
+            className="mt-2 h-auto p-0 text-[13px] font-semibold text-faint-foreground hover:text-foreground"
           />
         </div>
       </aside>
@@ -168,7 +168,7 @@ export function AdvisorShell({
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "shrink-0 rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors",
+                  "shrink-0 rounded-full px-3 py-1.5 text-[13.5px] font-semibold transition-colors",
                   active
                     ? "bg-foreground text-white"
                     : "border border-border text-muted-foreground hover:text-foreground",

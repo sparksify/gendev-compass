@@ -68,7 +68,7 @@ export function NotesRail({
           <button
             type="button"
             onClick={() => setComposing((open) => !open)}
-            className="text-[11.5px] font-semibold text-foreground underline"
+            className="text-[13px] font-semibold text-foreground underline"
           >
             {composing ? "Cancel" : "Add"}
           </button>
@@ -94,17 +94,17 @@ export function NotesRail({
       )}
 
       {notes.length === 0 ? (
-        <p className="text-xs text-muted-foreground">No notes yet.</p>
+        <p className="text-[13.5px] leading-[1.45] text-muted-foreground">No notes yet.</p>
       ) : (
         <div className="flex flex-col gap-3">
           {visible.map((entry) => (
             <p
               key={entry.id}
-              className="border-l-2 pl-3 text-xs leading-relaxed text-secondary-foreground"
+              className="border-l-2 pl-3 text-[13.5px] leading-relaxed text-secondary-foreground"
               style={{ borderLeftColor: RULE }}
             >
               {entry.note}
-              <span className="mt-1 block text-[10.5px] text-ghost-foreground">
+              <span className="mt-1 block text-[12px] text-ghost-foreground">
                 {staffNameById[entry.staff_user_id] ?? "Staff"} · {formatDate(entry.created_at)}
               </span>
             </p>
@@ -113,7 +113,7 @@ export function NotesRail({
             <button
               type="button"
               onClick={() => setShowAll((open) => !open)}
-              className="self-start text-[11.5px] font-semibold text-foreground underline"
+              className="self-start text-[13px] font-semibold text-foreground underline"
             >
               {showAll ? "Show fewer" : `Show all ${notes.length} notes`}
             </button>

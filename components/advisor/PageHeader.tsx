@@ -30,7 +30,7 @@ export function PageHeader({
       >
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-3.5 gap-y-1">
           {breadcrumb ? (
-            <p className="flex items-center gap-2 text-[12.5px] text-faint-foreground">
+            <p className="flex items-center gap-2 text-[14px] text-faint-foreground">
               <Link href={breadcrumb.href} className="hover:text-foreground">
                 {breadcrumb.label}
               </Link>
@@ -38,11 +38,11 @@ export function PageHeader({
               <span className="font-bold text-foreground">{breadcrumb.current}</span>
             </p>
           ) : (
-            <h1 className="text-[17px] font-extrabold tracking-[-0.025em] text-foreground">
+            <h1 className="text-[19px] font-extrabold tracking-[-0.025em] text-foreground">
               {title}
             </h1>
           )}
-          {subtitle && <p className="text-xs text-faint-foreground">{subtitle}</p>}
+          {subtitle && <p className="text-[13.5px] leading-[1.45] text-faint-foreground">{subtitle}</p>}
         </div>
         {actions && <div className="flex shrink-0 items-center gap-2.5">{actions}</div>}
       </div>
@@ -71,12 +71,12 @@ export function SectionRule({
 }) {
   return (
     <div className={cn("flex items-center gap-3", className)}>
-      <p className="shrink-0 text-[9.5px] font-bold uppercase tracking-[0.15em] text-foreground">
+      <p className="shrink-0 text-[11px] font-bold uppercase tracking-[0.15em] text-foreground">
         {label}
       </p>
       <span aria-hidden className="h-px flex-1 bg-border" />
       {meta !== undefined && meta !== null && (
-        <span className="shrink-0 text-[11px] text-faint-foreground">{meta}</span>
+        <span className="shrink-0 text-[12.5px] text-faint-foreground">{meta}</span>
       )}
     </div>
   );

@@ -60,7 +60,7 @@ export default async function AdvisorDashboardPage() {
         actions={
           <>
             <form action="/advisor/investors" method="get" className="hidden sm:block">
-              <label className="flex w-[270px] items-center gap-2 rounded-control border border-border px-[11px] py-[7px] text-[12.5px]">
+              <label className="flex w-[270px] items-center gap-2 rounded-control border border-border px-[11px] py-[7px] text-[14px]">
                 <Search className="size-3.5 shrink-0 text-faint-foreground" strokeWidth={2} />
                 <input
                   type="search"
@@ -141,7 +141,7 @@ export default async function AdvisorDashboardPage() {
           <PipelineBar segments={briefing.pipeline.segments} />
         </div>
 
-        <div className="grid gap-10 xl:grid-cols-[1.5fr_1fr] xl:gap-11">
+        <div className="grid gap-10 xl:grid-cols-[1.5fr_1fr] xl:gap-11 [&>*]:min-w-0">
           {/* Work queue */}
           <div>
             <SectionRule
@@ -150,7 +150,7 @@ export default async function AdvisorDashboardPage() {
               className="mb-1.5"
             />
             {briefing.workQueue.length === 0 ? (
-              <p className="py-4 text-[12.5px] text-muted-foreground">
+              <p className="py-4 text-[14px] text-muted-foreground">
                 Nothing is waiting on you — no follow-ups are due and no client has moved in the last
                 24 hours.
               </p>
@@ -166,16 +166,16 @@ export default async function AdvisorDashboardPage() {
             <div>
               <SectionRule label="Schedule" meta={shortDate} className="mb-1" />
               {!calendar.configured ? (
-                <p className="py-2 text-[12.5px] text-muted-foreground">
-                  Calendar not connected — set <code className="text-[11.5px]">GHL_CALENDAR_ID</code>{" "}
+                <p className="py-2 text-[14px] text-muted-foreground">
+                  Calendar not connected — set <code className="text-[13px]">GHL_CALENDAR_ID</code>{" "}
                   to show today&rsquo;s bookings here.
                 </p>
               ) : calendar.error ? (
-                <p className="py-2 text-[12.5px] text-destructive">
+                <p className="py-2 text-[14px] text-destructive">
                   Couldn&rsquo;t load the calendar: {calendar.error}
                 </p>
               ) : calendar.events.length === 0 ? (
-                <p className="py-2 text-[12.5px] text-muted-foreground">No calls scheduled today.</p>
+                <p className="py-2 text-[14px] text-muted-foreground">No calls scheduled today.</p>
               ) : (
                 calendar.events.map((event) => {
                   const match = event.contactEmail

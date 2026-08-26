@@ -12,15 +12,15 @@ function ConfigRow({ label, configured, detail }: { label: string; configured: b
   return (
     <div className="flex items-center justify-between gap-3 border-b border-border-soft py-3 last:border-0">
       <div>
-        <p className="text-[13.5px] font-medium text-foreground">{label}</p>
-        {detail && <p className="text-[12px] text-muted-foreground">{detail}</p>}
+        <p className="text-[15px] font-medium text-foreground">{label}</p>
+        {detail && <p className="text-[13.5px] text-muted-foreground">{detail}</p>}
       </div>
       {configured ? (
-        <span className="flex items-center gap-1.5 text-[12.5px] font-medium text-success">
+        <span className="flex items-center gap-1.5 text-[14px] font-medium text-success">
           <CheckCircle2 className="size-4" strokeWidth={1.8} /> Configured
         </span>
       ) : (
-        <span className="flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground">
+        <span className="flex items-center gap-1.5 text-[14px] font-medium text-muted-foreground">
           <XCircle className="size-4" strokeWidth={1.8} /> Not set
         </span>
       )}
@@ -36,8 +36,8 @@ export default async function TerritorySettingsPage() {
       <div className="flex flex-col gap-4">
       <Card>
         <CardContent className="p-5">
-          <p className="text-[13.5px] font-bold text-foreground">Environment configuration</p>
-          <p className="mt-1 text-[12.5px] text-muted-foreground">
+          <p className="text-[15px] font-bold text-foreground">Environment configuration</p>
+          <p className="mt-1 text-[14px] text-muted-foreground">
             Read-only status — set these in your deployment environment (see .env.example). Secrets are
             never displayed here.
           </p>
@@ -67,10 +67,10 @@ export default async function TerritorySettingsPage() {
 
       <Card>
         <CardContent className="p-5">
-          <p className="text-[13.5px] font-bold text-foreground">Brands</p>
+          <p className="text-[15px] font-bold text-foreground">Brands</p>
           <div className="mt-3 space-y-2">
             {brands.map((b) => (
-              <div key={b.id} className="flex items-center justify-between rounded-control border border-border-soft px-3 py-2 text-[13px]">
+              <div key={b.id} className="flex items-center justify-between rounded-control border border-border-soft px-3 py-2 text-[14.5px]">
                 <span className="font-medium text-foreground">{b.name}</span>
                 <span className="text-muted-foreground">
                   slug: {b.slug} · default radius: {b.default_radius_miles} mi · {b.active ? "active" : "inactive"}
@@ -84,9 +84,9 @@ export default async function TerritorySettingsPage() {
 
       <Card>
         <CardContent className="p-5">
-          <p className="text-[13.5px] font-bold text-foreground">ZIP-code CSV import template</p>
-          <p className="mt-1 text-[12.5px] text-muted-foreground">Use on the Territory Records tab.</p>
-          <pre className="mt-2 overflow-x-auto rounded-control border border-border bg-surface p-3 text-[11.5px]">
+          <p className="text-[15px] font-bold text-foreground">ZIP-code CSV import template</p>
+          <p className="mt-1 text-[14px] text-muted-foreground">Use on the Territory Records tab.</p>
+          <pre className="mt-2 overflow-x-auto rounded-control border border-border bg-surface p-3 text-[13px]">
 {CSV_TEMPLATE_HEADER}
 {"\n"}cmdt,Dallas Uptown Territory,DAL-01,sold,75201,generalized,
           </pre>

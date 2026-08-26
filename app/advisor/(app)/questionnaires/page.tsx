@@ -40,14 +40,14 @@ export default async function QuestionnairesPage() {
         <Card>
         <CardContent className="p-0">
           {rows.length === 0 ? (
-            <p className="p-6 text-sm text-muted-foreground">
+            <p className="p-6 text-[15.5px] leading-[1.45] text-muted-foreground">
               No completed questionnaires yet — investors appear here the moment they submit.
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[880px] text-left text-sm">
+              <table className="w-full min-w-[880px] text-left text-[15.5px] leading-[1.45]">
                 <thead>
-                  <tr className="border-b border-border text-xs uppercase tracking-wide text-faint-foreground">
+                  <tr className="border-b border-border text-[13.5px] leading-[1.45] uppercase tracking-wide text-faint-foreground">
                     <th className="px-4 py-2.5 font-medium">Investor</th>
                     <th className="px-3.5 py-2.5 font-medium">Submitted</th>
                     <th className="px-3.5 py-2.5 font-medium">Qualification</th>
@@ -79,7 +79,7 @@ export default async function QuestionnairesPage() {
                               >
                                 {fullName}
                               </Link>
-                              <p className="truncate text-xs text-muted-foreground">
+                              <p className="truncate text-[13.5px] leading-[1.45] text-muted-foreground">
                                 {row.lead.email}
                               </p>
                             </div>
@@ -93,8 +93,8 @@ export default async function QuestionnairesPage() {
                             <span
                               className={
                                 qualified
-                                  ? "inline-flex rounded-full bg-[#e8f6ec] px-2 py-0.5 text-[11px] font-semibold text-[#15803d]"
-                                  : "inline-flex rounded-full bg-[#fff4e5] px-2 py-0.5 text-[11px] font-semibold text-[#b45309]"
+                                  ? "inline-flex rounded-full bg-[#e8f6ec] px-2 py-0.5 text-[12.5px] font-semibold text-[#15803d]"
+                                  : "inline-flex rounded-full bg-[#fff4e5] px-2 py-0.5 text-[12.5px] font-semibold text-[#b45309]"
                               }
                             >
                               {qualified

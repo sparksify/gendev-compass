@@ -56,7 +56,7 @@ export function StageStatusControl({
     <div className="inline-flex flex-col items-start gap-1">
       <div
         className={cn(
-          "relative inline-flex items-center whitespace-nowrap rounded-full py-0.5 pl-2.5 pr-6 text-xs font-medium transition-opacity",
+          "relative inline-flex items-center whitespace-nowrap rounded-full py-0.5 pl-2.5 pr-6 text-[13.5px] leading-[1.45] font-medium transition-opacity",
           STAGE_STYLES[stage as InvestorStage] ?? "bg-surface text-muted-foreground",
           saving && "opacity-60",
         )}
@@ -78,7 +78,7 @@ export function StageStatusControl({
         <ChevronDown className="pointer-events-none absolute right-1.5 size-3" />
       </div>
       {error && (
-        <p role="alert" className="text-[11px] text-destructive">
+        <p role="alert" className="text-[12.5px] text-destructive">
           {error}
         </p>
       )}

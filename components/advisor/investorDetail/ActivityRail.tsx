@@ -15,11 +15,11 @@ function eventColor(name: string): string {
 /** The activity list: a semantic dot, the event, and a relative time. */
 export function ActivityRail({ events }: { events: PortalEventRecord[] }) {
   if (events.length === 0) {
-    return <p className="py-2 text-[12.5px] text-muted-foreground">No recorded activity yet.</p>;
+    return <p className="py-2 text-[14px] text-muted-foreground">No recorded activity yet.</p>;
   }
 
   return (
-    <div className="flex flex-col text-[12.5px] text-secondary-foreground">
+    <div className="flex flex-col text-[14px] text-secondary-foreground">
       {events.slice(0, 12).map((event) => (
         <span
           key={event.id}

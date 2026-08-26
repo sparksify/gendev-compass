@@ -107,7 +107,7 @@ export function TerritoryRecordsScreen({
                   key={brand.id}
                   href={`/advisor/territories/records?brand=${brand.slug}`}
                   className={cn(
-                    "rounded-full px-[13px] py-1.5 text-[11.5px] transition-colors",
+                    "rounded-full px-[13px] py-1.5 text-[13px] transition-colors",
                     active
                       ? "bg-foreground font-bold text-white"
                       : "border border-border font-semibold text-muted-foreground hover:text-foreground",
@@ -119,7 +119,7 @@ export function TerritoryRecordsScreen({
               );
             })}
           </div>
-          <div className="flex flex-wrap gap-4 text-[11.5px] text-muted-foreground">
+          <div className="flex flex-wrap gap-4 text-[13px] text-muted-foreground">
             {counts.map((entry) => (
               <span key={entry.status} className="inline-flex items-center gap-1.5">
                 <span
@@ -135,7 +135,7 @@ export function TerritoryRecordsScreen({
 
         {!activeBrand ? (
           <>
-            <p className="text-[13px] text-muted-foreground">
+            <p className="text-[14.5px] text-muted-foreground">
               No brands configured yet. Run{" "}
               <code className="rounded bg-surface-raised px-1 py-0.5">npm run seed:territory</code>{" "}
               or create one via the API to get started.
