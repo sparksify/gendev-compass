@@ -1,216 +1,195 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { Bell, CalendarDays, Mail, Plus, Search, Sparkles, Users, WandSparkles } from "lucide-react";
 import { requireStaffUser } from "@/lib/advisor/auth";
 import { loadInvestorRows } from "@/lib/advisor/investors";
 import { buildBriefing } from "@/lib/advisor/briefing";
-import { discoveryStageFor, DISCOVERY_STAGES, SIGNAL } from "@/lib/advisor/discoveryStages";
-import { fetchGhlCalendarEventsForDay, isGhlCalendarConfigured } from "@/lib/calendar/ghl";
-import { PageBody, PageHeader, SectionRule } from "@/components/advisor/PageHeader";
+import { SectionRule } from "@/components/advisor/PageHeader";
 import { INK_BUTTON } from "@/components/advisor/controls";
 import {
-  ActivityList,
-  ConversionList,
-  MetricRule,
-  PipelineBar,
-  ScheduleRow,
-  WorkQueueRow,
-} from "@/components/advisor/dashboard/panels";
+  Card,
+  ConversionRow,
+  MonitorRow,
+  PanelHeader,
+  QueueRow,
+  RangeLabel,
+  StageCard,
+  StatCard,
+} from "@/components/advisor/dashboard/overview";
 
 export const metadata: Metadata = { title: "Advisor Dashboard" };
 export const dynamic = "force-dynamic";
 
-function timeOfDay(iso: string): string {
-  return new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", hour12: false }).format(
-    new Date(iso),
-  );
-}
-
 /**
- * The daily briefing (handoff mock 6a): four metric rules, the discovery
- * funnel, the work queue, and a right rail of today's schedule, stage
- * conversion, and the last 24 hours.
+ * The overview (uploaded dashboard mock): greeting header with search and
+ * alerts, four icon stat cards, the five pipeline-stage cards, then the work
+ * queue beside the activity monitor and stage conversion — all as white
+ * cards on a gray canvas. This page carries its own header; the shared
+ * PageHeader belongs to the white pages.
  */
 export default async function AdvisorDashboardPage() {
   const user = await requireStaffUser();
   const rows = await loadInvestorRows(user);
-  const now = new Date();
-  const briefing = buildBriefing(rows, now);
-
-  const calendar = isGhlCalendarConfigured()
-    ? await fetchGhlCalendarEventsForDay(now)
-    : { attempted: false, configured: false, events: [], error: null };
-  const rowByEmail = new Map(rows.map((row) => [row.lead.email.toLowerCase(), row]));
-
-  const weekday = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(now);
-  const dateLabel = new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(now);
-  const shortDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(now);
-
-  const { activePipeline, bookingRate, videoWatch, followUps } = briefing;
+  const briefing = buildBriefing(rows);
+  const { activePipeline, newLeads, item23Received, discoveryDaysScheduled, followUps } = briefing;
 
   return (
-    <>
-      <PageHeader
-        title={`${weekday} briefing`}
-        subtitle={<span className="tabular">{dateLabel}</span>}
-        actions={
-          <>
-            <form action="/advisor/investors" method="get" className="hidden sm:block">
-              <label className="flex w-[270px] items-center gap-2 rounded-control border border-border px-[11px] py-[7px] text-[14px]">
-                <Search className="size-3.5 shrink-0 text-faint-foreground" strokeWidth={2} />
+    <main className="flex-1 bg-[#f6f7f9] px-5 py-6 lg:px-9 lg:py-8">
+      <div className="mx-auto flex max-w-[1280px] flex-col gap-7">
+        {/* Greeting + search, alerts, new client */}
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
+          <div className="min-w-0">
+            <h1 className="text-[27px] font-extrabold tracking-[-0.03em] text-foreground">
+              Hello, {user.first_name}
+            </h1>
+            <p className="mt-1 text-[14.5px] text-muted-foreground">
+              Here&rsquo;s what&rsquo;s happening with your pipeline today.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
+            <form action="/advisor/investors" method="get" className="hidden md:block">
+              <label className="flex w-[290px] items-center gap-2.5 rounded-xl border border-border bg-card px-3.5 py-[9px] text-[14px]">
+                <Search className="size-4 shrink-0 text-faint-foreground" strokeWidth={2} />
                 <input
                   type="search"
                   name="q"
-                  placeholder="Search…"
+                  placeholder="Search leads, clients, tasks…"
                   aria-label="Search clients"
                   className="w-full bg-transparent text-foreground placeholder:text-faint-foreground focus:outline-none"
                 />
               </label>
             </form>
+            <Link
+              href="#queue"
+              aria-label={
+                followUps.count > 0
+                  ? `${followUps.count} follow-up${followUps.count === 1 ? "" : "s"} due`
+                  : "Notifications"
+              }
+              className="relative rounded-full p-2 text-secondary-foreground transition-colors hover:bg-white"
+            >
+              <Bell className="size-[19px]" strokeWidth={1.8} />
+              {followUps.count > 0 && (
+                <span className="tabular absolute -right-px -top-px flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-[#dc2626] px-1 text-[10.5px] font-bold leading-none text-white">
+                  {followUps.count}
+                </span>
+              )}
+            </Link>
             <Link href="/create-lead" className={INK_BUTTON}>
+              <Plus className="size-4" strokeWidth={2.2} />
               New client
             </Link>
-          </>
-        }
-      />
+          </div>
+        </div>
 
-      <PageBody className="flex flex-col gap-[26px]">
-        {/* Metric row */}
-        <div className="grid gap-8 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricRule
-            label="Active pipeline"
-            value={String(activePipeline.count)}
-            color="#101828"
-            footnote={
-              <>
-                <strong className="font-bold text-foreground">+{activePipeline.newThisWeek}</strong> new
-                this week
-              </>
-            }
+        {/* The four numbers that matter */}
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            icon={Users}
+            color="#4f46e5"
+            tint="#eef2ff"
+            label="Active Leads"
+            value={activePipeline.count}
+            delta={`+ ${activePipeline.newThisWeek} new this week`}
           />
-          <MetricRule
-            label="Booked / 100 visitors"
-            value={bookingRate.per100 === null ? "—" : bookingRate.per100.toFixed(1)}
-            color={DISCOVERY_STAGES[1].color}
-            footnote={
-              bookingRate.delta === null ? (
-                "not enough history yet"
-              ) : (
-                <>
-                  <strong
-                    className="font-bold"
-                    style={{ color: bookingRate.delta >= 0 ? SIGNAL.success : SIGNAL.alert }}
-                  >
-                    {bookingRate.delta >= 0 ? "↑" : "↓"} {Math.abs(bookingRate.delta).toFixed(1)}
-                  </strong>{" "}
-                  vs last week
-                </>
-              )
-            }
+          <StatCard
+            icon={Sparkles}
+            color="#2463eb"
+            tint="#eff4ff"
+            label="New Leads"
+            value={newLeads.count}
+            delta={`+ ${newLeads.thisWeek} this week`}
           />
-          <MetricRule
-            label="Avg video watch"
-            value={videoWatch.averagePercent === null ? "—" : `${videoWatch.averagePercent}%`}
-            color={DISCOVERY_STAGES[0].color}
-            footnote={`${videoWatch.completed} completed the overview`}
+          <StatCard
+            icon={Mail}
+            color="#d97706"
+            tint="#fdf3e6"
+            label="Item 23 Received"
+            value={item23Received.count}
+            delta={`+ ${item23Received.thisWeek} this week`}
           />
-          <MetricRule
-            label="Follow-ups due"
-            value={String(followUps.count)}
-            color={SIGNAL.alert}
-            labelColor={SIGNAL.alert}
-            footnote={
-              followUps.oldestDays === null
-                ? "nothing waiting"
-                : `oldest waiting ${followUps.oldestDays} day${followUps.oldestDays === 1 ? "" : "s"}`
-            }
+          <StatCard
+            icon={CalendarDays}
+            color="#15803d"
+            tint="#ecf9f1"
+            label="Discovery Days Scheduled"
+            value={discoveryDaysScheduled.count}
+            delta={`+ ${discoveryDaysScheduled.thisWeek} this week`}
           />
         </div>
 
-        {/* Discovery pipeline */}
+        {/* Pipeline stages */}
         <div>
-          <SectionRule
-            label="Discovery pipeline"
-            meta={<span className="tabular">{briefing.pipeline.total} clients</span>}
-            className="mb-3"
-          />
-          <PipelineBar segments={briefing.pipeline.segments} />
+          <SectionRule label="Pipeline stages" className="mb-3.5" />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            {briefing.pipeline.segments.map((segment) => (
+              <StageCard key={segment.stage.id} segment={segment} total={briefing.pipeline.total} />
+            ))}
+          </div>
         </div>
 
-        <div className="grid gap-10 xl:grid-cols-[1.5fr_1fr] xl:gap-11 [&>*]:min-w-0">
+        <div className="grid items-start gap-5 xl:grid-cols-[1.55fr_1fr] [&>*]:min-w-0">
           {/* Work queue */}
-          <div>
-            <SectionRule
+          <Card id="queue" className="px-5 pb-3 pt-[18px]">
+            <PanelHeader
               label="Work queue"
-              meta={<span className="tabular">{briefing.workQueue.length} open</span>}
-              className="mb-1.5"
+              chip={briefing.workQueue.length}
+              right={
+                <Link
+                  href="/advisor/investors"
+                  className="text-[13.5px] font-semibold text-[#2463eb] hover:underline"
+                >
+                  View all tasks
+                </Link>
+              }
             />
             {briefing.workQueue.length === 0 ? (
-              <p className="py-4 text-[14px] text-muted-foreground">
-                Nothing is waiting on you — no follow-ups are due and no client has moved in the last
-                24 hours.
+              <p className="py-5 text-[14px] text-muted-foreground">
+                Nothing is waiting on you — no follow-ups are due and no client has moved in the
+                last 24 hours.
               </p>
             ) : (
-              briefing.workQueue.map((item, index) => (
-                <WorkQueueRow key={item.leadId} item={item} primary={index === 0} />
-              ))
+              <div className="mt-1.5">
+                {briefing.workQueue.map((item) => (
+                  <QueueRow key={item.leadId} item={item} />
+                ))}
+              </div>
             )}
-          </div>
+          </Card>
 
           {/* Right rail */}
-          <div className="flex flex-col gap-[26px]">
-            <div>
-              <SectionRule label="Schedule" meta={shortDate} className="mb-1" />
-              {!calendar.configured ? (
-                <p className="py-2 text-[14px] text-muted-foreground">
-                  Calendar not connected — set <code className="text-[13px]">GHL_CALENDAR_ID</code>{" "}
-                  to show today&rsquo;s bookings here.
+          <div className="flex flex-col gap-5">
+            <Card className="px-5 pb-3.5 pt-[18px]">
+              <PanelHeader label="Activity monitor" right={<RangeLabel>Last 24 hours</RangeLabel>} />
+              {briefing.recentActivity.length === 0 ? (
+                <p className="py-4 text-[14px] text-muted-foreground">
+                  No client activity in the last 24 hours.
                 </p>
-              ) : calendar.error ? (
-                <p className="py-2 text-[14px] text-destructive">
-                  Couldn&rsquo;t load the calendar: {calendar.error}
-                </p>
-              ) : calendar.events.length === 0 ? (
-                <p className="py-2 text-[14px] text-muted-foreground">No calls scheduled today.</p>
               ) : (
-                calendar.events.map((event) => {
-                  const match = event.contactEmail
-                    ? rowByEmail.get(event.contactEmail.toLowerCase())
-                    : undefined;
-                  const stage = match ? discoveryStageFor(match.stage) : null;
-                  return (
-                    <ScheduleRow
-                      key={event.id}
-                      time={timeOfDay(event.startTime)}
-                      name={match ? `${match.lead.first_name} ${match.lead.last_name}` : event.title}
-                      typeLabel={stage?.short ?? "Consultation"}
-                      typeColor={stage?.color ?? SIGNAL.neutral}
-                      href={match ? `/advisor/investors/${match.lead.id}` : null}
-                    />
-                  );
-                })
+                <div className="mt-2 flex flex-col">
+                  {briefing.recentActivity.map((item, index) => (
+                    <MonitorRow key={`${item.leadId}-${index}`} item={item} />
+                  ))}
+                </div>
               )}
-            </div>
+            </Card>
 
-            <div>
-              <SectionRule label="Stage conversion" meta="last 30 days" className="mb-3" />
-              <ConversionList steps={briefing.conversion} />
-            </div>
-
-            <div>
-              <SectionRule label="Last 24 hours" className="mb-1.5" />
-              <ActivityList
-                items={briefing.recentActivity}
-                emptyMessage="No client activity in the last 24 hours."
-              />
-            </div>
+            <Card className="px-5 pb-3.5 pt-[18px]">
+              <PanelHeader label="Stage conversion" right={<RangeLabel>Last 30 days</RangeLabel>} />
+              <div className="mt-2 flex flex-col">
+                {briefing.conversion.map((step) => (
+                  <ConversionRow key={step.from.id} step={step} />
+                ))}
+              </div>
+            </Card>
           </div>
         </div>
-      </PageBody>
-    </>
+
+        <p className="flex items-center justify-center gap-2.5 pb-2 pt-1 text-[14px] text-muted-foreground">
+          <WandSparkles aria-hidden className="size-[18px] text-[#6d28d9]" strokeWidth={1.8} />
+          You&rsquo;re all caught up! Check back later for new insights.
+        </p>
+      </div>
+    </main>
   );
 }

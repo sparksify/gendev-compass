@@ -114,7 +114,7 @@ describe("the daily briefing", () => {
 
     expect(briefing.followUps.count).toBe(2);
     expect(briefing.workQueue[0].leadId).toBe(stale.id);
-    expect(briefing.workQueue[0].marker).toEqual({ kind: "overdue", label: "OVERDUE · 4D" });
+    expect(briefing.workQueue[0].marker).toEqual({ kind: "overdue", label: "OVERDUE · 4d" });
     expect(briefing.workQueue[2].marker).toEqual({ kind: "warm" });
   });
 

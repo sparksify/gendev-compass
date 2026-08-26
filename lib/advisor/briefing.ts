@@ -71,6 +71,12 @@ export interface ActivityItem {
 
 export interface Briefing {
   activePipeline: { count: number; newThisWeek: number };
+  /** Leads created in the last 30 days, and how many of those this week. */
+  newLeads: { count: number; thisWeek: number };
+  /** FDD Item 23 receipts — the signed acknowledgment coming back. */
+  item23Received: { count: number; thisWeek: number };
+  /** Discovery days (consultations) currently on the calendar. */
+  discoveryDaysScheduled: { count: number; thisWeek: number };
   bookingRate: { per100: number | null; delta: number | null };
   videoWatch: { averagePercent: number | null; completed: number };
   followUps: { count: number; oldestDays: number | null };
@@ -135,7 +141,7 @@ function buildWorkQueue(rows: InvestorRow[], now: Date): WorkQueueItem[] {
         .join(" · "),
       spineColor: stage?.color ?? SIGNAL.neutral,
       marker: row.followUp.needed
-        ? { kind: "overdue" as const, label: `OVERDUE · ${Math.max(1, overdueDays)}D` }
+        ? { kind: "overdue" as const, label: `OVERDUE · ${Math.max(1, overdueDays)}d` }
         : { kind: "warm" as const },
       ctaLabel: shortCta(action.title, action.ctaLabel),
       mailto: mailtoFor(row.lead.email, action.reminder),
@@ -246,8 +252,23 @@ export function buildBriefing(rows: InvestorRow[], now: Date = new Date()): Brie
   const thisWeekRate = bookingRateFor(thisWeek);
   const lastWeekRate = bookingRateFor(lastWeek);
 
+  const newLeads = rows.filter((row) => withinMs(row.lead.created_at, 30 * DAY_MS, now));
+  const item23 = rows.filter((row) => row.lead.fdd_received_at);
+  const scheduled = rows.filter((row) => row.activeAppointment !== null);
+
   return {
     activePipeline: { count: active.length, newThisWeek: thisWeek.length },
+    newLeads: { count: newLeads.length, thisWeek: thisWeek.length },
+    item23Received: {
+      count: item23.length,
+      thisWeek: item23.filter((row) => withinMs(row.lead.fdd_received_at, 7 * DAY_MS, now)).length,
+    },
+    discoveryDaysScheduled: {
+      count: scheduled.length,
+      thisWeek: scheduled.filter((row) =>
+        withinMs(row.activeAppointment?.created_at, 7 * DAY_MS, now),
+      ).length,
+    },
     bookingRate: {
       per100,
       delta:
