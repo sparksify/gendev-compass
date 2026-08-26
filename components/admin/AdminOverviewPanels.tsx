@@ -50,7 +50,7 @@ function StatusPill({ status }: { status: string }) {
     status === "error_manual_review" ? "error · resend" : status.replaceAll("_", " ");
   return (
     <span
-      className="shrink-0 rounded-full px-2.5 py-[3px] text-[10.5px] font-bold"
+      className="shrink-0 rounded-full px-2.5 py-[3px] text-[12px] font-bold"
       style={{ color: tone.color, backgroundColor: tone.tint }}
     >
       {label}
@@ -61,7 +61,7 @@ function StatusPill({ status }: { status: string }) {
 function Fact({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <span>
-      <span className="block text-[10px] text-faint-foreground">{label}</span>
+      <span className="block text-[11.5px] text-faint-foreground">{label}</span>
       <strong className="tabular font-bold" style={color ? { color } : undefined}>
         {value}
       </strong>
@@ -89,7 +89,7 @@ function IntegrationRow({
       />
       <strong className="font-bold text-foreground">{label}</strong>
       <span
-        className="ml-auto text-[11.5px]"
+        className="ml-auto text-[13px]"
         style={
           emphasize
             ? { color: ok ? SIGNAL.success : SIGNAL.warning, fontWeight: 600 }
@@ -199,7 +199,7 @@ export function AdminOverviewPanels({
     <div className="flex flex-col gap-[26px]">
       {errors.length > 0 && (
         <p
-          className="rounded-card border px-3 py-2 text-xs"
+          className="rounded-card border px-3 py-2 text-[13.5px] leading-[1.45]"
           style={{ borderColor: "#fda29b", backgroundColor: SIGNAL.alertTint, color: SIGNAL.alert }}
           role="alert"
         >
@@ -245,7 +245,7 @@ export function AdminOverviewPanels({
         />
       </div>
 
-      <div className="grid gap-10 xl:grid-cols-[1.6fr_1fr]">
+      <div className="grid gap-10 xl:grid-cols-[1.6fr_1fr] [&>*]:min-w-0">
         <div className="flex flex-col gap-6">
           {/* Recent FDD requests */}
           <div>
@@ -259,9 +259,9 @@ export function AdminOverviewPanels({
               className="mb-1.5"
             />
             {fddLeads === null ? (
-              <p className="py-2 text-xs text-muted-foreground">Loading…</p>
+              <p className="py-2 text-[13.5px] leading-[1.45] text-muted-foreground">Loading…</p>
             ) : recentFdd.length === 0 ? (
-              <p className="py-2 text-xs text-muted-foreground">No FDD requests yet.</p>
+              <p className="py-2 text-[13.5px] leading-[1.45] text-muted-foreground">No FDD requests yet.</p>
             ) : (
               recentFdd.map((lead) => (
                 <div
@@ -269,14 +269,14 @@ export function AdminOverviewPanels({
                   className="flex flex-wrap items-center gap-3.5 border-b border-border-soft py-2.5 last:border-b-0"
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] font-bold text-foreground">
+                    <span className="block truncate text-[14.5px] font-bold text-foreground">
                       {lead.name}
                     </span>
-                    <span className="block truncate text-[11px] text-faint-foreground">
+                    <span className="block truncate text-[12.5px] text-faint-foreground">
                       {lead.email}
                     </span>
                   </span>
-                  <span className="tabular shrink-0 text-[11.5px] text-faint-foreground">
+                  <span className="tabular shrink-0 text-[13px] text-faint-foreground">
                     {formatDateTime(lead.fdd_requested_at)}
                   </span>
                   <StatusPill status={lead.fdd_effective_status} />
@@ -300,10 +300,10 @@ export function AdminOverviewPanels({
               className="mb-3"
             />
             {health === null ? (
-              <p className="text-xs text-muted-foreground">Loading…</p>
+              <p className="text-[13.5px] leading-[1.45] text-muted-foreground">Loading…</p>
             ) : (
               <>
-                <div className="grid grid-cols-2 gap-x-5 gap-y-3.5 text-[12.5px] sm:grid-cols-3">
+                <div className="grid grid-cols-2 gap-x-5 gap-y-3.5 text-[14px] sm:grid-cols-3">
                   <Fact label="Active ACS vintage" value={health.vintage} />
                   <Fact
                     label="Geography records"
@@ -347,7 +347,7 @@ export function AdminOverviewPanels({
                 </div>
                 {health.lastFailedImport?.error && (
                   <p
-                    className="mt-3 rounded-card border px-3 py-2 text-xs"
+                    className="mt-3 rounded-card border px-3 py-2 text-[13.5px] leading-[1.45]"
                     style={{
                       borderColor: "#fde68a",
                       backgroundColor: SIGNAL.warningTint,
@@ -366,7 +366,7 @@ export function AdminOverviewPanels({
         <div className="flex flex-col gap-6">
           <div>
             <SectionRule label="Quick actions" className="mb-1.5" />
-            <div className="flex flex-col text-[13px] font-semibold text-secondary-foreground">
+            <div className="flex flex-col text-[14.5px] font-semibold text-secondary-foreground">
               {QUICK_ACTIONS.map((action) => (
                 <Link
                   key={action.href}
@@ -384,7 +384,7 @@ export function AdminOverviewPanels({
 
           <div>
             <SectionRule label="Portal assets" className="mb-1.5" />
-            <div className="flex flex-col text-[12.5px]">
+            <div className="flex flex-col text-[14px]">
               <Link
                 href="/advisor/platform/resources"
                 className="flex justify-between border-b border-dotted border-border-leader py-2"
@@ -417,9 +417,9 @@ export function AdminOverviewPanels({
           <div>
             <SectionRule label="Integrations" className="mb-1.5" />
             {fddConfig === null ? (
-              <p className="py-2 text-xs text-muted-foreground">Loading…</p>
+              <p className="py-2 text-[13.5px] leading-[1.45] text-muted-foreground">Loading…</p>
             ) : (
-              <div className="flex flex-col text-[12.5px]">
+              <div className="flex flex-col text-[14px]">
                 <IntegrationRow
                   ok={fddConfig.ghlConfigured}
                   label="GoHighLevel"

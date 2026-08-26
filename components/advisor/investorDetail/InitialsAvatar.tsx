@@ -36,7 +36,7 @@ export function InitialsAvatar({
     <span
       className={cn(
         "flex shrink-0 items-center justify-center rounded-full font-semibold",
-        size === "lg" ? "size-14 text-lg" : "size-6 text-[10px]",
+        size === "lg" ? "size-14 text-[19.5px] leading-[1.4]" : "size-6 text-[11.5px]",
         colorFor(name || "?"),
         className,
       )}

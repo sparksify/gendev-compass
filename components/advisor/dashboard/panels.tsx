@@ -31,7 +31,7 @@ export function MetricRule({
   return (
     <div className="border-t-2 pt-3.5" style={{ borderTopColor: color }}>
       <p
-        className="text-[9.5px] font-bold uppercase tracking-[0.15em]"
+        className="text-[11px] font-bold uppercase tracking-[0.15em]"
         style={{ color: labelColor ?? "#98a2b3" }}
       >
         {label}
@@ -40,13 +40,13 @@ export function MetricRule({
       <p
         className={cn(
           "tabular mt-2.5 font-extrabold leading-none tracking-[-0.04em]",
-          value === "—" ? "text-2xl text-ghost-foreground" : "text-[38px]",
+          value === "—" ? "text-[26px] leading-[1.2] text-ghost-foreground" : "text-[38px]",
         )}
         style={value === "—" ? undefined : { color }}
       >
         {value}
       </p>
-      <p className="mt-2.5 text-[11.5px] text-muted-foreground">{footnote}</p>
+      <p className="mt-2.5 text-[13px] text-muted-foreground">{footnote}</p>
     </div>
   );
 }
@@ -69,7 +69,7 @@ export function PipelineBar({ segments }: { segments: PipelineSegment[] }) {
             href={`/advisor/investors?stage=${stage.id}`}
             style={{ flex: anyCount ? count : 1, backgroundColor: stage.color }}
             className={cn(
-              "tabular flex min-w-[26px] items-center justify-center text-xs font-extrabold text-white transition-opacity hover:opacity-90",
+              "tabular flex min-w-[26px] items-center justify-center text-[13.5px] leading-[1.45] font-extrabold text-white transition-opacity hover:opacity-90",
               count === 0 && "opacity-25",
             )}
           >
@@ -82,7 +82,7 @@ export function PipelineBar({ segments }: { segments: PipelineSegment[] }) {
           <span
             key={stage.id}
             style={{ flex: anyCount ? count : 1, color: stage.color }}
-            className="min-w-[52px] truncate text-[10px] font-bold"
+            className="min-w-[52px] truncate text-[11.5px] font-bold"
           >
             STAGE {stage.id}
             {/* The stage name only fits once the segment owns enough width. */}
@@ -117,19 +117,19 @@ export function WorkQueueRow({ item, primary }: { item: WorkQueueItem; primary: 
         style={{ backgroundColor: item.spineColor }}
       />
       <Link href={`/advisor/investors/${item.leadId}`} className="min-w-0 flex-1 group">
-        <span className="block truncate text-sm font-bold tracking-[-0.015em] text-foreground group-hover:underline">
+        <span className="block truncate text-[15.5px] leading-[1.45] font-bold tracking-[-0.015em] text-foreground group-hover:underline">
           {item.title}
         </span>
-        <span className="mt-[3px] block truncate text-xs text-muted-foreground">{item.detail}</span>
+        <span className="mt-[3px] block truncate text-[13.5px] leading-[1.45] text-muted-foreground">{item.detail}</span>
       </Link>
       {item.marker?.kind === "overdue" && (
-        <span className="shrink-0 text-[9.5px] font-bold tracking-[0.08em] text-destructive">
+        <span className="shrink-0 text-[11px] font-bold tracking-[0.08em] text-destructive">
           {item.marker.label}
         </span>
       )}
       {item.marker?.kind === "warm" && (
         <span
-          className="inline-flex shrink-0 items-center gap-1.5 text-[9.5px] font-bold tracking-[0.08em]"
+          className="inline-flex shrink-0 items-center gap-1.5 text-[11px] font-bold tracking-[0.08em]"
           style={{ color: SIGNAL.success }}
         >
           <span
@@ -160,11 +160,11 @@ export function ScheduleRow({
   href: string | null;
 }) {
   const label = (
-    <span className="shrink-0 text-[13px] font-semibold text-foreground">{name}</span>
+    <span className="shrink-0 text-[14.5px] font-semibold text-foreground">{name}</span>
   );
   return (
     <div className="flex items-baseline gap-3 border-b border-dotted border-border-leader py-2.5 last:border-b-0">
-      <span className="tabular w-[46px] shrink-0 text-xs font-bold text-foreground">{time}</span>
+      <span className="tabular w-[46px] shrink-0 text-[13.5px] leading-[1.45] font-bold text-foreground">{time}</span>
       {href ? (
         <Link href={href} className="shrink-0 hover:underline">
           {label}
@@ -173,7 +173,7 @@ export function ScheduleRow({
         label
       )}
       <span aria-hidden className="-translate-y-[3px] flex-1 border-b border-dotted border-border-leader" />
-      <span className="shrink-0 text-[11px] font-bold" style={{ color: typeColor }}>
+      <span className="shrink-0 text-[12.5px] font-bold" style={{ color: typeColor }}>
         {typeLabel}
       </span>
     </div>
@@ -182,7 +182,7 @@ export function ScheduleRow({
 
 export function ConversionList({ steps }: { steps: ConversionStep[] }) {
   return (
-    <div className="flex flex-col gap-2 text-xs">
+    <div className="flex flex-col gap-2 text-[13.5px] leading-[1.45]">
       {steps.map((step) => (
         <div key={step.from.id} className="flex items-center gap-2.5">
           <span
@@ -210,10 +210,10 @@ export function ActivityList({
   emptyMessage: string;
 }) {
   if (items.length === 0) {
-    return <p className="py-2 text-[12.5px] text-muted-foreground">{emptyMessage}</p>;
+    return <p className="py-2 text-[14px] text-muted-foreground">{emptyMessage}</p>;
   }
   return (
-    <div className="flex flex-col text-[12.5px] text-secondary-foreground">
+    <div className="flex flex-col text-[14px] text-secondary-foreground">
       {items.map((item, index) => (
         <Link
           key={`${item.leadId}-${index}`}

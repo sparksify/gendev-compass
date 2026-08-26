@@ -21,7 +21,7 @@ export function VideoWatchedBar({
   completed: boolean;
 }) {
   if (percent === null || percent <= 0) {
-    return <span className="text-xs text-ghost-foreground">not started</span>;
+    return <span className="text-[13.5px] leading-[1.45] text-ghost-foreground">not started</span>;
   }
   const clamped = Math.min(100, Math.max(0, Math.round(percent)));
   const color = watchColor(clamped, completed);
@@ -34,7 +34,7 @@ export function VideoWatchedBar({
           style={{ width: `${clamped}%`, backgroundColor: color }}
         />
       </span>
-      <span className="tabular text-[11.5px] font-bold" style={{ color }}>
+      <span className="tabular text-[13px] font-bold" style={{ color }}>
         {clamped}%
       </span>
     </span>

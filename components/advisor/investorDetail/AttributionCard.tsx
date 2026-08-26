@@ -7,13 +7,13 @@ import type { LeadRecord } from "@/types/lead";
 function Field({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="min-w-0">
-      <p className="text-[10.5px] text-faint-foreground">{label}</p>
+      <p className="text-[12px] text-faint-foreground">{label}</p>
       {value ? (
-        <p className="truncate text-[12.5px] font-medium text-foreground" title={value}>
+        <p className="truncate text-[14px] font-medium text-foreground" title={value}>
           {value}
         </p>
       ) : (
-        <p className="text-[12.5px] text-[#c2c9d4]">—</p>
+        <p className="text-[14px] text-[#c2c9d4]">—</p>
       )}
     </div>
   );
@@ -26,7 +26,7 @@ export function AttributionCard({ lead }: { lead: LeadRecord }) {
     <Card id="attribution" className="scroll-mt-4">
       <CardContent className="px-[15px] py-[13px]">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[15px] font-bold text-foreground">
+          <p className="text-[16.5px] font-bold text-foreground">
             Attribution · first touch
           </p>
           {lead.qualification_result === "review_required" && (

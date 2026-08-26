@@ -47,7 +47,7 @@ export function TrackingSections({ authHeaders }: { authHeaders: Record<string, 
         }
       />
       <PageBody>
-        <div className="grid gap-10 xl:grid-cols-[1.4fr_1fr]">
+        <div className="grid gap-10 xl:grid-cols-[1.4fr_1fr] [&>*]:min-w-0">
           <TrackingAdminSections authHeaders={authHeaders} onReady={onReady} />
           <TrackingDiagnostics authHeaders={authHeaders} />
         </div>

@@ -176,12 +176,12 @@ export function EligibilityGrid({
   return (
     <div>
       <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-4 text-[11.5px] text-muted-foreground">
+        <div className="flex flex-wrap gap-4 text-[13px] text-muted-foreground">
           <Legend color={SIGNAL.success} label="Available" count={counts.available} />
           <Legend color={SIGNAL.warning} label="Manual review" count={counts.manual} />
           <Legend color={SIGNAL.neutral} label="Not available" count={counts.notAvailable} />
         </div>
-        <p className="text-[11px] text-faint-foreground">
+        <p className="text-[12.5px] text-faint-foreground">
           Unconfigured states default to manual review
         </p>
       </div>
@@ -197,7 +197,7 @@ export function EligibilityGrid({
               onClick={() => cycle(state.code)}
               title={`${state.name} — ${status === "unconfigured" ? "Unconfigured (manual review)" : STATE_ELIGIBILITY_LABELS[status]}`}
               aria-label={`${state.name}: ${tone.label}. Click to change.`}
-              className="flex items-center justify-between rounded-control border px-[11px] py-2 text-xs font-bold transition-opacity hover:opacity-80"
+              className="flex items-center justify-between rounded-control border px-[11px] py-2 text-[13.5px] leading-[1.45] font-bold transition-opacity hover:opacity-80"
               style={{ borderColor: tone.border, backgroundColor: tone.tint, color: tone.color }}
             >
               {state.code}
@@ -213,16 +213,16 @@ export function EligibilityGrid({
           <button
             type="button"
             onClick={() => setExpanded(true)}
-            className="flex items-center justify-between rounded-control border px-[11px] py-2 text-xs font-bold"
+            className="flex items-center justify-between rounded-control border px-[11px] py-2 text-[13.5px] leading-[1.45] font-bold"
             style={{ borderColor: "#f3e2c8", backgroundColor: SIGNAL.warningTint, color: SIGNAL.warning }}
           >
             +{hidden}
-            <span className="text-[10px] font-semibold">more</span>
+            <span className="text-[11.5px] font-semibold">more</span>
           </button>
         )}
       </div>
 
-      <p className="mt-3.5 text-[11px] leading-relaxed text-faint-foreground">
+      <p className="mt-3.5 text-[12.5px] leading-relaxed text-faint-foreground">
         Registration states are marked not available until the franchisor completes state
         registration. Click a state to cycle its status
         {dirtyCodes.length > 0 && (
@@ -237,7 +237,7 @@ export function EligibilityGrid({
         .
       </p>
       {(message || saving) && (
-        <p className="mt-1.5 text-[11.5px] text-muted-foreground">
+        <p className="mt-1.5 text-[13px] text-muted-foreground">
           {saving ? "Saving…" : message}
         </p>
       )}

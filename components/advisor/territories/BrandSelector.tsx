@@ -17,7 +17,7 @@ interface BrandSelectorProps {
 export function BrandSelector({ brands, activeBrandSlug, basePath }: BrandSelectorProps) {
   if (brands.length <= 1) {
     return (
-      <p className="text-[13px] text-muted-foreground">
+      <p className="text-[14.5px] text-muted-foreground">
         Brand: <span className="font-medium text-foreground">{brands[0]?.name ?? "—"}</span>
       </p>
     );
@@ -30,7 +30,7 @@ export function BrandSelector({ brands, activeBrandSlug, basePath }: BrandSelect
           key={b.id}
           href={`${basePath}?brand=${b.slug}`}
           className={cn(
-            "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+            "rounded-full border px-3 py-1.5 text-[13.5px] leading-[1.45] font-medium transition-colors",
             b.slug === activeBrandSlug
               ? "border-primary-soft-border bg-primary-soft text-primary"
               : "border-border text-muted-foreground hover:bg-surface",

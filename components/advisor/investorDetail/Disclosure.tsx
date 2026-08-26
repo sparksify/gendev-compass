@@ -28,7 +28,7 @@ export function Disclosure({
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full items-center justify-between gap-2 text-left text-xs font-medium text-primary hover:underline"
+        className="flex w-full items-center justify-between gap-2 text-left text-[13.5px] leading-[1.45] font-medium text-primary hover:underline"
       >
         <span>{summary}</span>
         <ChevronDown className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-180")} />

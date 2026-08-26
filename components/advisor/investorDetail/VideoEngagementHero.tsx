@@ -17,13 +17,13 @@ function clock(seconds: number): string {
 function Stat({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div className="border-t-2 pt-2.5" style={{ borderTopColor: color }}>
-      <p className="text-[9.5px] font-bold uppercase tracking-[0.12em] text-faint-foreground">
+      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-faint-foreground">
         {label}
       </p>
       <p
         className={cn(
           "tabular mt-1 font-extrabold tracking-[-0.02em]",
-          value === "—" ? "text-base text-ghost-foreground" : "text-xl",
+          value === "—" ? "text-[17.5px] leading-[1.5] text-ghost-foreground" : "text-[22px] leading-[1.3]",
         )}
         style={value === "—" ? undefined : { color }}
       >
@@ -53,7 +53,7 @@ export function VideoEngagementHero({ video }: { video: VideoProgressRecord | nu
       <SectionRule label="Video engagement" meta="Investor overview" className="mb-3.5" />
 
       {!video || percent === 0 ? (
-        <p className="py-2 text-[12.5px] text-muted-foreground">
+        <p className="py-2 text-[14px] text-muted-foreground">
           No video activity yet — this client hasn&rsquo;t started the overview.
         </p>
       ) : (
@@ -82,7 +82,7 @@ export function VideoEngagementHero({ video }: { video: VideoProgressRecord | nu
             ))}
           </div>
 
-          <div className="mt-[7px] flex justify-between text-[10px] font-semibold text-faint-foreground">
+          <div className="mt-[7px] flex justify-between text-[11.5px] font-semibold text-faint-foreground">
             <span>0:00</span>
             <span style={{ color: percent >= 25 ? TEAL : undefined }}>
               25%{percent >= 25 ? " ✓" : ""}
@@ -110,7 +110,7 @@ export function VideoEngagementHero({ video }: { video: VideoProgressRecord | nu
             />
           </div>
 
-          <p className="mt-3.5 text-[11.5px] leading-relaxed text-muted-foreground">
+          <p className="mt-3.5 text-[13px] leading-relaxed text-muted-foreground">
             {video.completed
               ? "Finished the overview"
               : `Stopped at ${clock(stoppedAt)}, ${100 - percent}% short of the end`}

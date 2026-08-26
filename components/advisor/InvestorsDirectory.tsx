@@ -109,7 +109,7 @@ export async function InvestorsDirectory({
         actions={
           <>
             <form action={basePath} method="get" className="hidden sm:block">
-              <label className="flex w-[270px] items-center gap-2 rounded-control border border-border px-[11px] py-[7px] text-[12.5px]">
+              <label className="flex w-[270px] items-center gap-2 rounded-control border border-border px-[11px] py-[7px] text-[14px]">
                 <Search className="size-3.5 shrink-0 text-faint-foreground" strokeWidth={2} />
                 <input
                   type="search"
@@ -145,7 +145,7 @@ export async function InvestorsDirectory({
                 href={hrefFor(chip.key)}
                 aria-current={active ? "true" : undefined}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-[13px] py-1.5 text-[11.5px] transition-colors",
+                  "inline-flex items-center gap-1.5 rounded-full px-[13px] py-1.5 text-[13px] transition-colors",
                   active
                     ? "bg-foreground font-bold text-white"
                     : "border border-border font-semibold hover:bg-surface-raised",
@@ -170,7 +170,7 @@ export async function InvestorsDirectory({
           <div className="min-w-[900px]">
             <div
               className={cn(
-                "grid gap-x-4 border-b border-border py-2 text-[9.5px] font-bold uppercase tracking-[0.12em] text-faint-foreground",
+                "grid gap-x-4 border-b border-border py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-faint-foreground",
                 GRID,
               )}
             >
@@ -183,7 +183,7 @@ export async function InvestorsDirectory({
             </div>
 
             {rows.length === 0 && (
-              <p className="py-10 text-center text-[13px] text-muted-foreground">
+              <p className="py-10 text-center text-[14.5px] text-muted-foreground">
                 No clients match this filter.
               </p>
             )}
@@ -198,7 +198,7 @@ export async function InvestorsDirectory({
                   key={row.lead.id}
                   href={`/advisor/investors/${row.lead.id}`}
                   className={cn(
-                    "grid items-center gap-x-4 border-b border-border-soft py-[13px] text-[13px] transition-colors hover:bg-surface-raised",
+                    "grid items-center gap-x-4 border-b border-border-soft py-[13px] text-[14.5px] transition-colors hover:bg-surface-raised",
                     GRID,
                   )}
                 >
@@ -216,13 +216,13 @@ export async function InvestorsDirectory({
                         />
                       )}
                     </span>
-                    <span className="block truncate text-[11px] text-faint-foreground">
+                    <span className="block truncate text-[12.5px] text-faint-foreground">
                       {row.lead.email}
                     </span>
                   </span>
                   <span>
                     <span
-                      className="inline-flex items-center gap-1.5 rounded-full px-[11px] py-1 text-[11px] font-bold"
+                      className="inline-flex items-center gap-1.5 rounded-full px-[11px] py-1 text-[12.5px] font-bold"
                       style={{ color: chip.color, backgroundColor: chip.tint }}
                     >
                       <span
@@ -238,10 +238,10 @@ export async function InvestorsDirectory({
                     percent={row.video?.highest_percent_watched ?? null}
                     completed={row.video?.completed ?? false}
                   />
-                  <span className="tabular truncate text-xs text-faint-foreground">
+                  <span className="tabular truncate text-[13.5px] leading-[1.45] text-faint-foreground">
                     {formatRelative(row.lastActivityAt)}
                   </span>
-                  <span className="truncate text-xs font-semibold text-secondary-foreground">
+                  <span className="truncate text-[13.5px] leading-[1.45] font-semibold text-secondary-foreground">
                     {row.nextAction}
                   </span>
                 </Link>
@@ -249,7 +249,7 @@ export async function InvestorsDirectory({
             })}
 
             {/* Footer */}
-            <div className="flex items-center justify-between gap-4 pt-3.5 text-[11.5px] text-faint-foreground">
+            <div className="flex items-center justify-between gap-4 pt-3.5 text-[13px] text-faint-foreground">
               <span>
                 Showing {rows.length} of {filtered.length}
               </span>

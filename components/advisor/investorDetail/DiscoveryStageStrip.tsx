@@ -99,7 +99,7 @@ export function DiscoveryStageStrip({
               )}
             >
               <span
-                className="block text-[9px] font-bold leading-4 tracking-[0.1em]"
+                className="block text-[10.5px] font-bold leading-4 tracking-[0.1em]"
                 style={{ color: reached ? entry.color : "#c6cbd4" }}
               >
                 STAGE {entry.id}
@@ -107,14 +107,14 @@ export function DiscoveryStageStrip({
               </span>
               <span
                 className={cn(
-                  "mt-[3px] block text-xs",
+                  "mt-[3px] block text-[13.5px] leading-[1.45]",
                   reached ? "font-bold text-foreground" : "font-semibold text-faint-foreground",
                 )}
               >
                 {entry.name}
               </span>
               {context[entry.id] && (
-                <span className="mt-px block text-[10.5px] text-faint-foreground">
+                <span className="mt-px block text-[12px] text-faint-foreground">
                   {context[entry.id]}
                 </span>
               )}
@@ -123,7 +123,7 @@ export function DiscoveryStageStrip({
         })}
       </div>
 
-      {error && <p className="mt-2 text-[11.5px] text-destructive">{error}</p>}
+      {error && <p className="mt-2 text-[13px] text-destructive">{error}</p>}
     </div>
   );
 }

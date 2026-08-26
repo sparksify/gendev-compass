@@ -16,15 +16,15 @@ export default async function AdvisorLoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-surface p-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
-          <p className="font-serif text-2xl font-semibold text-foreground">{brand.productName}</p>
-          <p className="mt-1 text-sm text-muted-foreground">Advisor &amp; Admin Dashboard</p>
+          <p className="font-serif text-[26px] leading-[1.2] font-semibold text-foreground">{brand.productName}</p>
+          <p className="mt-1 text-[15.5px] leading-[1.45] text-muted-foreground">Advisor &amp; Admin Dashboard</p>
         </div>
         <Card>
           <CardContent className="p-6">
             <LoginForm />
           </CardContent>
         </Card>
-        <p className="mt-4 text-center text-xs text-faint-foreground">
+        <p className="mt-4 text-center text-[13.5px] leading-[1.45] text-faint-foreground">
           Internal use only. Access is logged.
         </p>
       </div>

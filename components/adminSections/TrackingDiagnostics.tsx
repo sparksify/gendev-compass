@@ -105,14 +105,14 @@ export function TrackingDiagnostics({ authHeaders }: { authHeaders: Record<strin
   if (error) {
     return (
       <p
-        className="rounded-card border px-4 py-3 text-xs"
+        className="rounded-card border px-4 py-3 text-[13.5px] leading-[1.45]"
         style={{ borderColor: "#fda29b", backgroundColor: SIGNAL.alertTint, color: SIGNAL.alert }}
       >
         {error}
       </p>
     );
   }
-  if (!data) return <p className="text-xs text-muted-foreground">Loading…</p>;
+  if (!data) return <p className="text-[13.5px] leading-[1.45] text-muted-foreground">Loading…</p>;
 
   const events = summarize(data.log);
   const gtmCount = data.log.filter((row) => row.provider === "gtm").length;
@@ -126,9 +126,9 @@ export function TrackingDiagnostics({ authHeaders }: { authHeaders: Record<strin
     <div>
       <SectionRule label="Delivery diagnostics" meta="last 24h" className="mb-1.5" />
       {events.length === 0 ? (
-        <p className="py-2 text-xs text-muted-foreground">No delivery events yet.</p>
+        <p className="py-2 text-[13.5px] leading-[1.45] text-muted-foreground">No delivery events yet.</p>
       ) : (
-        <div className="flex flex-col text-xs">
+        <div className="flex flex-col text-[13.5px] leading-[1.45]">
           {events.map((event) => {
             const tone = STATE_TONE[event.state];
             return (
@@ -155,13 +155,13 @@ export function TrackingDiagnostics({ authHeaders }: { authHeaders: Record<strin
       )}
 
       <div className="mt-5 rounded-card border border-border px-4 py-3.5">
-        <p className="text-[9.5px] font-bold uppercase tracking-[0.15em] text-faint-foreground">
+        <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-faint-foreground">
           Events delivered · 24h
         </p>
-        <p className="tabular mt-2 text-[26px] font-extrabold tracking-[-0.03em] text-foreground">
+        <p className="tabular mt-2 text-[28px] font-extrabold tracking-[-0.03em] text-foreground">
           {total}{" "}
           <span
-            className="text-xs font-semibold"
+            className="text-[13.5px] leading-[1.45] font-semibold"
             style={{ color: failed === 0 ? SIGNAL.success : SIGNAL.warning }}
           >
             {okPercent}% ok
@@ -175,7 +175,7 @@ export function TrackingDiagnostics({ authHeaders }: { authHeaders: Record<strin
               <span style={{ flex: browserCount, backgroundColor: DISCOVERY_STAGES[2].color }} />
               <span style={{ flex: Math.max(failed, 0.001), backgroundColor: SIGNAL.warning }} />
             </div>
-            <div className="mt-2 flex flex-wrap gap-3 text-[10.5px] text-muted-foreground">
+            <div className="mt-2 flex flex-wrap gap-3 text-[12px] text-muted-foreground">
               <span>
                 <strong className="font-bold" style={{ color: DISCOVERY_STAGES[0].color }}>
                   {gtmCount}
@@ -211,7 +211,7 @@ export function TrackingDiagnostics({ authHeaders }: { authHeaders: Record<strin
         )}
       </div>
 
-      <p className="mt-4 text-[11px] leading-relaxed text-faint-foreground">
+      <p className="mt-4 text-[12.5px] leading-relaxed text-faint-foreground">
         The CAPI access token never leaves the server. Questionnaire and financial answers are never
         sent to GTM or Meta.
       </p>

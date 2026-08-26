@@ -92,10 +92,10 @@ export function ProcessMilestonesCard({
     <Card className="h-full">
       <CardContent className="px-[15px] py-[13px]">
         <div className="flex items-center justify-between">
-          <p className="text-[15px] font-bold text-foreground">
+          <p className="text-[16.5px] font-bold text-foreground">
             Process milestones
           </p>
-          <p className="text-[11px] text-faint-foreground">{done} of 4 complete</p>
+          <p className="text-[12.5px] text-faint-foreground">{done} of 4 complete</p>
         </div>
 
         <div className="mt-1.5">
@@ -117,16 +117,16 @@ export function ProcessMilestonesCard({
               >
                 <Icon className="size-[15px] text-primary" strokeWidth={1.9} />
                 <div className="min-w-0">
-                  <span className="whitespace-nowrap text-[13px] font-medium text-foreground">{def.label}</span>
+                  <span className="whitespace-nowrap text-[14.5px] font-medium text-foreground">{def.label}</span>
                   {def.hasDate && date && (
-                    <span className="ml-1.5 text-[11px] text-faint-foreground">{formatDate(date)}</span>
+                    <span className="ml-1.5 text-[12.5px] text-faint-foreground">{formatDate(date)}</span>
                   )}
                 </div>
                 <div className="flex items-center gap-[9px] justify-self-end">
                   {/* Pill = transparent select overlay, so any status is settable directly. */}
                   <span
                     className={cn(
-                      "relative inline-flex items-center whitespace-nowrap rounded-full py-0.5 pl-2 pr-5 text-[11px] font-medium transition-opacity",
+                      "relative inline-flex items-center whitespace-nowrap rounded-full py-0.5 pl-2 pr-5 text-[12.5px] font-medium transition-opacity",
                       TONE_PILL[current.tone],
                       saving === def.key && "opacity-60",
                     )}
@@ -149,7 +149,7 @@ export function ProcessMilestonesCard({
                   </span>
                   {action &&
                     (action.href ? (
-                      <a href={action.href} className="text-[12.5px] font-semibold text-primary hover:underline">
+                      <a href={action.href} className="text-[14px] font-semibold text-primary hover:underline">
                         {action.label}
                       </a>
                     ) : (
@@ -157,7 +157,7 @@ export function ProcessMilestonesCard({
                         type="button"
                         onClick={() => save(def.key, action.next!)}
                         disabled={saving === def.key}
-                        className="text-[12.5px] font-semibold text-primary hover:underline disabled:opacity-50"
+                        className="text-[14px] font-semibold text-primary hover:underline disabled:opacity-50"
                       >
                         {action.label}
                       </button>
@@ -174,7 +174,7 @@ export function ProcessMilestonesCard({
                         )
                       }
                       aria-label={`${def.label} date`}
-                      className="w-[30px] cursor-pointer border-0 bg-transparent text-[11px] text-faint-foreground outline-none [&::-webkit-calendar-picker-indicator]:opacity-60"
+                      className="w-[30px] cursor-pointer border-0 bg-transparent text-[12.5px] text-faint-foreground outline-none [&::-webkit-calendar-picker-indicator]:opacity-60"
                     />
                   )}
                 </div>
@@ -182,7 +182,7 @@ export function ProcessMilestonesCard({
             );
           })}
         </div>
-        {error && <p className="mt-1 text-[11px] text-destructive">Could not save — try again.</p>}
+        {error && <p className="mt-1 text-[12.5px] text-destructive">Could not save — try again.</p>}
       </CardContent>
     </Card>
   );

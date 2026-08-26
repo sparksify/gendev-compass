@@ -73,7 +73,7 @@ export function TerritoryReviewRows({
   const visible = limit ? rows.slice(0, limit) : rows;
 
   if (visible.length === 0) {
-    return <p className="py-3 text-[12.5px] text-muted-foreground">No review requests.</p>;
+    return <p className="py-3 text-[14px] text-muted-foreground">No review requests.</p>;
   }
 
   return (
@@ -86,7 +86,7 @@ export function TerritoryReviewRows({
           <div key={review.id} className="border-b border-border-soft last:border-b-0">
             <div className="flex flex-wrap items-center gap-3.5 py-3">
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13.5px] font-bold text-foreground">
+                <span className="block truncate text-[15px] font-bold text-foreground">
                   {lead ? (
                     <Link href={`/advisor/investors/${lead.id}`} className="hover:underline">
                       {lead.first_name} {lead.last_name}
@@ -96,7 +96,7 @@ export function TerritoryReviewRows({
                   )}
                   {market && <> — {market}</>}
                 </span>
-                <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                <span className="mt-0.5 block truncate text-[13.5px] leading-[1.45] text-muted-foreground">
                   Searched {reviewDate(review.created_at)} · result:{" "}
                   {status ? (
                     <strong className="font-bold" style={{ color: RESULT_COLOR[status] }}>
@@ -109,7 +109,7 @@ export function TerritoryReviewRows({
                 </span>
               </span>
 
-              <span className="relative inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+              <span className="relative inline-flex shrink-0 items-center gap-1 text-[13.5px] leading-[1.45] text-muted-foreground">
                 Assign:{" "}
                 <span className="relative inline-flex items-center pr-4 font-bold text-foreground">
                   <select
@@ -145,12 +145,12 @@ export function TerritoryReviewRows({
 
             {open && (
               <div className="grid gap-3 pb-4 sm:grid-cols-2">
-                <label className="text-[11px] font-medium text-muted-foreground">
+                <label className="text-[12.5px] font-medium text-muted-foreground">
                   Status
                   <select
                     value={review.status}
                     onChange={(event) => patch(review.id, { status: event.target.value })}
-                    className="mt-1.5 block w-full rounded-control border border-border bg-card px-3 py-1.5 text-xs text-foreground"
+                    className="mt-1.5 block w-full rounded-control border border-border bg-card px-3 py-1.5 text-[13.5px] leading-[1.45] text-foreground"
                   >
                     {TERRITORY_REVIEW_STATUSES.map((option: TerritoryReviewStatus) => (
                       <option key={option} value={option}>
@@ -159,7 +159,7 @@ export function TerritoryReviewRows({
                     ))}
                   </select>
                 </label>
-                <label className="text-[11px] font-medium text-muted-foreground sm:col-span-2">
+                <label className="text-[12.5px] font-medium text-muted-foreground sm:col-span-2">
                   Internal notes
                   <Textarea
                     rows={2}

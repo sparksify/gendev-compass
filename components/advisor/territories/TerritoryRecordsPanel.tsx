@@ -311,7 +311,7 @@ export function TerritoryRecordsPanel({
 
       <div className="overflow-x-auto">
         <div className="min-w-[820px]">
-          <div className={cn(RECORDS_GRID, "grid gap-x-4 border-b border-border py-2 text-[9.5px] font-bold uppercase tracking-[0.12em] text-faint-foreground")}>
+          <div className={cn(RECORDS_GRID, "grid gap-x-4 border-b border-border py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-faint-foreground")}>
             <span>Territory</span>
             <span>Definition</span>
             <span>ZIPs</span>
@@ -332,7 +332,7 @@ export function TerritoryRecordsPanel({
             />
           ))}
           {territories.length === 0 && (
-            <p className="py-10 text-center text-[13px] text-muted-foreground">No territories yet.</p>
+            <p className="py-10 text-center text-[14.5px] text-muted-foreground">No territories yet.</p>
           )}
         </div>
       </div>
@@ -345,10 +345,10 @@ export function TerritoryRecordsPanel({
         <CardContent className="space-y-3.5 p-5">
           <div className="flex items-center gap-2">
             <Upload className="size-4 text-muted-foreground" strokeWidth={1.8} />
-            <p className="text-sm font-semibold text-foreground">Bulk ZIP Import (CSV)</p>
+            <p className="text-[15.5px] leading-[1.45] font-semibold text-foreground">Bulk ZIP Import (CSV)</p>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Columns: <code className="rounded bg-surface px-1 py-0.5 text-xs">{CSV_TEMPLATE_HEADER}</code>.
+          <p className="text-[15.5px] leading-[1.45] text-muted-foreground">
+            Columns: <code className="rounded bg-surface px-1 py-0.5 text-[13.5px] leading-[1.45]">{CSV_TEMPLATE_HEADER}</code>.
             Rows are grouped by territory_code (or territory_name) — existing territories are reused.
           </p>
           <Textarea
@@ -361,7 +361,7 @@ export function TerritoryRecordsPanel({
             {csvBusy && <Loader2 className="animate-spin" />} Import CSV
           </Button>
           {csvResult && (
-            <div className="rounded-control border-2 border-border-strong bg-surface p-3.5 text-sm">
+            <div className="rounded-control border-2 border-border-strong bg-surface p-3.5 text-[15.5px] leading-[1.45]">
               <p className="font-medium text-foreground">
                 {csvResult.summary.createdTerritories ?? 0} created, {csvResult.summary.reusedTerritories ?? 0} reused,{" "}
                 {csvResult.summary.zipsAdded ?? 0} ZIPs added
@@ -473,24 +473,24 @@ function TerritoryRow({
 
   return (
     <>
-      <div className={cn(RECORDS_GRID, "grid items-center gap-x-4 border-b border-border-soft py-3 text-[13px]")}>
+      <div className={cn(RECORDS_GRID, "grid items-center gap-x-4 border-b border-border-soft py-3 text-[14.5px]")}>
         <span className="min-w-0">
           <span className="block truncate font-bold text-foreground">{territory.territory_name}</span>
           {territory.territory_code && (
-            <span className="block truncate text-[11px] text-faint-foreground">
+            <span className="block truncate text-[12.5px] text-faint-foreground">
               {territory.territory_code}
             </span>
           )}
         </span>
-        <span className="truncate text-xs text-muted-foreground">{definition}</span>
+        <span className="truncate text-[13.5px] leading-[1.45] text-muted-foreground">{definition}</span>
         <span className="tabular text-secondary-foreground">
           {territory.definition_type === "zip_list" ? zipCount : "—"}
         </span>
-        <span className="tabular truncate text-xs text-muted-foreground">{center}</span>
+        <span className="tabular truncate text-[13.5px] leading-[1.45] text-muted-foreground">{center}</span>
         <span>
           {/* Status stays editable in place — the pill IS the control. */}
           <span
-            className="relative inline-flex items-center gap-1.5 rounded-full py-1 pl-[11px] pr-6 text-[11px] font-bold"
+            className="relative inline-flex items-center gap-1.5 rounded-full py-1 pl-[11px] pr-6 text-[12.5px] font-bold"
             style={{ color: style.color, backgroundColor: style.tint }}
           >
             <span aria-hidden className="size-[5px] rounded-full" style={{ backgroundColor: style.color }} />
@@ -511,7 +511,7 @@ function TerritoryRow({
           </span>
         </span>
         <span className="flex items-center justify-between gap-2">
-          <span className="tabular text-xs text-faint-foreground">
+          <span className="tabular text-[13.5px] leading-[1.45] text-faint-foreground">
             {new Date(territory.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
           </span>
           <span className="flex items-center gap-2">
@@ -542,14 +542,14 @@ function TerritoryRow({
         <div className="border-b border-border-soft bg-surface-raised px-4 py-3.5">
           <div className="flex flex-wrap gap-1.5">
             {(zips ?? []).map((z) => (
-              <span key={z.id} className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-xs">
+              <span key={z.id} className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-[13.5px] leading-[1.45]">
                 {z.zip_code}
                 <button type="button" onClick={() => removeZip(z.id)} className="text-muted-foreground hover:text-destructive" aria-label={`Remove ${z.zip_code}`}>
                   ×
                 </button>
               </span>
             ))}
-            {(zips ?? []).length === 0 && <span className="text-xs text-muted-foreground">No ZIP codes yet.</span>}
+            {(zips ?? []).length === 0 && <span className="text-[13.5px] leading-[1.45] text-muted-foreground">No ZIP codes yet.</span>}
           </div>
           <div className="mt-2.5 flex gap-2">
             <Input
@@ -686,8 +686,8 @@ function UploadReportCard({
             <FileUp className="size-4 text-primary" strokeWidth={1.8} />
           </span>
           <div>
-            <p className="text-sm font-semibold text-foreground">Upload Territory Report</p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-[15.5px] leading-[1.45] font-semibold text-foreground">Upload Territory Report</p>
+            <p className="text-[15.5px] leading-[1.45] text-muted-foreground">
               Upload the Territory Demographic Report PDF exported from the mapping software. We read the
               territory name and ZIP codes from it — you choose the status and confirm before anything is saved.
             </p>
@@ -702,7 +702,7 @@ function UploadReportCard({
               accept="application/pdf"
               onChange={handleFileChange}
               disabled={parsing}
-              className="text-sm text-muted-foreground file:mr-3 file:cursor-pointer file:rounded-control file:border-2 file:border-border-strong file:bg-card file:px-3.5 file:py-2 file:text-sm file:font-medium file:text-foreground hover:file:bg-surface"
+              className="text-[15.5px] leading-[1.45] text-muted-foreground file:mr-3 file:cursor-pointer file:rounded-control file:border-2 file:border-border-strong file:bg-card file:px-3.5 file:py-2 file:text-[15.5px] file:font-medium file:text-foreground hover:file:bg-surface"
             />
             {parsing && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
           </div>
@@ -769,7 +769,7 @@ function UploadReportCard({
             </div>
 
             {preview.warnings.length > 0 && (
-              <div className="rounded-control border-2 border-[#f2cf8a] bg-[#fdf6e3] p-3 text-sm text-[#7a5b00]">
+              <div className="rounded-control border-2 border-[#f2cf8a] bg-[#fdf6e3] p-3 text-[15.5px] leading-[1.45] text-[#7a5b00]">
                 {preview.warnings.map((warning, i) => (
                   <p key={i}>{warning}</p>
                 ))}
@@ -777,7 +777,7 @@ function UploadReportCard({
             )}
 
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-faint-foreground">
+              <p className="text-[13.5px] leading-[1.45] font-medium uppercase tracking-wide text-faint-foreground">
                 {includedCount} of {preview.zips.length} ZIP code{preview.zips.length === 1 ? "" : "s"} will be saved
               </p>
               <div className="mt-2 flex flex-wrap gap-1.5">
@@ -788,7 +788,7 @@ function UploadReportCard({
                       key={z.zipCode}
                       title={z.conflict ? `Already ${STATUS_LABELS[z.conflict.status]} in "${z.conflict.territoryName}"` : undefined}
                       className={cn(
-                        "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs",
+                        "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[13.5px] leading-[1.45]",
                         excluded
                           ? "border-border bg-surface text-muted-foreground line-through"
                           : z.conflict

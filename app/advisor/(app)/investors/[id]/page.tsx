@@ -43,13 +43,13 @@ export const dynamic = "force-dynamic";
 function KeyStat({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div>
-      <p className="text-[9.5px] font-bold uppercase tracking-[0.15em] text-faint-foreground">
+      <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-faint-foreground">
         {label}
       </p>
       <p
         className={cn(
           "tabular mt-1 font-extrabold tracking-[-0.03em]",
-          value === "—" ? "text-lg text-ghost-foreground" : "text-2xl",
+          value === "—" ? "text-[19.5px] leading-[1.4] text-ghost-foreground" : "text-[26px] leading-[1.2]",
         )}
         style={value === "—" ? undefined : { color }}
       >
@@ -205,10 +205,10 @@ export default async function InvestorDetailPage({
         <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-5">
           <div className="min-w-[320px] flex-1">
             <div className="flex flex-wrap items-center gap-3">
-              <h2 className="text-[26px] font-extrabold tracking-[-0.03em] text-foreground">{name}</h2>
+              <h2 className="text-[28px] font-extrabold tracking-[-0.03em] text-foreground">{name}</h2>
               {followUp.needed && (
                 <span
-                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-[3px] text-[9.5px] font-bold tracking-[0.08em]"
+                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-[3px] text-[11px] font-bold tracking-[0.08em]"
                   style={{ color: SIGNAL.alert, backgroundColor: SIGNAL.alertTint }}
                   title={followUp.reasons.join(" ")}
                 >
@@ -221,7 +221,7 @@ export default async function InvestorDetailPage({
                 </span>
               )}
             </div>
-            <p className="mt-1.5 text-[12.5px] text-muted-foreground">{meta.join(" · ")}</p>
+            <p className="mt-1.5 text-[14px] text-muted-foreground">{meta.join(" · ")}</p>
           </div>
           <div className="flex shrink-0 gap-x-9 gap-y-4 text-right">
             <KeyStat
@@ -245,7 +245,7 @@ export default async function InvestorDetailPage({
         {/* Discovery stage strip — clicking a stage sets it. */}
         <DiscoveryStageStrip investorId={lead.id} currentStage={stage} context={stageContext} />
 
-        <div className="grid gap-10 xl:grid-cols-[1.5fr_1fr] xl:gap-11">
+        <div className="grid gap-10 xl:grid-cols-[1.5fr_1fr] xl:gap-11 [&>*]:min-w-0">
           <div className="flex flex-col gap-6">
             <VideoEngagementHero video={video} />
 
@@ -259,17 +259,17 @@ export default async function InvestorDetailPage({
             {/* Next best action */}
             <div className="rounded-card border border-[#fde68a] bg-[linear-gradient(180deg,#fffdf5,#fffaeb)] px-[18px] py-4">
               <p
-                className="text-[9.5px] font-bold uppercase tracking-[0.15em]"
+                className="text-[11px] font-bold uppercase tracking-[0.15em]"
                 style={{ color: SIGNAL.warning }}
               >
                 Next best action
               </p>
-              <p className="mt-2 text-sm font-bold text-foreground">{action.title}</p>
-              <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+              <p className="mt-2 text-[15.5px] leading-[1.45] font-bold text-foreground">{action.title}</p>
+              <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
                 {action.description}
               </p>
               {action.whyItMatters && (
-                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
                   {action.whyItMatters}
                 </p>
               )}
@@ -283,7 +283,7 @@ export default async function InvestorDetailPage({
             {/* Qualification */}
             <div>
               <SectionRule label="Qualification" className="mb-1" />
-              <div className="flex flex-col text-[12.5px]">
+              <div className="flex flex-col text-[14px]">
                 <LeaderRow label="Liquid capital" value={<span className="tabular">{capital}</span>} />
                 <LeaderRow label="Net worth" value={<span className="tabular">{netWorth}</span>} />
                 <LeaderRow
@@ -315,7 +315,7 @@ export default async function InvestorDetailPage({
                 granular pipeline stage, and the prospect's portal link. */}
             <div>
               <SectionRule label="Record" className="mb-1" />
-              <div className="flex flex-col text-[12.5px]">
+              <div className="flex flex-col text-[14px]">
                 <LeaderRow
                   label="Pipeline stage"
                   value={<StageStatusControl investorId={lead.id} currentStage={lead.current_stage} />}

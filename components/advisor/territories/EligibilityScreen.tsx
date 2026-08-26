@@ -84,9 +84,9 @@ export function EligibilityScreen({
 
       <PageBody>
         {!brandId ? (
-          <p className="text-[13px] text-muted-foreground">No brands configured yet.</p>
+          <p className="text-[14.5px] text-muted-foreground">No brands configured yet.</p>
         ) : (
-          <div className="grid gap-10 xl:grid-cols-[1.6fr_1fr]">
+          <div className="grid gap-10 xl:grid-cols-[1.6fr_1fr] [&>*]:min-w-0">
             <EligibilityGrid
               brandId={brandId}
               initialRows={initialRows}
@@ -100,7 +100,7 @@ export function EligibilityScreen({
                 meta={<span className="tabular">last 7 days · {searchTotal}</span>}
                 className="mb-1.5"
               />
-              <div className="flex flex-col text-[12.5px]">
+              <div className="flex flex-col text-[14px]">
                 {recentSearches.length === 0 && (
                   <p className="py-2 text-muted-foreground">No searches in the last 7 days.</p>
                 )}
@@ -116,7 +116,7 @@ export function EligibilityScreen({
                         {search.prospect && ` · ${search.prospect}`}
                       </span>
                       <span
-                        className="shrink-0 self-center rounded-full px-2.5 py-[3px] text-[10.5px] font-bold"
+                        className="shrink-0 self-center rounded-full px-2.5 py-[3px] text-[12px] font-bold"
                         style={{ color: tone.color, backgroundColor: `${tone.color}14` }}
                       >
                         {PILL_LABEL[search.status] ?? STATUS_META[search.status].label}
@@ -127,11 +127,11 @@ export function EligibilityScreen({
               </div>
 
               <div className="mt-5 rounded-card border border-border px-4 py-3.5">
-                <p className="text-[9.5px] font-bold uppercase tracking-[0.15em] text-faint-foreground">
+                <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-faint-foreground">
                   Search outcomes · 7 days
                 </p>
                 {outcomeTotal === 0 ? (
-                  <p className="mt-2 text-[11.5px] text-muted-foreground">Nothing searched yet.</p>
+                  <p className="mt-2 text-[13px] text-muted-foreground">Nothing searched yet.</p>
                 ) : (
                   <>
                     <div className="mt-2.5 flex h-2.5 gap-0.5 overflow-hidden rounded-full">
@@ -145,7 +145,7 @@ export function EligibilityScreen({
                         />
                       ))}
                     </div>
-                    <div className="mt-2.5 flex flex-wrap gap-2.5 text-[10.5px] text-muted-foreground">
+                    <div className="mt-2.5 flex flex-wrap gap-2.5 text-[12px] text-muted-foreground">
                       {outcomes.map((entry) => (
                         <span key={entry.status}>
                           <strong
