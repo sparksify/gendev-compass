@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Search } from "lucide-react";
 import { requireStaffUser } from "@/lib/advisor/auth";
 import { isAdmin } from "@/lib/advisor/access";
 import { filterInvestorRows, loadInvestorRows, type InvestorRow } from "@/lib/advisor/investors";
 import { labelForValue } from "@/lib/advisor/questionnaireCatalog";
-import { formatRelative } from "@/lib/advisor/format";
+import { formatDate, formatRelative } from "@/lib/advisor/format";
 import { compactMoney } from "@/lib/advisor/money";
 import {
   DISCOVERY_STAGES,
@@ -13,9 +13,10 @@ import {
   stageChipFor,
 } from "@/lib/advisor/discoveryStages";
 import { cn } from "@/lib/utils";
+import { LIQUID_CAPITAL_RANGES } from "@/types/questionnaire";
 import { PageBody, PageHeader } from "@/components/advisor/PageHeader";
 import { INK_BUTTON, SECONDARY_BUTTON } from "@/components/advisor/controls";
-import { VideoWatchedBar } from "@/components/advisor/VideoWatchedBar";
+import { VideoWatchedRing } from "@/components/advisor/VideoWatchedBar";
 
 export type InvestorsSearchParams = Record<string, string | string[] | undefined>;
 
@@ -52,6 +53,39 @@ const CHIPS: Chip[] = [
   })),
 ];
 
+/** Ordered capital values — the array index is the sort rank. */
+const CAPITAL_ORDER: readonly string[] = LIQUID_CAPITAL_RANGES.map((range) => range.value);
+
+type SortKey = "capital" | "video";
+
+/** Unknowns rank below every real value so they sink on "highest first". */
+const SORT_RANK: Record<SortKey, (row: InvestorRow) => number> = {
+  capital: (row) =>
+    CAPITAL_ORDER.indexOf(
+      (row.questionnaire?.liquid_capital ?? row.lead.initial_liquid_capital ?? "") as string,
+    ),
+  video: (row) => (row.video ? row.video.highest_percent_watched : -1),
+};
+
+/**
+ * Next actions that mean "reach out now" get the amber bubble; a lead whose
+ * follow-up is overdue escalates to the red one. Everything else is a quiet
+ * neutral chip, and "—" stays plain text.
+ */
+const OUTREACH_ACTIONS = new Set([
+  "Schedule follow-up",
+  "Rebook cancelled consultation",
+  "Follow up on FDD",
+  "Encourage questionnaire completion",
+  "Resolve FDD delivery error",
+]);
+
+function actionBubble(row: InvestorRow): { color: string; tint: string } {
+  if (row.followUp.needed) return { color: SIGNAL.alert, tint: SIGNAL.alertTint };
+  if (OUTREACH_ACTIONS.has(row.nextAction)) return { color: SIGNAL.warning, tint: SIGNAL.warningTint };
+  return { color: SIGNAL.neutral, tint: SIGNAL.neutralTint };
+}
+
 /**
  * The clients list (handoff mock 6b): stage filter chips over a flat grid
  * table — client, discovery stage, liquid capital, video watched, last
@@ -79,22 +113,51 @@ export async function InvestorsDirectory({
   const activeChip = CHIPS.find((chip) => chip.key === chipKey) ?? CHIPS[0];
   const filtered = searched.filter(activeChip.matches);
 
-  const page = Math.max(1, Number.parseInt(param(params, "page") ?? "1", 10) || 1);
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const currentPage = Math.min(page, pageCount);
-  const rows = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  // Column sorting: clicking Liquid capital or Video watched orders by that
+  // column, highest first; clicking again flips it. Default is store order.
+  const sortParam = param(params, "sort");
+  const sortKey: SortKey | null = sortParam === "capital" || sortParam === "video" ? sortParam : null;
+  const sortDir = param(params, "dir") === "asc" ? "asc" : "desc";
+  const sorted = sortKey
+    ? [...filtered].sort((a, b) => {
+        const rank = SORT_RANK[sortKey];
+        return sortDir === "asc" ? rank(a) - rank(b) : rank(b) - rank(a);
+      })
+    : filtered;
 
-  const hrefFor = (chipKey: string, pageNumber = 1) => {
+  const page = Math.max(1, Number.parseInt(param(params, "page") ?? "1", 10) || 1);
+  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const rows = sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  const hrefFor = (
+    chipKey: string,
+    pageNumber = 1,
+    sort: { key: SortKey; dir: "asc" | "desc" } | null = sortKey
+      ? { key: sortKey, dir: sortDir }
+      : null,
+  ) => {
     const query = new URLSearchParams();
     if (q) query.set("q", q);
     if (chipKey !== "all") {
       const isStage = DISCOVERY_STAGES.some((stage) => String(stage.id) === chipKey);
       query.set(isStage ? "stage" : "chip", chipKey);
     }
+    if (sort) {
+      query.set("sort", sort.key);
+      if (sort.dir === "asc") query.set("dir", "asc");
+    }
     if (pageNumber > 1) query.set("page", String(pageNumber));
     const qs = query.toString();
     return qs ? `${basePath}?${qs}` : basePath;
   };
+
+  // First click sorts highest-first; a second click flips to lowest-first.
+  const sortHref = (key: SortKey) =>
+    hrefFor(activeChip.key, 1, {
+      key,
+      dir: sortKey === key && sortDir === "desc" ? "asc" : "desc",
+    });
 
   return (
     <>
@@ -176,9 +239,19 @@ export async function InvestorsDirectory({
             >
               <span>Client</span>
               <span>Stage</span>
-              <span>Liquid capital</span>
-              <span>Video watched</span>
-              <span>Last activity</span>
+              <SortHeader
+                label="Liquid capital"
+                href={sortHref("capital")}
+                active={sortKey === "capital"}
+                dir={sortDir}
+              />
+              <SortHeader
+                label="Video watched"
+                href={sortHref("video")}
+                active={sortKey === "video"}
+                dir={sortDir}
+              />
+              <span>Activity</span>
               <span>Next action</span>
             </div>
 
@@ -234,16 +307,35 @@ export async function InvestorsDirectory({
                     </span>
                   </span>
                   <span className="tabular truncate text-secondary-foreground">{capital}</span>
-                  <VideoWatchedBar
+                  <VideoWatchedRing
                     percent={row.video?.highest_percent_watched ?? null}
                     completed={row.video?.completed ?? false}
                   />
-                  <span className="tabular truncate text-[13.5px] leading-[1.45] text-faint-foreground">
-                    {formatRelative(row.lastActivityAt)}
+                  <span className="min-w-0">
+                    <span className="tabular block truncate text-[13.5px] leading-[1.45] text-secondary-foreground">
+                      {formatRelative(row.lastActivityAt)}
+                    </span>
+                    <span className="tabular block truncate text-[12px] text-ghost-foreground">
+                      joined {formatDate(row.lead.created_at)}
+                    </span>
                   </span>
-                  <span className="truncate text-[13.5px] leading-[1.45] font-semibold text-secondary-foreground">
-                    {row.nextAction}
-                  </span>
+                  {row.nextAction === "—" ? (
+                    <span className="text-[13.5px] text-ghost-foreground">—</span>
+                  ) : (
+                    (() => {
+                      const bubble = actionBubble(row);
+                      return (
+                        <span className="min-w-0">
+                          <span
+                            className="inline-flex max-w-full items-center rounded-full px-[11px] py-1 text-[12.5px] font-bold"
+                            style={{ color: bubble.color, backgroundColor: bubble.tint }}
+                          >
+                            <span className="truncate">{row.nextAction}</span>
+                          </span>
+                        </span>
+                      );
+                    })()
+                  )}
                 </Link>
               );
             })}
@@ -280,6 +372,34 @@ export async function InvestorsDirectory({
         </div>
       </PageBody>
     </>
+  );
+}
+
+/** A sortable column header: click to order by it, click again to flip. */
+function SortHeader({
+  label,
+  href,
+  active,
+  dir,
+}: {
+  label: string;
+  href: string;
+  active: boolean;
+  dir: "asc" | "desc";
+}) {
+  const Icon = active ? (dir === "desc" ? ArrowDown : ArrowUp) : ArrowUpDown;
+  return (
+    <Link
+      href={href}
+      aria-sort={active ? (dir === "desc" ? "descending" : "ascending") : undefined}
+      className={cn(
+        "inline-flex items-center gap-1 uppercase transition-colors hover:text-foreground",
+        active && "text-foreground",
+      )}
+    >
+      {label}
+      <Icon className="size-3 shrink-0" strokeWidth={2.2} />
+    </Link>
   );
 }
 
