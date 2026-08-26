@@ -472,6 +472,23 @@ export interface PortalStore {
   /** Development helper: wipe progress so the demo flow can be replayed. */
   resetLeadProgress(leadId: string): Promise<void>;
 
+  /**
+   * Hard-delete leads and every per-lead record (video progress,
+   * questionnaires, events, notes, appointments, FDD audit). Provenance
+   * references on clients/opportunities are detached (source_lead_id set
+   * null), never deleted — the platform domain keeps its own history.
+   * Returns how many of the requested leads existed and were removed.
+   */
+  deleteLeads(ids: string[]): Promise<number>;
+
+  /**
+   * Delete the questionnaire responses and submissions for these leads —
+   * clears the advisor's reading queue while leaving the leads themselves
+   * (and their milestone timestamps) intact. Returns how many leads had a
+   * questionnaire removed.
+   */
+  deleteQuestionnairesForLeads(leadIds: string[]): Promise<number>;
+
   // -------------------------------------------------------------------------
   // Advisor backend. Pilot scale is one brand / one advisor, so list methods
   // return full tables and pages filter in application code — a deliberate

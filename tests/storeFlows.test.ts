@@ -286,3 +286,49 @@ describe("FDD provider webhook handling", () => {
     expect(updated?.current_stage).toBe("NOT_A_FIT");
   });
 });
+
+describe("bulk deletion", () => {
+  function questionnaireFor(leadId: string) {
+    return store.createQuestionnaire({
+      lead_id: leadId,
+      investment_timeline: "within-30-days",
+      liquid_capital: "250k-499k",
+      net_worth: "1m-2.4m",
+      business_ownership: "no",
+      primary_interest: "Territory availability",
+      remaining_questions: "",
+      decision_criteria: "Unit economics",
+      decision_participants: "spouse",
+      accuracy_confirmed: true,
+    });
+  }
+
+  it("deletes leads with their per-lead records and leaves others intact", async () => {
+    const doomed = await createLead();
+    const survivor = await createLead();
+    await questionnaireFor(doomed.id);
+    await store.createNote(doomed.id, "staff-x", "note");
+    await questionnaireFor(survivor.id);
+
+    const deleted = await store.deleteLeads([doomed.id, "no-such-id"]);
+    expect(deleted).toBe(1);
+
+    expect(await store.getLeadById(doomed.id)).toBeNull();
+    expect(await store.getQuestionnaire(doomed.id)).toBeNull();
+    expect(await store.getNotesForLead(doomed.id)).toHaveLength(0);
+    expect(await store.getLeadById(survivor.id)).not.toBeNull();
+    expect(await store.getQuestionnaire(survivor.id)).not.toBeNull();
+  });
+
+  it("deletes questionnaires without touching the lead", async () => {
+    const lead = await createLead();
+    await questionnaireFor(lead.id);
+
+    const deleted = await store.deleteQuestionnairesForLeads([lead.id]);
+    expect(deleted).toBe(1);
+    expect(await store.getQuestionnaire(lead.id)).toBeNull();
+    expect(await store.getLeadById(lead.id)).not.toBeNull();
+
+    expect(await store.deleteQuestionnairesForLeads([lead.id])).toBe(0);
+  });
+});

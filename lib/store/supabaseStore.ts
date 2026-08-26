@@ -301,6 +301,67 @@ export function createSupabaseStore(): PortalStore {
       return Boolean(data && data.length > 0);
     },
 
+    async deleteLeads(ids: string[]): Promise<number> {
+      if (ids.length === 0) return 0;
+      const { data: existing, error: lookupError } = await db
+        .from("leads")
+        .select("id")
+        .in("id", ids);
+      if (lookupError) throw new Error(`Failed to look up leads: ${lookupError.message}`);
+      const doomed = (existing ?? []).map((row) => (row as { id: string }).id);
+      if (doomed.length === 0) return 0;
+
+      // clients/opportunities keep their rows — provenance detaches (these
+      // FKs have no cascade, so the delete would otherwise be rejected).
+      const detachClients = await db
+        .from("clients")
+        .update({ source_lead_id: null })
+        .in("source_lead_id", doomed);
+      if (detachClients.error) {
+        throw new Error(`Failed to detach clients: ${detachClients.error.message}`);
+      }
+      const detachOpportunities = await db
+        .from("opportunities")
+        .update({ source_lead_id: null })
+        .in("source_lead_id", doomed);
+      if (detachOpportunities.error) {
+        throw new Error(`Failed to detach opportunities: ${detachOpportunities.error.message}`);
+      }
+
+      // Every per-lead table cascades from leads (see migrations 0001–0014).
+      const { error } = await db.from("leads").delete().in("id", doomed);
+      if (error) throw new Error(`Failed to delete leads: ${error.message}`);
+      return doomed.length;
+    },
+
+    async deleteQuestionnairesForLeads(leadIds: string[]): Promise<number> {
+      if (leadIds.length === 0) return 0;
+      const { data: existing, error: lookupError } = await db
+        .from("questionnaire_responses")
+        .select("lead_id")
+        .in("lead_id", leadIds);
+      if (lookupError) {
+        throw new Error(`Failed to look up questionnaires: ${lookupError.message}`);
+      }
+      const targets = [...new Set((existing ?? []).map((row) => (row as { lead_id: string }).lead_id))];
+      if (targets.length === 0) return 0;
+
+      // Answers cascade from submissions (migration 0004).
+      const submissions = await db
+        .from("questionnaire_submissions")
+        .delete()
+        .in("lead_id", leadIds);
+      if (submissions.error) {
+        throw new Error(`Failed to delete submissions: ${submissions.error.message}`);
+      }
+      const { error } = await db
+        .from("questionnaire_responses")
+        .delete()
+        .in("lead_id", leadIds);
+      if (error) throw new Error(`Failed to delete questionnaires: ${error.message}`);
+      return targets.length;
+    },
+
     async resetLeadProgress(leadId: string): Promise<void> {
       await db.from("video_progress").delete().eq("lead_id", leadId);
       await db.from("questionnaire_responses").delete().eq("lead_id", leadId);

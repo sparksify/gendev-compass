@@ -545,6 +545,96 @@ export function createDevStore(): PortalStore {
       return data.fdd_audit_log.some((e) => e.external_event_id === externalEventId);
     },
 
+    async deleteLeads(ids: string[]): Promise<number> {
+      return withLock(async () => {
+        const data = await readData();
+        const doomed = new Set(
+          data.leads.filter((l) => ids.includes(l.id)).map((l) => l.id),
+        );
+        if (doomed.size === 0) return 0;
+
+        const removedSubmissions = new Set(
+          data.questionnaire_submissions
+            .filter((s) => doomed.has(s.lead_id))
+            .map((s) => s.id),
+        );
+        data.leads = data.leads.filter((l) => !doomed.has(l.id));
+        data.video_progress = data.video_progress.filter((v) => !doomed.has(v.lead_id));
+        data.questionnaire_responses = data.questionnaire_responses.filter(
+          (q) => !doomed.has(q.lead_id),
+        );
+        data.ownership_profiles = data.ownership_profiles.filter((o) => !doomed.has(o.lead_id));
+        data.portal_events = data.portal_events.filter((e) => !doomed.has(e.lead_id));
+        data.questionnaire_submissions = data.questionnaire_submissions.filter(
+          (s) => !doomed.has(s.lead_id),
+        );
+        data.questionnaire_answers = data.questionnaire_answers.filter(
+          (a) => !removedSubmissions.has(a.submission_id),
+        );
+        data.advisor_notes = data.advisor_notes.filter((n) => !doomed.has(n.lead_id));
+        data.appointments = data.appointments.filter((a) => !doomed.has(a.lead_id));
+        data.fdd_audit_log = data.fdd_audit_log.filter((e) => !doomed.has(e.lead_id));
+        data.territory_searches = data.territory_searches.filter((t) => !doomed.has(t.lead_id));
+        data.territory_review_requests = data.territory_review_requests.filter(
+          (t) => !doomed.has(t.lead_id),
+        );
+        // Nullable references detach rather than cascade — mirrors Postgres.
+        for (const client of data.clients) {
+          if (client.source_lead_id && doomed.has(client.source_lead_id)) {
+            client.source_lead_id = null;
+          }
+        }
+        for (const opportunity of data.opportunities) {
+          if (opportunity.source_lead_id && doomed.has(opportunity.source_lead_id)) {
+            opportunity.source_lead_id = null;
+          }
+        }
+        for (const event of data.activity_events) {
+          if (event.lead_id && doomed.has(event.lead_id)) event.lead_id = null;
+        }
+        for (const delivery of data.notification_deliveries) {
+          if (delivery.lead_id && doomed.has(delivery.lead_id)) delivery.lead_id = null;
+        }
+        for (const delivery of data.tracking_deliveries) {
+          if (delivery.lead_id && doomed.has(delivery.lead_id)) delivery.lead_id = null;
+        }
+        for (const consent of data.portal_consent) {
+          if (consent.lead_id && doomed.has(consent.lead_id)) consent.lead_id = null;
+        }
+        await writeData(data);
+        return doomed.size;
+      });
+    },
+
+    async deleteQuestionnairesForLeads(leadIds: string[]): Promise<number> {
+      return withLock(async () => {
+        const data = await readData();
+        const targets = new Set(leadIds);
+        const removed = new Set(
+          data.questionnaire_responses
+            .filter((q) => targets.has(q.lead_id))
+            .map((q) => q.lead_id),
+        );
+        if (removed.size === 0) return 0;
+        const removedSubmissions = new Set(
+          data.questionnaire_submissions
+            .filter((s) => targets.has(s.lead_id))
+            .map((s) => s.id),
+        );
+        data.questionnaire_responses = data.questionnaire_responses.filter(
+          (q) => !targets.has(q.lead_id),
+        );
+        data.questionnaire_submissions = data.questionnaire_submissions.filter(
+          (s) => !targets.has(s.lead_id),
+        );
+        data.questionnaire_answers = data.questionnaire_answers.filter(
+          (a) => !removedSubmissions.has(a.submission_id),
+        );
+        await writeData(data);
+        return removed.size;
+      });
+    },
+
     async resetLeadProgress(leadId: string): Promise<void> {
       await withLock(async () => {
         const data = await readData();
