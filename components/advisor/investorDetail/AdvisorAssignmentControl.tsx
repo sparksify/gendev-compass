@@ -14,9 +14,9 @@ interface AdvisorOption {
 /**
  * Compact assignment control for the header's meta grid — an avatar + first
  * name with a transparent native <select> overlay, so reassigning feels
- * like a quick status change rather than filling out a form field. Same
- * PATCH endpoint as the old AssignAdvisorSelect. Admin-only; non-admins see
- * plain read-only text instead (see ClientHeaderCard).
+ * like a quick status change rather than filling out a form field.
+ * Admin-only; non-admins see the assigned advisor's name as plain text
+ * instead (see the client detail page's Record block).
  */
 export function AdvisorAssignmentControl({
   investorId,

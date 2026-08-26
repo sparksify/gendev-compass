@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CSV_TEMPLATE_HEADER } from "@/lib/territory/csv";
 import { getDefaultRadiusMiles } from "@/lib/config/territory";
 import { getTerritoryWebhookUrl } from "@/lib/territory/webhook";
+import { TerritoryPageShell } from "@/components/advisor/territories/TerritoryPageShell";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,8 @@ export default async function TerritorySettingsPage() {
   const brands = await getStore().listBrands();
 
   return (
-    <div className="space-y-4">
+    <TerritoryPageShell subtitle="Environment configuration and CSV import format">
+      <div className="flex flex-col gap-4">
       <Card>
         <CardContent className="p-5">
           <p className="text-[13.5px] font-bold text-foreground">Environment configuration</p>
@@ -90,6 +92,7 @@ export default async function TerritorySettingsPage() {
           </pre>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </TerritoryPageShell>
   );
 }

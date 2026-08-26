@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "@fontsource-variable/inter";
 import { FddSection } from "@/components/adminSections/FddSection";
+import { PlatformPageShell } from "@/components/admin/PlatformPageShell";
 
 export const metadata: Metadata = { title: "FDD Requests" };
 export const dynamic = "force-dynamic";
@@ -11,14 +12,13 @@ export const dynamic = "force-dynamic";
  */
 export default function AdminFddPage() {
   return (
-    <div className="mx-auto max-w-3xl space-y-5 font-inter">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">FDD Requests</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Franchise Disclosure Document workflow: status, audit timeline, and manual retries.
-        </p>
+    <PlatformPageShell
+      title="FDD Requests"
+      subtitle="Franchise Disclosure Document workflow: status, audit timeline, and manual retries"
+    >
+      <div className="max-w-3xl font-inter">
+        <FddSection authHeaders={{}} hideHeader />
       </div>
-      <FddSection authHeaders={{}} hideHeader />
-    </div>
+    </PlatformPageShell>
   );
 }

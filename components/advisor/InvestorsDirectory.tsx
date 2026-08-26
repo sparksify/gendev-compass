@@ -1,72 +1,62 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Search } from "lucide-react";
 import { requireStaffUser } from "@/lib/advisor/auth";
+import { isAdmin } from "@/lib/advisor/access";
 import { filterInvestorRows, loadInvestorRows, type InvestorRow } from "@/lib/advisor/investors";
 import { labelForValue } from "@/lib/advisor/questionnaireCatalog";
-import { LIQUID_CAPITAL_RANGES, NET_WORTH_RANGES } from "@/types/questionnaire";
+import { formatRelative } from "@/lib/advisor/format";
+import { compactMoney } from "@/lib/advisor/money";
+import {
+  DISCOVERY_STAGES,
+  discoveryStageIdFor,
+  SIGNAL,
+  stageChipFor,
+} from "@/lib/advisor/discoveryStages";
 import { cn } from "@/lib/utils";
-import { ClientsWithPanel, type ClientListRow } from "@/components/advisor/clientsPanel/ClientsWithPanel";
-
-// Ordinal position of each range, so the table can sort "Liquid Capital" /
-// "Net Worth" by actual dollar order instead of alphabetically.
-const liquidCapitalOrder: Map<string, number> = new Map(LIQUID_CAPITAL_RANGES.map((r, i) => [r.value, i]));
-const netWorthOrder: Map<string, number> = new Map(NET_WORTH_RANGES.map((r, i) => [r.value, i]));
+import { PageBody, PageHeader } from "@/components/advisor/PageHeader";
+import { INK_BUTTON, SECONDARY_BUTTON } from "@/components/advisor/controls";
+import { VideoWatchedBar } from "@/components/advisor/VideoWatchedBar";
 
 export type InvestorsSearchParams = Record<string, string | string[] | undefined>;
+
+const PAGE_SIZE = 15;
+
+/** Table columns, per the handoff's grid ratios. */
+const GRID = "grid-cols-[2.1fr_1.7fr_1.1fr_1.3fr_1fr_1.6fr]";
 
 function param(params: InvestorsSearchParams, key: string): string | undefined {
   const value = params[key];
   return typeof value === "string" && value !== "" ? value : undefined;
 }
 
-/** Filter-chip groups over the pipeline stages. */
-const CHIPS: Array<{ key: string; label: string; stages: string[] | null }> = [
-  { key: "all", label: "All", stages: null },
-  { key: "new", label: "New", stages: ["NEW_LEAD", "PORTAL_ACTIVE"] },
-  {
-    key: "engaged",
-    label: "Engaged",
-    stages: [
-      "ENGAGED",
-      "QUESTIONNAIRE_STARTED",
-      "QUESTIONNAIRE_COMPLETED",
-      "CONSULTATION_SCHEDULED",
-      "CONSULTATION_COMPLETED",
-      "FDD_SENT",
-      "FDD_ACKNOWLEDGED",
-      "DUE_DILIGENCE",
-      "QUALIFIED",
-    ],
-  },
-  { key: "signed", label: "Signed", stages: ["CLOSED_INVESTED"] },
-];
-
-function toListRow(row: InvestorRow): ClientListRow {
-  const liquidCapitalValue = row.questionnaire?.liquid_capital ?? row.lead.initial_liquid_capital;
-  const netWorthValue = row.questionnaire?.net_worth ?? row.lead.initial_net_worth;
-  return {
-    id: row.lead.id,
-    name: `${row.lead.first_name} ${row.lead.last_name}`,
-    email: row.lead.email,
-    brandName: row.brand?.name ?? null,
-    stage: row.lead.current_stage,
-    source: row.lead.source,
-    territories: row.lead.territories_wanted ?? null,
-    videoPercent: row.video ? Math.min(100, Math.max(0, row.video.highest_percent_watched)) : null,
-    videoCompleted: row.video?.completed ?? false,
-    liquidCapital: labelForValue(liquidCapitalValue),
-    liquidCapitalRank: liquidCapitalValue ? (liquidCapitalOrder.get(liquidCapitalValue) ?? null) : null,
-    netWorth: labelForValue(netWorthValue),
-    netWorthRank: netWorthValue ? (netWorthOrder.get(netWorthValue) ?? null) : null,
-    createdAt: row.lead.created_at,
-    lastActivityAt: row.lastActivityAt,
-  };
+interface Chip {
+  key: string;
+  label: string;
+  color: string | null;
+  matches: (row: InvestorRow) => boolean;
 }
 
+const CHIPS: Chip[] = [
+  { key: "all", label: "All", color: null, matches: () => true },
+  {
+    key: "followup",
+    label: "Follow-up",
+    color: SIGNAL.alert,
+    matches: (row) => row.followUp.needed,
+  },
+  ...DISCOVERY_STAGES.map((stage) => ({
+    key: String(stage.id),
+    label: stage.short,
+    color: stage.color,
+    matches: (row: InvestorRow) => discoveryStageIdFor(row.stage) === stage.id,
+  })),
+];
+
 /**
- * The clients list per the client-panel handoff: header + Add Client,
- * stage filter chips with counts, and the table that opens the slide-in
- * Client Details drawer. Search comes from the shell's top-bar field (?q=).
+ * The clients list (handoff mock 6b): stage filter chips over a flat grid
+ * table — client, discovery stage, liquid capital, video watched, last
+ * activity, next action. Every row links to the client detail page; search
+ * comes from the header field (?q=).
  */
 export async function InvestorsDirectory({
   params,
@@ -83,69 +73,242 @@ export async function InvestorsDirectory({
   const q = param(params, "q");
   const searched = q ? filterInvestorRows(allRows, { search: q }) : allRows;
 
-  const chipKey = param(params, "chip") ?? "all";
-  const activeChip = CHIPS.find((c) => c.key === chipKey) ?? CHIPS[0];
-  const rows = activeChip.stages
-    ? searched.filter((r) => activeChip.stages!.includes(r.lead.current_stage))
-    : searched;
+  // `stage` is the discovery stage (1–5); `chip` carries the non-stage
+  // filters. Both land on the same chip row.
+  const chipKey = param(params, "stage") ?? param(params, "chip") ?? "all";
+  const activeChip = CHIPS.find((chip) => chip.key === chipKey) ?? CHIPS[0];
+  const filtered = searched.filter(activeChip.matches);
 
-  const countFor = (chip: (typeof CHIPS)[number]) =>
-    chip.stages ? searched.filter((r) => chip.stages!.includes(r.lead.current_stage)).length : searched.length;
+  const page = Math.max(1, Number.parseInt(param(params, "page") ?? "1", 10) || 1);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const rows = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
-  const hrefFor = (chip: (typeof CHIPS)[number]) => {
+  const hrefFor = (chipKey: string, pageNumber = 1) => {
     const query = new URLSearchParams();
     if (q) query.set("q", q);
-    if (chip.key !== "all") query.set("chip", chip.key);
+    if (chipKey !== "all") {
+      const isStage = DISCOVERY_STAGES.some((stage) => String(stage.id) === chipKey);
+      query.set(isStage ? "stage" : "chip", chipKey);
+    }
+    if (pageNumber > 1) query.set("page", String(pageNumber));
     const qs = query.toString();
     return qs ? `${basePath}?${qs}` : basePath;
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-[21px] font-extrabold tracking-[-0.01em] text-foreground">{title}</h1>
-          <p className="text-[13px] text-muted-foreground">
-            {allRows.length} active client{allRows.length === 1 ? "" : "s"}
-            {q && ` · matching “${q}”`}
-          </p>
-        </div>
-        <Link
-          href="/create-lead"
-          className="inline-flex items-center gap-1.5 rounded-[9px] bg-primary px-3.5 py-2 text-[13px] font-bold text-white shadow-[0_2px_6px_rgb(36_99_235/0.3)] transition-colors hover:bg-primary-hover"
-        >
-          <Plus className="size-4" />
-          Add Client
-        </Link>
-      </div>
+    <>
+      <PageHeader
+        title={title}
+        subtitle={
+          <>
+            {allRows.length} active
+            {q && <> · matching &ldquo;{q}&rdquo;</>}
+          </>
+        }
+        actions={
+          <>
+            <form action={basePath} method="get" className="hidden sm:block">
+              <label className="flex w-[270px] items-center gap-2 rounded-control border border-border px-[11px] py-[7px] text-[12.5px]">
+                <Search className="size-3.5 shrink-0 text-faint-foreground" strokeWidth={2} />
+                <input
+                  type="search"
+                  name="q"
+                  defaultValue={q ?? ""}
+                  placeholder="Search clients…"
+                  aria-label="Search clients"
+                  className="w-full bg-transparent text-foreground placeholder:text-faint-foreground focus:outline-none"
+                />
+              </label>
+            </form>
+            {isAdmin(user) && (
+              <a href="/api/advisor/export" className={SECONDARY_BUTTON} download>
+                Export
+              </a>
+            )}
+            <Link href="/create-lead" className={INK_BUTTON}>
+              New client
+            </Link>
+          </>
+        }
+      />
 
-      {/* Filter chips */}
-      <div className="flex flex-wrap gap-2">
-        {CHIPS.map((chip) => {
-          const active = chip.key === activeChip.key;
-          const count = countFor(chip);
-          return (
-            <Link
-              key={chip.key}
-              href={hrefFor(chip)}
-              aria-current={active ? "true" : undefined}
+      <PageBody className="flex flex-col gap-[18px]">
+        {/* Filter chips */}
+        <div className="flex flex-wrap gap-2">
+          {CHIPS.map((chip) => {
+            const active = chip.key === activeChip.key;
+            const count = searched.filter(chip.matches).length;
+            return (
+              <Link
+                key={chip.key}
+                href={hrefFor(chip.key)}
+                aria-current={active ? "true" : undefined}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full px-[13px] py-1.5 text-[11.5px] transition-colors",
+                  active
+                    ? "bg-foreground font-bold text-white"
+                    : "border border-border font-semibold hover:bg-surface-raised",
+                )}
+                style={active ? undefined : { color: chip.color ?? "#667085" }}
+              >
+                {!active && chip.color && (
+                  <span
+                    aria-hidden
+                    className="size-[5px] rounded-full"
+                    style={{ backgroundColor: chip.color }}
+                  />
+                )}
+                {chip.label} · {count}
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <div className="min-w-[900px]">
+            <div
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] transition-colors",
-                active
-                  ? "border-[#b9cffc] bg-primary-soft font-bold text-primary"
-                  : "border-border bg-card font-semibold text-muted-foreground hover:text-foreground",
+                "grid gap-x-4 border-b border-border py-2 text-[9.5px] font-bold uppercase tracking-[0.12em] text-faint-foreground",
+                GRID,
               )}
             >
-              {chip.label}
-              <span className={cn("text-[11.5px] font-semibold", active ? "text-[#7fa4f5]" : "text-faint-foreground")}>
-                {count}
-              </span>
-            </Link>
-          );
-        })}
-      </div>
+              <span>Client</span>
+              <span>Stage</span>
+              <span>Liquid capital</span>
+              <span>Video watched</span>
+              <span>Last activity</span>
+              <span>Next action</span>
+            </div>
 
-      <ClientsWithPanel rows={rows.map(toListRow)} />
-    </div>
+            {rows.length === 0 && (
+              <p className="py-10 text-center text-[13px] text-muted-foreground">
+                No clients match this filter.
+              </p>
+            )}
+
+            {rows.map((row) => {
+              const chip = stageChipFor(row.stage);
+              const capital = compactMoney(
+                labelForValue(row.questionnaire?.liquid_capital ?? row.lead.initial_liquid_capital),
+              );
+              return (
+                <Link
+                  key={row.lead.id}
+                  href={`/advisor/investors/${row.lead.id}`}
+                  className={cn(
+                    "grid items-center gap-x-4 border-b border-border-soft py-[13px] text-[13px] transition-colors hover:bg-surface-raised",
+                    GRID,
+                  )}
+                >
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-[7px] font-bold text-foreground">
+                      <span className="truncate">
+                        {row.lead.first_name} {row.lead.last_name}
+                      </span>
+                      {row.followUp.needed && (
+                        <span
+                          aria-label="Follow-up due"
+                          title={row.followUp.reasons[0]}
+                          className="size-1.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: SIGNAL.alert }}
+                        />
+                      )}
+                    </span>
+                    <span className="block truncate text-[11px] text-faint-foreground">
+                      {row.lead.email}
+                    </span>
+                  </span>
+                  <span>
+                    <span
+                      className="inline-flex items-center gap-1.5 rounded-full px-[11px] py-1 text-[11px] font-bold"
+                      style={{ color: chip.color, backgroundColor: chip.tint }}
+                    >
+                      <span
+                        aria-hidden
+                        className="size-[5px] rounded-full"
+                        style={{ backgroundColor: chip.color }}
+                      />
+                      {chip.label}
+                    </span>
+                  </span>
+                  <span className="tabular truncate text-secondary-foreground">{capital}</span>
+                  <VideoWatchedBar
+                    percent={row.video?.highest_percent_watched ?? null}
+                    completed={row.video?.completed ?? false}
+                  />
+                  <span className="tabular truncate text-xs text-faint-foreground">
+                    {formatRelative(row.lastActivityAt)}
+                  </span>
+                  <span className="truncate text-xs font-semibold text-secondary-foreground">
+                    {row.nextAction}
+                  </span>
+                </Link>
+              );
+            })}
+
+            {/* Footer */}
+            <div className="flex items-center justify-between gap-4 pt-3.5 text-[11.5px] text-faint-foreground">
+              <span>
+                Showing {rows.length} of {filtered.length}
+              </span>
+              {pageCount > 1 && (
+                <span className="flex gap-1.5">
+                  <PageLink
+                    href={hrefFor(activeChip.key, currentPage - 1)}
+                    disabled={currentPage === 1}
+                    label="←"
+                  />
+                  {Array.from({ length: pageCount }, (_, index) => index + 1).map((number) => (
+                    <PageLink
+                      key={number}
+                      href={hrefFor(activeChip.key, number)}
+                      label={String(number)}
+                      current={number === currentPage}
+                    />
+                  ))}
+                  <PageLink
+                    href={hrefFor(activeChip.key, currentPage + 1)}
+                    disabled={currentPage === pageCount}
+                    label="→"
+                  />
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </PageBody>
+    </>
+  );
+}
+
+function PageLink({
+  href,
+  label,
+  current,
+  disabled,
+}: {
+  href: string;
+  label: string;
+  current?: boolean;
+  disabled?: boolean;
+}) {
+  const className = cn(
+    "rounded-md border border-border px-2.5 py-1",
+    current && "font-bold text-foreground",
+    disabled && "text-ghost-foreground",
+  );
+  if (disabled) {
+    return (
+      <span aria-disabled className={className}>
+        {label}
+      </span>
+    );
+  }
+  return (
+    <Link href={href} aria-current={current ? "page" : undefined} className={cn(className, "hover:bg-surface-raised")}>
+      {label}
+    </Link>
   );
 }

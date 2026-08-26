@@ -2,30 +2,27 @@ import { notFound } from "next/navigation";
 import { requireStaffUser } from "@/lib/advisor/auth";
 import { isAdmin } from "@/lib/advisor/access";
 import { getSiteLogoUrl } from "@/lib/assets";
-import { AdminShell } from "@/components/admin/AdminShell";
-import { BrandBlock } from "@/components/layout/PortalShell";
+import { AdvisorShell } from "@/components/advisor/AdvisorShell";
+import { loadNavCounts } from "@/lib/advisor/navCounts";
 
 export const dynamic = "force-dynamic";
 
 /**
- * The unified admin dashboard (staff ADMIN role): /advisor/platform, its
- * section pages, and the Territory Advisor configuration. Lives in its own
- * (admin) route group so everything gets full-page chrome (grouped dark
- * sidebar + "Portal Admin" header) instead of the shared advisor header.
- * Same 404-for-unauthorized pattern as the rest of the advisor app.
+ * The admin sections (staff ADMIN role): /advisor/platform, its section
+ * pages, and the Territory Advisor configuration. They now share the advisor
+ * shell — the redesign has one rail with an ADMINISTRATION group, and each
+ * section carries its own tab row inside the page header. Same
+ * 404-for-unauthorized pattern as the rest of the advisor app.
  */
 export default async function PlatformAdminLayout({ children }: { children: React.ReactNode }) {
   const user = await requireStaffUser();
   if (!isAdmin(user)) notFound();
 
-  const logoUrl = await getSiteLogoUrl();
+  const [logoUrl, counts] = await Promise.all([getSiteLogoUrl(), loadNavCounts(user)]);
 
   return (
-    <AdminShell
-      brandBlock={<BrandBlock logoUrl={logoUrl} variant="sidebar" />}
-      userName={user.first_name}
-    >
+    <AdvisorShell logoUrl={logoUrl} userName={user.first_name} isAdmin counts={counts}>
       {children}
-    </AdminShell>
+    </AdvisorShell>
   );
 }

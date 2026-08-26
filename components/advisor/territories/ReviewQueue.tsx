@@ -2,36 +2,61 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { NativeSelect, Textarea } from "@/components/ui/form-fields";
-import { TERRITORY_REVIEW_STATUSES, TERRITORY_REVIEW_STATUS_LABELS } from "@/types/territory";
+import { ChevronDown } from "lucide-react";
+import { Textarea } from "@/components/ui/form-fields";
+import { INK_BUTTON_SM } from "@/components/advisor/controls";
+import { STATUS_META } from "@/components/territory/statusMeta";
+import { SIGNAL, DISCOVERY_STAGES } from "@/lib/advisor/discoveryStages";
+import {
+  TERRITORY_REVIEW_STATUSES,
+  TERRITORY_REVIEW_STATUS_LABELS,
+  type TerritoryResultStatus,
+  type TerritoryReviewRequestRecord,
+  type TerritoryReviewStatus,
+  type TerritorySearchRecord,
+} from "@/types/territory";
 import type { LeadRecord } from "@/types/lead";
-import type { TerritoryReviewRequestRecord, TerritoryReviewStatus, TerritorySearchRecord } from "@/types/territory";
 
-interface ReviewRow {
+export interface ReviewRow {
   review: TerritoryReviewRequestRecord;
   lead: LeadRecord | null;
   brandName: string;
   search: TerritorySearchRecord | null;
 }
 
-interface ReviewQueueProps {
-  rows: ReviewRow[];
-  staff: Array<{ id: string; name: string }>;
-}
-
-const STATUS_BADGE: Record<TerritoryReviewStatus, string> = {
-  new: "bg-primary-soft text-primary",
-  in_review: "bg-[#fef3c7] text-[#92400e]",
-  contacted: "bg-surface text-muted-foreground",
-  approved: "bg-success-soft text-success",
-  declined: "bg-destructive/10 text-destructive",
-  closed: "bg-surface text-faint-foreground",
+/** The result colors the handoff names, keyed to the shared status labels. */
+const RESULT_COLOR: Record<TerritoryResultStatus, string> = {
+  AVAILABLE: SIGNAL.success,
+  PARTIALLY_AVAILABLE: SIGNAL.warning,
+  UNAVAILABLE: SIGNAL.alert,
+  MANUAL_REVIEW: DISCOVERY_STAGES[1].color,
+  STATE_RESTRICTED: SIGNAL.neutral,
+  LOCATION_NOT_FOUND: SIGNAL.neutral,
+  BRAND_NOT_CONFIGURED: SIGNAL.neutral,
 };
 
-export function ReviewQueue({ rows: initialRows, staff }: ReviewQueueProps) {
+function reviewDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/**
+ * The review queue as flat rows (handoff mock 7a): "Name — Market (ZIP)"
+ * over the search result, with the assignee dropdown and a Review button on
+ * the right. Used both on its own tab and as a preview under the records
+ * table.
+ */
+export function TerritoryReviewRows({
+  rows: initialRows,
+  staff,
+  limit,
+}: {
+  rows: ReviewRow[];
+  staff: Array<{ id: string; name: string }>;
+  /** Cap for the preview under the records table. */
+  limit?: number;
+}) {
   const [rows, setRows] = useState(initialRows);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   async function patch(id: string, body: Record<string, unknown>) {
     const response = await fetch(`/api/advisor/territories/reviews/${id}`, {
@@ -45,86 +70,124 @@ export function ReviewQueue({ rows: initialRows, staff }: ReviewQueueProps) {
     }
   }
 
+  const visible = limit ? rows.slice(0, limit) : rows;
+
+  if (visible.length === 0) {
+    return <p className="py-3 text-[12.5px] text-muted-foreground">No review requests.</p>;
+  }
+
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">{rows.length} review request{rows.length === 1 ? "" : "s"}</p>
-      <div className="space-y-3">
-        {rows.map(({ review, lead, brandName, search }) => (
-          <Card key={review.id}>
-            <CardContent className="p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
+    <div>
+      {visible.map(({ review, lead, brandName, search }) => {
+        const status = search?.result_status as TerritoryResultStatus | undefined;
+        const market = search?.normalized_location ?? search?.raw_query ?? brandName;
+        const open = openId === review.id;
+        return (
+          <div key={review.id} className="border-b border-border-soft last:border-b-0">
+            <div className="flex flex-wrap items-center gap-3.5 py-3">
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13.5px] font-bold text-foreground">
                   {lead ? (
-                    <Link href={`/advisor/investors/${lead.id}`} className="font-medium text-primary hover:text-primary-hover">
+                    <Link href={`/advisor/investors/${lead.id}`} className="hover:underline">
                       {lead.first_name} {lead.last_name}
                     </Link>
                   ) : (
-                    <p className="font-medium text-foreground">Unknown prospect</p>
+                    "Unknown prospect"
                   )}
-                  <p className="mt-0.5 text-[12.5px] text-muted-foreground">
-                    {brandName}
-                    {search && <> · {search.normalized_location ?? search.raw_query} · {search.result_status}</>}
-                  </p>
-                  <p className="text-[11.5px] text-faint-foreground">{new Date(review.created_at).toLocaleString()}</p>
-                </div>
-                <Badge className={STATUS_BADGE[review.status]}>{TERRITORY_REVIEW_STATUS_LABELS[review.status]}</Badge>
-              </div>
+                  {market && <> — {market}</>}
+                </span>
+                <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                  Searched {reviewDate(review.created_at)} · result:{" "}
+                  {status ? (
+                    <strong className="font-bold" style={{ color: RESULT_COLOR[status] }}>
+                      {STATUS_META[status].label}
+                    </strong>
+                  ) : (
+                    <strong className="font-bold">{TERRITORY_REVIEW_STATUS_LABELS[review.status]}</strong>
+                  )}
+                  {review.prospect_message && <> — “{review.prospect_message}”</>}
+                </span>
+              </span>
 
-              {review.prospect_message && (
-                <p className="mt-3 rounded-control border border-border-soft bg-surface p-3 text-[13px] text-foreground">
-                  &ldquo;{review.prospect_message}&rdquo;
-                </p>
-              )}
-
-              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Status</label>
-                  <NativeSelect
-                    className="!py-1.5 text-xs"
-                    value={review.status}
-                    onChange={(e) => patch(review.id, { status: e.target.value })}
-                  >
-                    {TERRITORY_REVIEW_STATUSES.map((s) => (
-                      <option key={s} value={s}>{TERRITORY_REVIEW_STATUS_LABELS[s]}</option>
-                    ))}
-                  </NativeSelect>
-                </div>
-                <div>
-                  <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Assigned to</label>
-                  <NativeSelect
-                    className="!py-1.5 text-xs"
+              <span className="relative inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                Assign:{" "}
+                <span className="relative inline-flex items-center pr-4 font-bold text-foreground">
+                  <select
                     value={review.assigned_to ?? ""}
-                    onChange={(e) => patch(review.id, { assignedTo: e.target.value || null })}
+                    onChange={(event) => patch(review.id, { assignedTo: event.target.value || null })}
+                    aria-label="Assign reviewer"
+                    className="absolute inset-0 cursor-pointer appearance-none bg-transparent text-transparent outline-none"
                   >
                     <option value="">Unassigned</option>
-                    {staff.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
+                    {staff.map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {member.name}
+                      </option>
                     ))}
-                  </NativeSelect>
-                </div>
-              </div>
+                  </select>
+                  <span className="pointer-events-none">
+                    {staff.find((member) => member.id === review.assigned_to)?.name.split(" ")[0] ??
+                      "Unassigned"}
+                  </span>
+                  <ChevronDown className="pointer-events-none absolute right-0 size-3" />
+                </span>
+              </span>
 
-              <div className="mt-3">
-                <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Internal notes</label>
-                <Textarea
-                  rows={2}
-                  defaultValue={review.internal_notes ?? ""}
-                  onBlur={(e) => {
-                    if (e.target.value !== (review.internal_notes ?? "")) {
-                      patch(review.id, { internalNotes: e.target.value });
-                    }
-                  }}
-                />
+              <button
+                type="button"
+                onClick={() => setOpenId(open ? null : review.id)}
+                aria-expanded={open}
+                className={INK_BUTTON_SM}
+              >
+                Review
+              </button>
+            </div>
+
+            {open && (
+              <div className="grid gap-3 pb-4 sm:grid-cols-2">
+                <label className="text-[11px] font-medium text-muted-foreground">
+                  Status
+                  <select
+                    value={review.status}
+                    onChange={(event) => patch(review.id, { status: event.target.value })}
+                    className="mt-1.5 block w-full rounded-control border border-border bg-card px-3 py-1.5 text-xs text-foreground"
+                  >
+                    {TERRITORY_REVIEW_STATUSES.map((option: TerritoryReviewStatus) => (
+                      <option key={option} value={option}>
+                        {TERRITORY_REVIEW_STATUS_LABELS[option]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-[11px] font-medium text-muted-foreground sm:col-span-2">
+                  Internal notes
+                  <Textarea
+                    rows={2}
+                    className="mt-1.5"
+                    defaultValue={review.internal_notes ?? ""}
+                    onBlur={(event) => {
+                      if (event.target.value !== (review.internal_notes ?? "")) {
+                        patch(review.id, { internalNotes: event.target.value });
+                      }
+                    }}
+                  />
+                </label>
               </div>
-            </CardContent>
-          </Card>
-        ))}
-        {rows.length === 0 && (
-          <Card>
-            <CardContent className="p-6 text-center text-muted-foreground">No review requests yet.</CardContent>
-          </Card>
-        )}
-      </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
+}
+
+/** The standalone Review Queue tab. */
+export function ReviewQueue({
+  rows,
+  staff,
+}: {
+  rows: ReviewRow[];
+  staff: Array<{ id: string; name: string }>;
+}) {
+  return <TerritoryReviewRows rows={rows} staff={staff} />;
 }

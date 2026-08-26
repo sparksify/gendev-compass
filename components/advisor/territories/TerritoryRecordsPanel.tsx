@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, ChevronDown, ChevronUp, FileUp, Loader2, Plus, Trash2, Upload } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, FileUp, Loader2, Trash2, Upload } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label, NativeSelect, Textarea, FieldError } from "@/components/ui/form-fields";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
   PUBLIC_DISPLAY_LEVELS,
@@ -17,6 +16,7 @@ import {
   type TerritoryStatus,
 } from "@/types/territory";
 import { CSV_TEMPLATE_HEADER } from "@/lib/territory/csv";
+import { DISCOVERY_STAGES, SIGNAL } from "@/lib/advisor/discoveryStages";
 
 /** Statuses offered by the report-upload flow, reordered so the two the
  *  team actually uses day to day — reserving a territory or marking it
@@ -42,17 +42,27 @@ const STATUS_LABELS: Record<TerritoryStatus, string> = {
   archived: "Archived",
 };
 
-/** Same soft-color palette StageBadge uses elsewhere in the admin app —
- *  reused here rather than inventing a second color language. Applied to
- *  the status <select> itself (colored, not just a static badge) since
- *  status has to stay editable in place. */
-const STATUS_STYLES: Record<TerritoryStatus, string> = {
+/** The handoff's records legend: sold red, reserved amber, open green.
+ *  Applied to the status pill itself (which IS the control) rather than a
+ *  static badge, since status has to stay editable in place. */
+const STATUS_STYLES: Record<TerritoryStatus, { color: string; tint: string }> = {
+  available: { color: SIGNAL.success, tint: SIGNAL.successTint },
+  reserved: { color: SIGNAL.warning, tint: SIGNAL.warningTint },
+  pending: { color: DISCOVERY_STAGES[2].color, tint: DISCOVERY_STAGES[2].tint },
+  sold: { color: SIGNAL.alert, tint: SIGNAL.alertTint },
+  corporate: { color: DISCOVERY_STAGES[2].color, tint: DISCOVERY_STAGES[2].tint },
+  unavailable: { color: SIGNAL.alert, tint: SIGNAL.alertTint },
+  archived: { color: SIGNAL.neutral, tint: SIGNAL.neutralTint },
+};
+
+/** The same tones as a class string, for the report-preview select. */
+const STATUS_SELECT_CLASS: Record<TerritoryStatus, string> = {
   available: "border-success/30 bg-success-soft text-success",
-  reserved: "border-[#f2cf8a] bg-[#fef3c7] text-[#92400e]",
-  pending: "border-[#c9bcf5] bg-[#ede9fe] text-[#5b21b6]",
-  sold: "border-primary-soft-border bg-primary-soft text-primary",
-  corporate: "border-[#c9bcf5] bg-[#ede9fe] text-[#5b21b6]",
-  unavailable: "border-[#f5b8b8] bg-[#fee2e2] text-destructive",
+  reserved: "border-[#f3e2c8] bg-[#fffaeb] text-[#b45309]",
+  pending: "border-[#e0d2f9] bg-[#f5f3ff] text-[#6d28d9]",
+  sold: "border-[#f5b8b8] bg-[#fef3f2] text-[#b42318]",
+  corporate: "border-[#e0d2f9] bg-[#f5f3ff] text-[#6d28d9]",
+  unavailable: "border-[#f5b8b8] bg-[#fef3f2] text-[#b42318]",
   archived: "border-border bg-surface text-muted-foreground",
 };
 
@@ -62,11 +72,9 @@ const DISPLAY_LEVEL_LABELS: Record<PublicDisplayLevel, string> = {
   exact: "Exact",
 };
 
-const DISPLAY_LEVEL_STYLES: Record<PublicDisplayLevel, string> = {
-  hidden: "bg-surface text-muted-foreground",
-  generalized: "bg-primary-soft text-primary",
-  exact: "bg-success-soft text-success",
-};
+
+/** Records table columns, per the handoff's grid ratios. */
+const RECORDS_GRID = "grid-cols-[1.8fr_1.4fr_0.9fr_1.4fr_1fr_1fr]";
 
 interface ReportZipPreview {
   zipCode: string;
@@ -90,6 +98,11 @@ interface TerritoryRecordsPanelProps {
   brandId: string;
   initialTerritories: TerritoryDefinitionRecord[];
   initialZipCounts: Record<string, number>;
+  /** The create form is opened from the page header's "New territory". */
+  showCreate: boolean;
+  onCloseCreate: () => void;
+  /** Rendered between the records table and the import tools. */
+  afterTable?: React.ReactNode;
 }
 
 const emptyForm = {
@@ -106,10 +119,16 @@ const emptyForm = {
   reservedUntil: "",
 };
 
-export function TerritoryRecordsPanel({ brandId, initialTerritories, initialZipCounts }: TerritoryRecordsPanelProps) {
+export function TerritoryRecordsPanel({
+  brandId,
+  initialTerritories,
+  initialZipCounts,
+  showCreate,
+  onCloseCreate,
+  afterTable,
+}: TerritoryRecordsPanelProps) {
   const [territories, setTerritories] = useState(initialTerritories);
   const [zipCounts, setZipCounts] = useState(initialZipCounts);
-  const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -148,7 +167,7 @@ export function TerritoryRecordsPanel({ brandId, initialTerritories, initialZipC
       setTerritories((prev) => [data.territory, ...prev]);
       setZipCounts((prev) => ({ ...prev, [data.territory.id]: 0 }));
       setForm(emptyForm);
-      setShowCreate(false);
+      onCloseCreate();
     } catch {
       setError("Could not create territory — check your connection");
     } finally {
@@ -215,16 +234,7 @@ export function TerritoryRecordsPanel({ brandId, initialTerritories, initialZipC
   }
 
   return (
-    <div className="space-y-5">
-      <UploadReportCard brandId={brandId} onSaved={handleReportSaved} />
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">{territories.length} territor{territories.length === 1 ? "y" : "ies"}</p>
-        <Button type="button" size="sm" onClick={() => setShowCreate((v) => !v)}>
-          <Plus className="size-4" /> New Territory
-        </Button>
-      </div>
-
+    <div className="flex flex-col gap-[26px]">
       {showCreate && (
         <Card>
           <CardContent className="grid grid-cols-1 gap-3.5 p-5 sm:grid-cols-2">
@@ -293,51 +303,45 @@ export function TerritoryRecordsPanel({ brandId, initialTerritories, initialZipC
               <Button type="button" disabled={saving || !form.territoryName} onClick={createTerritory}>
                 {saving && <Loader2 className="animate-spin" />} Create Territory
               </Button>
-              <Button type="button" variant="ghost" onClick={() => setShowCreate(false)}>Cancel</Button>
+              <Button type="button" variant="ghost" onClick={onCloseCreate}>Cancel</Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      <Card>
-        <CardContent className="p-0">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-border text-xs uppercase tracking-wide text-faint-foreground">
-                <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-4 py-3 font-medium">Type</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Display</th>
-                <th className="px-4 py-3 font-medium">ZIPs / Radius</th>
-                <th className="px-4 py-3 font-medium" />
-              </tr>
-            </thead>
-            <tbody>
-              {territories.map((t) => (
-                <TerritoryRow
-                  key={t.id}
-                  territory={t}
-                  zipCount={zipCounts[t.id] ?? 0}
-                  expanded={expandedId === t.id}
-                  onToggle={() => setExpandedId((prev) => (prev === t.id ? null : t.id))}
-                  onStatusChange={(status) => updateStatus(t.id, status)}
-                  onZipCountChange={(count) => setZipCounts((prev) => ({ ...prev, [t.id]: count }))}
-                  onDelete={() => deleteTerritory(t.id)}
-                />
-              ))}
-              {territories.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                    No territories yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
+      <div className="overflow-x-auto">
+        <div className="min-w-[820px]">
+          <div className={cn(RECORDS_GRID, "grid gap-x-4 border-b border-border py-2 text-[9.5px] font-bold uppercase tracking-[0.12em] text-faint-foreground")}>
+            <span>Territory</span>
+            <span>Definition</span>
+            <span>ZIPs</span>
+            <span>Center</span>
+            <span>Status</span>
+            <span>Updated</span>
+          </div>
+          {territories.map((t) => (
+            <TerritoryRow
+              key={t.id}
+              territory={t}
+              zipCount={zipCounts[t.id] ?? 0}
+              expanded={expandedId === t.id}
+              onToggle={() => setExpandedId((prev) => (prev === t.id ? null : t.id))}
+              onStatusChange={(status) => updateStatus(t.id, status)}
+              onZipCountChange={(count) => setZipCounts((prev) => ({ ...prev, [t.id]: count }))}
+              onDelete={() => deleteTerritory(t.id)}
+            />
+          ))}
+          {territories.length === 0 && (
+            <p className="py-10 text-center text-[13px] text-muted-foreground">No territories yet.</p>
+          )}
+        </div>
+      </div>
 
-      <Card>
+      {afterTable}
+
+      <UploadReportCard brandId={brandId} onSaved={handleReportSaved} />
+
+      <Card id="zip-import">
         <CardContent className="space-y-3.5 p-5">
           <div className="flex items-center gap-2">
             <Upload className="size-4 text-muted-foreground" strokeWidth={1.8} />
@@ -455,37 +459,69 @@ function TerritoryRow({
     await fetch(`/api/advisor/territories/records/${territory.id}/zips/${id}`, { method: "DELETE" });
   }
 
+  const center =
+    territory.center_latitude !== null && territory.center_longitude !== null
+      ? `${territory.center_latitude.toFixed(3)}, ${territory.center_longitude.toFixed(3)}`
+      : (territory.territory_code ?? "—");
+  const definition =
+    territory.definition_type === "zip_list"
+      ? "ZIP list"
+      : territory.radius_miles
+        ? `Radius · ${territory.radius_miles} mi`
+        : "Radius";
+  const style = STATUS_STYLES[territory.status];
+
   return (
     <>
-      <tr className="border-b border-border-soft last:border-0">
-        <td className="px-4 py-3">
-          <p className="font-semibold text-foreground">{territory.territory_name}</p>
-          {territory.territory_code && <p className="text-xs text-muted-foreground">{territory.territory_code}</p>}
-        </td>
-        <td className="px-4 py-3 text-secondary-foreground">{territory.definition_type}</td>
-        <td className="px-4 py-3">
-          <NativeSelect
-            className={cn("w-auto min-w-[9.5rem] font-medium", STATUS_STYLES[territory.status])}
-            value={territory.status}
-            onChange={(e) => onStatusChange(e.target.value as TerritoryStatus)}
+      <div className={cn(RECORDS_GRID, "grid items-center gap-x-4 border-b border-border-soft py-3 text-[13px]")}>
+        <span className="min-w-0">
+          <span className="block truncate font-bold text-foreground">{territory.territory_name}</span>
+          {territory.territory_code && (
+            <span className="block truncate text-[11px] text-faint-foreground">
+              {territory.territory_code}
+            </span>
+          )}
+        </span>
+        <span className="truncate text-xs text-muted-foreground">{definition}</span>
+        <span className="tabular text-secondary-foreground">
+          {territory.definition_type === "zip_list" ? zipCount : "—"}
+        </span>
+        <span className="tabular truncate text-xs text-muted-foreground">{center}</span>
+        <span>
+          {/* Status stays editable in place — the pill IS the control. */}
+          <span
+            className="relative inline-flex items-center gap-1.5 rounded-full py-1 pl-[11px] pr-6 text-[11px] font-bold"
+            style={{ color: style.color, backgroundColor: style.tint }}
           >
-            {TERRITORY_STATUSES.map((s) => (
-              <option key={s} value={s}>{STATUS_LABELS[s]}</option>
-            ))}
-          </NativeSelect>
-        </td>
-        <td className="px-4 py-3">
-          <Badge className={DISPLAY_LEVEL_STYLES[territory.public_display_level]}>
-            {DISPLAY_LEVEL_LABELS[territory.public_display_level]}
-          </Badge>
-        </td>
-        <td className="px-4 py-3 text-secondary-foreground">
-          {territory.definition_type === "zip_list" ? `${zipCount} ZIPs` : territory.radius_miles ? `${territory.radius_miles} mi` : "—"}
-        </td>
-        <td className="px-4 py-3">
-          <div className="flex items-center justify-end gap-3">
+            <span aria-hidden className="size-[5px] rounded-full" style={{ backgroundColor: style.color }} />
+            <select
+              value={territory.status}
+              onChange={(e) => onStatusChange(e.target.value as TerritoryStatus)}
+              aria-label={`Status for ${territory.territory_name}`}
+              className="absolute inset-0 cursor-pointer appearance-none bg-transparent text-transparent outline-none"
+            >
+              {TERRITORY_STATUSES.map((option) => (
+                <option key={option} value={option}>
+                  {STATUS_LABELS[option]}
+                </option>
+              ))}
+            </select>
+            <span className="pointer-events-none">{STATUS_LABELS[territory.status]}</span>
+            <ChevronDown className="pointer-events-none absolute right-1.5 size-3" />
+          </span>
+        </span>
+        <span className="flex items-center justify-between gap-2">
+          <span className="tabular text-xs text-faint-foreground">
+            {new Date(territory.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+          </span>
+          <span className="flex items-center gap-2">
             {territory.definition_type === "zip_list" && (
-              <button type="button" onClick={handleToggle} className="text-muted-foreground hover:text-foreground">
+              <button
+                type="button"
+                onClick={handleToggle}
+                aria-label={`${expanded ? "Hide" : "Show"} ZIP codes for ${territory.territory_name}`}
+                className="text-faint-foreground hover:text-foreground"
+              >
                 {expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
               </button>
             )}
@@ -495,40 +531,38 @@ function TerritoryRow({
               disabled={deleting}
               title="Delete territory"
               aria-label={`Delete ${territory.territory_name}`}
-              className="text-muted-foreground hover:text-destructive disabled:opacity-50"
+              className="text-faint-foreground hover:text-destructive disabled:opacity-50"
             >
               {deleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
             </button>
-          </div>
-        </td>
-      </tr>
+          </span>
+        </span>
+      </div>
       {expanded && territory.definition_type === "zip_list" && (
-        <tr>
-          <td colSpan={6} className="bg-surface px-4 py-3.5">
-            <div className="flex flex-wrap gap-1.5">
-              {(zips ?? []).map((z) => (
-                <span key={z.id} className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-xs">
-                  {z.zip_code}
-                  <button type="button" onClick={() => removeZip(z.id)} className="text-muted-foreground hover:text-destructive" aria-label={`Remove ${z.zip_code}`}>
-                    ×
-                  </button>
-                </span>
-              ))}
-              {(zips ?? []).length === 0 && <span className="text-xs text-muted-foreground">No ZIP codes yet.</span>}
-            </div>
-            <div className="mt-2.5 flex gap-2">
-              <Input
-                value={newZips}
-                onChange={(e) => setNewZips(e.target.value)}
-                placeholder="75201, 75204, 75214…"
-                className="max-w-xs"
-              />
-              <Button type="button" size="sm" disabled={busy || !newZips.trim()} onClick={addZips}>
-                Add
-              </Button>
-            </div>
-          </td>
-        </tr>
+        <div className="border-b border-border-soft bg-surface-raised px-4 py-3.5">
+          <div className="flex flex-wrap gap-1.5">
+            {(zips ?? []).map((z) => (
+              <span key={z.id} className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-xs">
+                {z.zip_code}
+                <button type="button" onClick={() => removeZip(z.id)} className="text-muted-foreground hover:text-destructive" aria-label={`Remove ${z.zip_code}`}>
+                  ×
+                </button>
+              </span>
+            ))}
+            {(zips ?? []).length === 0 && <span className="text-xs text-muted-foreground">No ZIP codes yet.</span>}
+          </div>
+          <div className="mt-2.5 flex gap-2">
+            <Input
+              value={newZips}
+              onChange={(e) => setNewZips(e.target.value)}
+              placeholder="75201, 75204, 75214…"
+              className="max-w-xs"
+            />
+            <Button type="button" size="sm" disabled={busy || !newZips.trim()} onClick={addZips}>
+              Add
+            </Button>
+          </div>
+        </div>
       )}
     </>
   );
@@ -700,7 +734,7 @@ function UploadReportCard({
                 <Label htmlFor="reportStatus">Mark as</Label>
                 <NativeSelect
                   id="reportStatus"
-                  className={cn("mt-1.5 font-medium", STATUS_STYLES[preview.status])}
+                  className={cn("mt-1.5 font-medium", STATUS_SELECT_CLASS[preview.status])}
                   value={preview.status}
                   onChange={(e) => setPreview({ ...preview, status: e.target.value as TerritoryStatus })}
                 >

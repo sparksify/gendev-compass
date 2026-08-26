@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { STATUS_META } from "@/components/territory/statusMeta";
 import { TERRITORY_RESULT_STATUSES } from "@/types/territory";
+import { TerritoryPageShell } from "@/components/advisor/territories/TerritoryPageShell";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,7 @@ export default async function SearchActivityPage({
   }
 
   return (
-    <div className="space-y-4">
+    <TerritoryPageShell subtitle="Every territory search a prospect has run">
       <div className="flex flex-wrap items-center gap-4">
         <p className="text-sm text-muted-foreground">
           {filtered.length} of {allSearches.length} searches
@@ -126,6 +127,6 @@ export default async function SearchActivityPage({
           </table>
         </CardContent>
       </Card>
-    </div>
+    </TerritoryPageShell>
   );
 }

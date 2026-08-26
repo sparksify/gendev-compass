@@ -1,10 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SectionRule } from "@/components/advisor/PageHeader";
+import { DISCOVERY_STAGES, SIGNAL } from "@/lib/advisor/discoveryStages";
 
 interface DiagnosticsPayload {
   status: { gtm: string; metaBrowser: string; metaCapi: string };
-  lastEvents: { portalEvent: string | null; metaBrowserEvent: string | null; metaServerEvent: string | null };
+  lastEvents: {
+    portalEvent: string | null;
+    metaBrowserEvent: string | null;
+    metaServerEvent: string | null;
+  };
   counts: {
     eventsToday: number;
     serverEventsFailedToday: number;
@@ -23,20 +29,52 @@ interface DiagnosticsPayload {
   }>;
 }
 
-function formatDateTime(iso: string | null): string {
-  if (!iso) return "Never";
-  return new Date(iso).toLocaleString();
-}
-
-const STATUS_STYLES: Record<string, string> = {
-  sent: "bg-green-50 text-green-800",
-  test: "bg-blue-50 text-blue-800",
-  failed: "bg-red-50 text-red-800",
-  suppressed: "bg-amber-50 text-amber-800",
-  skipped: "bg-gray-100 text-gray-600",
+const PROVIDER_LABEL: Record<string, string> = {
+  gtm: "GTM",
+  meta_browser: "Meta Pixel",
+  meta_capi: "Meta CAPI",
 };
 
-/** Tracking Diagnostics tab (spec §14) — provider status, recent events, and the delivery log. Never renders access tokens. */
+interface EventSummary {
+  eventName: string;
+  destinations: string;
+  state: "ok" | "retried" | "failed" | "suppressed";
+}
+
+/** One row per portal event: where it went and whether it landed. */
+function summarize(log: DiagnosticsPayload["log"]): EventSummary[] {
+  const byEvent = new Map<string, { providers: Set<string>; statuses: Set<string> }>();
+  for (const row of log) {
+    const entry = byEvent.get(row.portalEvent) ?? { providers: new Set(), statuses: new Set() };
+    entry.providers.add(PROVIDER_LABEL[row.provider] ?? row.provider);
+    entry.statuses.add(row.status);
+    byEvent.set(row.portalEvent, entry);
+  }
+  return [...byEvent.entries()].slice(0, 8).map(([eventName, entry]) => ({
+    eventName,
+    destinations: [...entry.providers].join(" + "),
+    state: entry.statuses.has("failed")
+      ? "failed"
+      : entry.statuses.has("suppressed")
+        ? "suppressed"
+        : entry.statuses.has("test") && entry.statuses.size > 1
+          ? "retried"
+          : "ok",
+  }));
+}
+
+const STATE_TONE: Record<EventSummary["state"], { color: string; label: string }> = {
+  ok: { color: SIGNAL.success, label: "ok" },
+  retried: { color: SIGNAL.warning, label: "retried · ok" },
+  failed: { color: SIGNAL.alert, label: "failed" },
+  suppressed: { color: SIGNAL.warning, label: "suppressed" },
+};
+
+/**
+ * Delivery diagnostics as the right rail of Tracking & Pixels (handoff mock
+ * 8b): one row per event with its destinations and state, a 24-hour volume
+ * card, and the security footnote. Never renders access tokens.
+ */
 export function TrackingDiagnostics({ authHeaders }: { authHeaders: Record<string, string> }) {
   const [data, setData] = useState<DiagnosticsPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,113 +98,123 @@ export function TrackingDiagnostics({ authHeaders }: { authHeaders: Record<strin
     return () => {
       cancelled = true;
     };
+    // authHeaders is a fresh object each render; the values never change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (error) return <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs text-red-800">{error}</p>;
-  if (!data) return <p className="text-xs text-gray-500">Loading…</p>;
+  if (error) {
+    return (
+      <p
+        className="rounded-card border px-4 py-3 text-xs"
+        style={{ borderColor: "#fda29b", backgroundColor: SIGNAL.alertTint, color: SIGNAL.alert }}
+      >
+        {error}
+      </p>
+    );
+  }
+  if (!data) return <p className="text-xs text-muted-foreground">Loading…</p>;
+
+  const events = summarize(data.log);
+  const gtmCount = data.log.filter((row) => row.provider === "gtm").length;
+  const capiCount = data.log.filter((row) => row.provider === "meta_capi").length;
+  const browserCount = data.log.filter((row) => row.provider === "meta_browser").length;
+  const failed = data.counts.serverEventsFailedToday + data.counts.browserEventsFailedToday;
+  const total = data.counts.eventsToday;
+  const okPercent = total > 0 ? Math.round(((total - failed) / total) * 1000) / 10 : 100;
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-gray-200 bg-white p-5">
-        <h3 className="text-sm font-semibold text-gray-900">Provider Status</h3>
-        <dl className="mt-3 grid grid-cols-3 gap-3 text-xs">
-          <div>
-            <dt className="text-gray-500">GTM</dt>
-            <dd className="font-medium text-gray-900">{data.status.gtm.replace("_", " ")}</dd>
-          </div>
-          <div>
-            <dt className="text-gray-500">Meta Browser</dt>
-            <dd className="font-medium text-gray-900">{data.status.metaBrowser.replace("_", " ")}</dd>
-          </div>
-          <div>
-            <dt className="text-gray-500">Meta CAPI</dt>
-            <dd className="font-medium text-gray-900">{data.status.metaCapi.replace("_", " ")}</dd>
-          </div>
-        </dl>
-      </div>
-
-      <div className="rounded-xl border border-gray-200 bg-white p-5">
-        <h3 className="text-sm font-semibold text-gray-900">Last Events</h3>
-        <dl className="mt-3 grid grid-cols-3 gap-3 text-xs">
-          <div>
-            <dt className="text-gray-500">Last Portal Event</dt>
-            <dd className="font-medium text-gray-900">{formatDateTime(data.lastEvents.portalEvent)}</dd>
-          </div>
-          <div>
-            <dt className="text-gray-500">Last Meta Browser Event</dt>
-            <dd className="font-medium text-gray-900">{formatDateTime(data.lastEvents.metaBrowserEvent)}</dd>
-          </div>
-          <div>
-            <dt className="text-gray-500">Last Meta Server Event</dt>
-            <dd className="font-medium text-gray-900">{formatDateTime(data.lastEvents.metaServerEvent)}</dd>
-          </div>
-        </dl>
-      </div>
-
-      <div className="rounded-xl border border-gray-200 bg-white p-5">
-        <h3 className="text-sm font-semibold text-gray-900">Today</h3>
-        <dl className="mt-3 grid grid-cols-4 gap-3 text-xs">
-          <div>
-            <dt className="text-gray-500">Events Today</dt>
-            <dd className="font-medium text-gray-900">{data.counts.eventsToday}</dd>
-          </div>
-          <div>
-            <dt className="text-gray-500">Server Events Failed</dt>
-            <dd className="font-medium text-gray-900">{data.counts.serverEventsFailedToday}</dd>
-          </div>
-          <div>
-            <dt className="text-gray-500">Browser Events Failed</dt>
-            <dd className="font-medium text-gray-900">{data.counts.browserEventsFailedToday}</dd>
-          </div>
-          <div>
-            <dt className="text-gray-500">Deduplicated Events</dt>
-            <dd className="font-medium text-gray-900">{data.counts.deduplicatedEvents}</dd>
-          </div>
-        </dl>
-      </div>
-
-      <div className="rounded-xl border border-gray-200 bg-white p-5">
-        <h3 className="text-sm font-semibold text-gray-900">Event Log</h3>
-        <div className="mt-3 overflow-x-auto">
-          <table className="w-full min-w-[720px] text-left text-xs">
-            <thead>
-              <tr className="border-b border-gray-200 text-gray-500">
-                <th className="py-1.5 pr-3 font-medium">Timestamp</th>
-                <th className="py-1.5 pr-3 font-medium">Prospect</th>
-                <th className="py-1.5 pr-3 font-medium">Portal Event</th>
-                <th className="py-1.5 pr-3 font-medium">Event ID</th>
-                <th className="py-1.5 pr-3 font-medium">Provider</th>
-                <th className="py-1.5 font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.log.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-3 text-gray-500">
-                    No delivery events yet.
-                  </td>
-                </tr>
-              ) : (
-                data.log.map((row) => (
-                  <tr key={row.id} className="border-b border-gray-100 last:border-0">
-                    <td className="py-1.5 pr-3 text-gray-600">{new Date(row.timestamp).toLocaleString()}</td>
-                    <td className="py-1.5 pr-3 text-gray-800">{row.prospect}</td>
-                    <td className="py-1.5 pr-3 font-mono text-[11px] text-gray-800">{row.portalEvent}</td>
-                    <td className="py-1.5 pr-3 font-mono text-[11px] text-gray-500">{row.eventId}</td>
-                    <td className="py-1.5 pr-3 text-gray-600">{row.provider}</td>
-                    <td className="py-1.5">
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_STYLES[row.status] ?? "bg-gray-100 text-gray-600"}`}>
-                        {row.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+    <div>
+      <SectionRule label="Delivery diagnostics" meta="last 24h" className="mb-1.5" />
+      {events.length === 0 ? (
+        <p className="py-2 text-xs text-muted-foreground">No delivery events yet.</p>
+      ) : (
+        <div className="flex flex-col text-xs">
+          {events.map((event) => {
+            const tone = STATE_TONE[event.state];
+            return (
+              <span
+                key={event.eventName}
+                className="flex items-center gap-2 border-b border-border-soft py-2.5 last:border-b-0"
+              >
+                <span
+                  aria-hidden
+                  className="size-1.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: tone.color }}
+                />
+                <span className="min-w-0 flex-1 truncate font-semibold text-foreground">
+                  {event.eventName}
+                </span>
+                <span className="shrink-0 text-faint-foreground">{event.destinations}</span>
+                <span className="shrink-0 font-bold" style={{ color: tone.color }}>
+                  {tone.label}
+                </span>
+              </span>
+            );
+          })}
         </div>
+      )}
+
+      <div className="mt-5 rounded-card border border-border px-4 py-3.5">
+        <p className="text-[9.5px] font-bold uppercase tracking-[0.15em] text-faint-foreground">
+          Events delivered · 24h
+        </p>
+        <p className="tabular mt-2 text-[26px] font-extrabold tracking-[-0.03em] text-foreground">
+          {total}{" "}
+          <span
+            className="text-xs font-semibold"
+            style={{ color: failed === 0 ? SIGNAL.success : SIGNAL.warning }}
+          >
+            {okPercent}% ok
+          </span>
+        </p>
+        {total > 0 && (
+          <>
+            <div className="mt-2.5 flex h-2 gap-0.5 overflow-hidden rounded-full">
+              <span style={{ flex: gtmCount, backgroundColor: DISCOVERY_STAGES[0].color }} />
+              <span style={{ flex: capiCount, backgroundColor: DISCOVERY_STAGES[1].color }} />
+              <span style={{ flex: browserCount, backgroundColor: DISCOVERY_STAGES[2].color }} />
+              <span style={{ flex: Math.max(failed, 0.001), backgroundColor: SIGNAL.warning }} />
+            </div>
+            <div className="mt-2 flex flex-wrap gap-3 text-[10.5px] text-muted-foreground">
+              <span>
+                <strong className="font-bold" style={{ color: DISCOVERY_STAGES[0].color }}>
+                  {gtmCount}
+                </strong>{" "}
+                GTM
+              </span>
+              <span>
+                <strong className="font-bold" style={{ color: DISCOVERY_STAGES[1].color }}>
+                  {capiCount}
+                </strong>{" "}
+                Meta CAPI
+              </span>
+              <span>
+                <strong className="font-bold" style={{ color: DISCOVERY_STAGES[2].color }}>
+                  {browserCount}
+                </strong>{" "}
+                Meta Pixel
+              </span>
+              <span>
+                <strong className="font-bold" style={{ color: SIGNAL.warning }}>
+                  {failed}
+                </strong>{" "}
+                failed
+              </span>
+              <span>
+                <strong className="font-bold text-foreground">
+                  {data.counts.deduplicatedEvents}
+                </strong>{" "}
+                deduplicated
+              </span>
+            </div>
+          </>
+        )}
       </div>
+
+      <p className="mt-4 text-[11px] leading-relaxed text-faint-foreground">
+        The CAPI access token never leaves the server. Questionnaire and financial answers are never
+        sent to GTM or Meta.
+      </p>
     </div>
   );
 }

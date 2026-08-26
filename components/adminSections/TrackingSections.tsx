@@ -1,39 +1,57 @@
 "use client";
 
-import { useState } from "react";
-import { TrackingAdminSections } from "@/components/adminSections/TrackingAdminSections";
+import { useCallback, useState } from "react";
+import { PageBody, PageHeader } from "@/components/advisor/PageHeader";
+import { PlatformTabs } from "@/components/admin/PlatformTabs";
+import { INK_BUTTON, SECONDARY_BUTTON } from "@/components/advisor/controls";
+import {
+  TrackingAdminSections,
+  type TrackingSettingsApi,
+} from "@/components/adminSections/TrackingAdminSections";
 import { TrackingDiagnostics } from "@/components/adminSections/TrackingDiagnostics";
 
-const TABS = [
-  { key: "settings", label: "Settings" },
-  { key: "diagnostics", label: "Diagnostics" },
-] as const;
-
+/**
+ * Tracking & Pixels (handoff mock 8b): the provider setting cards on the
+ * left, delivery diagnostics on the right, and both header actions wired to
+ * the settings column.
+ */
 export function TrackingSections({ authHeaders }: { authHeaders: Record<string, string> }) {
-  const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("settings");
+  const [api, setApi] = useState<TrackingSettingsApi | null>(null);
+  const onReady = useCallback((next: TrackingSettingsApi) => setApi(next), []);
 
   return (
-    <div>
-      <div className="mb-4 flex gap-1 border-b border-gray-200">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`border-b-2 px-3 py-2 text-xs font-medium transition-colors ${
-              tab === t.key
-                ? "border-gray-900 text-gray-900"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-      {tab === "settings" ? (
-        <TrackingAdminSections authHeaders={authHeaders} />
-      ) : (
-        <TrackingDiagnostics authHeaders={authHeaders} />
-      )}
-    </div>
+    <>
+      <PageHeader
+        title="Tracking & Pixels"
+        subtitle="GTM · Meta Pixel · Conversions API · consent — zero deploys"
+        tabs={<PlatformTabs />}
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => api?.sendTestEvent()}
+              disabled={!api}
+              className={SECONDARY_BUTTON}
+            >
+              Send test event
+            </button>
+            <button
+              type="button"
+              onClick={() => api?.save()}
+              disabled={!api}
+              className={INK_BUTTON}
+            >
+              Save changes
+            </button>
+          </>
+        }
+      />
+      <PageBody>
+        <div className="grid gap-10 xl:grid-cols-[1.4fr_1fr]">
+          <TrackingAdminSections authHeaders={authHeaders} onReady={onReady} />
+          <TrackingDiagnostics authHeaders={authHeaders} />
+        </div>
+      </PageBody>
+    </>
   );
 }

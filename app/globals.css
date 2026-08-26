@@ -17,6 +17,10 @@
   --border: #e6e8ec;
   --border-soft: #f0f2f5;
   --border-strong: #d0d5dd;
+  /* Additive advisor neutrals: the ghost tone used for disabled/secondary
+   * numerals, and the dotted-leader rule color. */
+  --ghost-foreground: #c6cbd4;
+  --border-leader: #d7d9de;
   --primary: #2563eb;
   --primary-hover: #1d4ed8;
   --primary-foreground: #ffffff;
@@ -61,6 +65,8 @@
   --color-border: var(--border);
   --color-border-soft: var(--border-soft);
   --color-border-strong: var(--border-strong);
+  --color-ghost-foreground: var(--ghost-foreground);
+  --color-border-leader: var(--border-leader);
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
   --color-primary-foreground: var(--primary-foreground);
@@ -371,30 +377,41 @@ main:has(.ti-workspace) + aside {
 }
 
 /* ---------------------------------------------------------------------------
- * Advisor visual system (design_handoff_client_panel) — the advisor side no
- * longer matches the client-facing portal UI. Scoped token overrides: every
- * utility that reads a token (bg-surface, border-border, rounded-card,
- * font-serif, shadow-card…) resolves to these values inside .advisor-theme,
- * so the portal keeps its own look untouched.
+ * Advisor visual system — "Signal Spectrum" (design_handoff_advisor_redesign).
+ * Flat editorial fintech: white ground, no card shells, no shadows, ink-first
+ * typography, and per-stage color that only ever appears next to a label.
+ * Scoped token overrides: every utility that reads a token (bg-surface,
+ * border-border, rounded-card, font-serif, shadow-card…) resolves to these
+ * values inside .advisor-theme, so the portal keeps its own look untouched.
  * ------------------------------------------------------------------------- */
 .advisor-theme {
-  --background: #f5f7fb;
-  --surface: #f5f7fb;
-  --surface-raised: #f8fafd;
+  --background: #ffffff;
+  --surface: #ffffff;
+  --surface-raised: #fafafb;
   --card: #ffffff;
-  --foreground: #0f172a;
-  --secondary-foreground: #334155;
-  --muted-foreground: #64748b;
-  --faint-foreground: #94a3b8;
-  --border: #e6eaf2;
-  --border-soft: #eef2f8;
-  --border-strong: #cbd5e1;
-  --primary: #2463eb;
-  --primary-hover: #1d4ed8;
-  --primary-soft: #eff4ff;
-  --primary-soft-border: #b9cffc;
-  --radius: 14px;
-  --shadow-card: 0 1px 3px rgb(15 23 42 / 0.05);
+  --foreground: #101828;
+  --secondary-foreground: #344054;
+  --muted-foreground: #667085;
+  --faint-foreground: #98a2b3;
+  --ghost-foreground: #c6cbd4;
+  --border: #ececf0;
+  --border-soft: #f2f3f6;
+  --border-strong: #d0d5dd;
+  --border-leader: #d7d9de;
+  /* Ink is the only "primary": the system has no blue buttons. Blue is a
+   * stage color (Unit Economics), never an action color. */
+  --primary: #101828;
+  --primary-hover: #000000;
+  --primary-soft: #f6f6f7;
+  --primary-soft-border: #ececf0;
+  --success: #15803d;
+  --success-soft: #f0fdf4;
+  --warning: #b45309;
+  --destructive: #b42318;
+  --ring: #101828;
+  --radius: 10px;
+  /* Flat by design — no card shells, no shadows. */
+  --shadow-card: none;
   --font-sans: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", system-ui, -apple-system,
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   /* No serif in the new system — headings use the same family, bold. */
@@ -403,4 +420,10 @@ main:has(.ti-workspace) + aside {
   letter-spacing: -0.01em;
   background-color: var(--surface);
   color: var(--foreground);
+}
+
+/* Numerals that must line up column-to-column: metrics, money, counts,
+ * relative times. Used everywhere the handoff calls for tabular-nums. */
+.tabular {
+  font-variant-numeric: tabular-nums;
 }
