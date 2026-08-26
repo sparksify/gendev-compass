@@ -44,6 +44,7 @@ export function InvestorTable({
         <thead>
           <tr className="border-b border-border text-xs uppercase tracking-wide text-faint-foreground">
             <th className="px-4 py-2.5 font-medium">Client</th>
+            <th className="px-3 py-2.5 font-medium">Account</th>
             <th className="px-3 py-2.5 font-medium">Stage</th>
             <th className="px-3 py-2.5 font-medium">Advisor</th>
             <th className="px-3 py-2.5 font-medium">Liquid Capital</th>
@@ -70,6 +71,15 @@ export function InvestorTable({
                   <span className="text-xs text-muted-foreground">{row.lead.state ?? "—"}</span>
                   <FollowUpBadge followUp={row.followUp} />
                 </div>
+              </td>
+              <td className="px-3 py-3">
+                {row.lead.intake_account ? (
+                  <Badge variant={row.lead.intake_account === "GenDev" ? "primary" : "success"}>
+                    {row.lead.intake_account}
+                  </Badge>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
               </td>
               <td className="px-3 py-3">
                 <StageBadge stage={row.lead.current_stage} />

@@ -105,6 +105,7 @@ export interface CreateLeadRecordInput {
   facebook_ad_id?: string | null;
   facebook_form_id?: string | null;
   facebook_page_id?: string | null;
+  intake_account?: string | null;
 }
 
 export interface CreateQuestionnaireInput {
@@ -188,6 +189,7 @@ export type LeadPatch = Partial<
     | "advisor_selected"
     | "advisor_booked"
     | "overflow_used"
+    | "intake_account"
   >
 >;
 

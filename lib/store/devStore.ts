@@ -297,6 +297,7 @@ export function createDevStore(): PortalStore {
           facebook_ad_id: null,
           facebook_form_id: null,
           facebook_page_id: null,
+          intake_account: null,
           ...input,
           status: "created",
           current_stage: "NEW_LEAD",

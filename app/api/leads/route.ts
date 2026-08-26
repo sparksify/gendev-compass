@@ -11,18 +11,19 @@ import { clientIpFrom, rateLimit } from "@/lib/rateLimit";
 export const dynamic = "force-dynamic";
 
 /**
- * Two Pabbly webhooks feed this endpoint from two different accounts; the
- * only reliable signal we've found to tell them apart after the fact is the
- * HighLevel tags on the originating contact — leads tagged "cmdt" or
- * "gendevcompass_cmdt" come from the GenDev account, everything else from
- * Sparks. Only used as a fallback when the caller doesn't send `source`
- * explicitly (a Pabbly scenario sending its own literal source value always
- * wins) — and only when `tags` was actually sent; no tags means "unknown,"
- * not "assume Sparks."
+ * Two Pabbly webhooks feed this endpoint from two different accounts. This
+ * is distinct from `source` (the marketing channel, e.g. "facebook", left
+ * untouched) — `intake_account` answers "which account did this come
+ * through," not "which ad platform." The only reliable signal found to tell
+ * them apart is the HighLevel tags on the originating contact: "cmdt" or
+ * "gendevcompass_cmdt" means the GenDev account, everything else means
+ * Sparks. Only used as a fallback when the caller doesn't send
+ * `intakeAccount` explicitly, and only when `tags` was actually sent — no
+ * tags means "unknown," not "assume Sparks."
  */
 const GENDEV_TAG_MARKERS = ["cmdt", "gendevcompass_cmdt"];
 
-function classifySourceFromTags(tags: string[] | undefined): "GenDev" | "Sparks" | null {
+function classifyIntakeAccountFromTags(tags: string[] | undefined): "GenDev" | "Sparks" | null {
   if (!tags || tags.length === 0) return null;
   const normalized = tags.map((t) => t.trim().toLowerCase());
   const isGenDev = normalized.some((tag) => GENDEV_TAG_MARKERS.includes(tag));
@@ -93,7 +94,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       email: input.email,
       phone: input.phone ?? null,
       state: input.state ?? null,
-      source: input.source ?? classifySourceFromTags(input.tags),
+      source: input.source ?? null,
       campaign: input.campaign ?? null,
       ad_set: input.adSet ?? null,
       ad: input.ad ?? null,
@@ -119,6 +120,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       facebook_ad_id: input.facebookAdId ?? null,
       facebook_form_id: input.facebookFormId ?? null,
       facebook_page_id: input.facebookPageId ?? null,
+      intake_account: input.intakeAccount ?? classifyIntakeAccountFromTags(input.tags),
     });
 
     // Optional pre-assignment: only an existing, active staff user is

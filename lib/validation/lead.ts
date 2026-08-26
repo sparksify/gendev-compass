@@ -14,10 +14,14 @@ export const createLeadSchema = z.object({
   adSet: z.string().trim().max(200).optional(),
   ad: z.string().trim().max(200).optional(),
   facebookLeadId: z.string().trim().max(100).optional(),
+  // Which internal account this lead's intake came through (distinct from
+  // `source`, the marketing channel) — e.g. "GenDev" or "Sparks". Optional
+  // explicit override; falls back to inferring from `tags` below.
+  intakeAccount: z.string().trim().max(100).optional(),
   // HighLevel tags on the originating contact, when the caller has them
   // (e.g. a Pabbly scenario forwarding the full GHL contact object). Used
-  // only to infer `source` when the caller doesn't send one explicitly —
-  // see classifySourceFromTags in app/api/leads/route.ts.
+  // only to infer `intakeAccount` when the caller doesn't send one
+  // explicitly — see classifyIntakeAccountFromTags in app/api/leads/route.ts.
   tags: z.array(z.string().trim().max(100)).max(50).optional(),
   // Future-ready platform fields — all optional; existing callers that send
   // only the fields above keep working unchanged. Slugs are resolved (never

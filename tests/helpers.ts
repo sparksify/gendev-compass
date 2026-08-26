@@ -88,6 +88,7 @@ export function makeLead(overrides: Partial<LeadRecord> = {}): LeadRecord {
     advisor_selected: null,
     advisor_booked: null,
     overflow_used: false,
+    intake_account: null,
     ...overrides,
   };
 }

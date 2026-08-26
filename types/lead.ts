@@ -124,6 +124,14 @@ export interface LeadRecord {
   advisor_selected: string | null;
   advisor_booked: string | null;
   overflow_used: boolean;
+
+  /**
+   * Which internal account this lead's intake webhook belongs to — distinct
+   * from `source` (the marketing channel, e.g. "facebook"). Two Pabbly
+   * webhooks feed lead creation from two different accounts; this is
+   * "GenDev" or "Sparks" today, open-ended for future accounts.
+   */
+  intake_account: string | null;
 }
 
 export interface CreateLeadInput {
