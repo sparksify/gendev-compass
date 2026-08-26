@@ -56,7 +56,7 @@ export function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div id={id} className={cn("rounded-2xl border border-border bg-card", className)}>
+    <div id={id} className={cn("rounded-card border border-border bg-card", className)}>
       {children}
     </div>
   );
@@ -117,7 +117,7 @@ export function StageCard({ segment, total }: { segment: PipelineSegment; total:
   return (
     <Link
       href={`/advisor/investors?stage=${stage.id}`}
-      className="relative block overflow-hidden rounded-2xl border border-border bg-card px-5 pb-[22px] pt-5 transition-colors hover:bg-surface-raised"
+      className="relative block overflow-hidden rounded-card border border-border bg-card px-5 pb-[22px] pt-5 transition-colors hover:bg-surface-raised"
     >
       <span className="flex items-center justify-center gap-3.5">
         <span

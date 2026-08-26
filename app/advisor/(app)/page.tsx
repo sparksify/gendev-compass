@@ -23,9 +23,9 @@ export const dynamic = "force-dynamic";
 /**
  * The overview (uploaded dashboard mock): greeting header with search and
  * alerts, four icon stat cards, the five pipeline-stage cards, then the work
- * queue beside the activity monitor and stage conversion — all as white
- * cards on a gray canvas. This page carries its own header; the shared
- * PageHeader belongs to the white pages.
+ * queue beside the activity monitor and stage conversion — hairline-bordered
+ * sections on the same white canvas as the rest of the app. This page
+ * carries its own header; the shared PageHeader belongs to the other pages.
  */
 export default async function AdvisorDashboardPage() {
   const user = await requireStaffUser();
@@ -34,7 +34,7 @@ export default async function AdvisorDashboardPage() {
   const { activePipeline, newLeads, item23Received, discoveryDaysScheduled, followUps } = briefing;
 
   return (
-    <main className="flex-1 bg-[#f6f7f9] px-5 py-6 lg:px-9 lg:py-8">
+    <main className="flex-1 px-5 py-6 lg:px-9 lg:py-8">
       <div className="mx-auto flex max-w-[1280px] flex-col gap-7">
         {/* Greeting + search, alerts, new client */}
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
@@ -48,7 +48,7 @@ export default async function AdvisorDashboardPage() {
           </div>
           <div className="flex shrink-0 items-center gap-3">
             <form action="/advisor/investors" method="get" className="hidden md:block">
-              <label className="flex w-[290px] items-center gap-2.5 rounded-xl border border-border bg-card px-3.5 py-[9px] text-[14px]">
+              <label className="flex w-[290px] items-center gap-2.5 rounded-control border border-border bg-card px-3.5 py-[9px] text-[14px]">
                 <Search className="size-4 shrink-0 text-faint-foreground" strokeWidth={2} />
                 <input
                   type="search"
@@ -66,7 +66,7 @@ export default async function AdvisorDashboardPage() {
                   ? `${followUps.count} follow-up${followUps.count === 1 ? "" : "s"} due`
                   : "Notifications"
               }
-              className="relative rounded-full p-2 text-secondary-foreground transition-colors hover:bg-white"
+              className="relative rounded-full p-2 text-secondary-foreground transition-colors hover:bg-surface-raised"
             >
               <Bell className="size-[19px]" strokeWidth={1.8} />
               {followUps.count > 0 && (
