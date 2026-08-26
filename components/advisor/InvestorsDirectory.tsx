@@ -56,7 +56,7 @@ const CHIPS: Chip[] = [
 /** Ordered capital values — the array index is the sort rank. */
 const CAPITAL_ORDER: readonly string[] = LIQUID_CAPITAL_RANGES.map((range) => range.value);
 
-type SortKey = "capital" | "video";
+type SortKey = "capital" | "video" | "activity";
 
 /** Unknowns rank below every real value so they sink on "highest first". */
 const SORT_RANK: Record<SortKey, (row: InvestorRow) => number> = {
@@ -65,25 +65,35 @@ const SORT_RANK: Record<SortKey, (row: InvestorRow) => number> = {
       (row.questionnaire?.liquid_capital ?? row.lead.initial_liquid_capital ?? "") as string,
     ),
   video: (row) => (row.video ? row.video.highest_percent_watched : -1),
+  activity: (row) => {
+    const at = new Date(row.lastActivityAt).getTime();
+    return Number.isFinite(at) ? at : -1;
+  },
 };
 
 /**
- * Next actions that mean "reach out now" get the amber bubble; a lead whose
- * follow-up is overdue escalates to the red one. Everything else is a quiet
- * neutral chip, and "—" stays plain text.
+ * Every next action wears its own color, so the table reads at a glance:
+ * the hot reds/ambers are outreach owed, the cool hues are process moving
+ * along. Unknown strings fall back to the neutral chip; "—" stays plain.
  */
-const OUTREACH_ACTIONS = new Set([
-  "Schedule follow-up",
-  "Rebook cancelled consultation",
-  "Follow up on FDD",
-  "Encourage questionnaire completion",
-  "Resolve FDD delivery error",
-]);
+const ACTION_BUBBLES: Record<string, { color: string; tint: string }> = {
+  "Schedule follow-up": { color: "#b42318", tint: "#fef3f2" },
+  "Rebook cancelled consultation": { color: "#be123c", tint: "#fff1f2" },
+  "Resolve FDD delivery error": { color: "#c2410c", tint: "#fff7ed" },
+  "Encourage questionnaire completion": { color: "#b45309", tint: "#fffaeb" },
+  "Follow up on FDD": { color: "#6d28d9", tint: "#f5f3ff" },
+  "Prepare for consultation": { color: "#2463eb", tint: "#eff4ff" },
+  "Review outcome and update stage": { color: "#4f46e5", tint: "#eef2ff" },
+  "Begin due diligence discussion": { color: "#0e7490", tint: "#f0fafb" },
+  "Discuss the franchise agreement": { color: "#047857", tint: "#ecfdf5" },
+  "Await portal activity": { color: "#0369a1", tint: "#f0f9ff" },
+  "Monitor engagement": { color: "#4d7c0f", tint: "#f7fee7" },
+};
 
 function actionBubble(row: InvestorRow): { color: string; tint: string } {
-  if (row.followUp.needed) return { color: SIGNAL.alert, tint: SIGNAL.alertTint };
-  if (OUTREACH_ACTIONS.has(row.nextAction)) return { color: SIGNAL.warning, tint: SIGNAL.warningTint };
-  return { color: SIGNAL.neutral, tint: SIGNAL.neutralTint };
+  return (
+    ACTION_BUBBLES[row.nextAction] ?? { color: SIGNAL.neutral, tint: SIGNAL.neutralTint }
+  );
 }
 
 /**
@@ -116,7 +126,10 @@ export async function InvestorsDirectory({
   // Column sorting: clicking Liquid capital or Video watched orders by that
   // column, highest first; clicking again flips it. Default is store order.
   const sortParam = param(params, "sort");
-  const sortKey: SortKey | null = sortParam === "capital" || sortParam === "video" ? sortParam : null;
+  const sortKey: SortKey | null =
+    sortParam === "capital" || sortParam === "video" || sortParam === "activity"
+      ? sortParam
+      : null;
   const sortDir = param(params, "dir") === "asc" ? "asc" : "desc";
   const sorted = sortKey
     ? [...filtered].sort((a, b) => {
@@ -251,7 +264,12 @@ export async function InvestorsDirectory({
                 active={sortKey === "video"}
                 dir={sortDir}
               />
-              <span>Activity</span>
+              <SortHeader
+                label="Activity"
+                href={sortHref("activity")}
+                active={sortKey === "activity"}
+                dir={sortDir}
+              />
               <span>Next action</span>
             </div>
 
