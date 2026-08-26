@@ -17,6 +17,11 @@ import { LIQUID_CAPITAL_RANGES } from "@/types/questionnaire";
 import { PageBody, PageHeader } from "@/components/advisor/PageHeader";
 import { INK_BUTTON, SECONDARY_BUTTON } from "@/components/advisor/controls";
 import { VideoWatchedRing } from "@/components/advisor/VideoWatchedBar";
+import {
+  BulkSelectBar,
+  BulkSelectCheckbox,
+  BulkSelectProvider,
+} from "@/components/advisor/BulkSelect";
 
 export type InvestorsSearchParams = Record<string, string | string[] | undefined>;
 
@@ -112,6 +117,7 @@ export async function InvestorsDirectory({
   title: string;
 }) {
   const user = await requireStaffUser();
+  const admin = isAdmin(user);
   const allRows = await loadInvestorRows(user);
 
   const q = param(params, "q");
@@ -197,7 +203,7 @@ export async function InvestorsDirectory({
                 />
               </label>
             </form>
-            {isAdmin(user) && (
+            {admin && (
               <a href="/api/advisor/export" className={SECONDARY_BUTTON} download>
                 Export
               </a>
@@ -210,8 +216,13 @@ export async function InvestorsDirectory({
       />
 
       <PageBody className="flex flex-col gap-[18px]">
-        {/* Filter chips */}
-        <div className="flex flex-wrap gap-2">
+        <BulkSelectProvider
+          endpoint="/api/advisor/investors/bulk-delete"
+          noun="client"
+          allIds={admin ? sorted.map((row) => row.lead.id) : []}
+        >
+        {/* Filter chips, with the admin's bulk-select controls at the right */}
+        <div className="flex flex-wrap items-center gap-2">
           {CHIPS.map((chip) => {
             const active = chip.key === activeChip.key;
             const count = searched.filter(chip.matches).length;
@@ -239,6 +250,11 @@ export async function InvestorsDirectory({
               </Link>
             );
           })}
+          {admin && (
+            <span className="ml-auto">
+              <BulkSelectBar />
+            </span>
+          )}
         </div>
 
         {/* Table */}
@@ -295,6 +311,7 @@ export async function InvestorsDirectory({
                 >
                   <span className="min-w-0">
                     <span className="flex items-center gap-[7px] font-bold text-foreground">
+                      <BulkSelectCheckbox id={row.lead.id} />
                       <span className="truncate">
                         {row.lead.first_name} {row.lead.last_name}
                       </span>
@@ -388,6 +405,7 @@ export async function InvestorsDirectory({
             </div>
           </div>
         </div>
+        </BulkSelectProvider>
       </PageBody>
     </>
   );
