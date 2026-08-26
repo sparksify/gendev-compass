@@ -11,6 +11,25 @@ import { clientIpFrom, rateLimit } from "@/lib/rateLimit";
 export const dynamic = "force-dynamic";
 
 /**
+ * Two Pabbly webhooks feed this endpoint from two different accounts; the
+ * only reliable signal we've found to tell them apart after the fact is the
+ * HighLevel tags on the originating contact — leads tagged "cmdt" or
+ * "gendevcompass_cmdt" come from the GenDev account, everything else from
+ * Sparks. Only used as a fallback when the caller doesn't send `source`
+ * explicitly (a Pabbly scenario sending its own literal source value always
+ * wins) — and only when `tags` was actually sent; no tags means "unknown,"
+ * not "assume Sparks."
+ */
+const GENDEV_TAG_MARKERS = ["cmdt", "gendevcompass_cmdt"];
+
+function classifySourceFromTags(tags: string[] | undefined): "GenDev" | "Sparks" | null {
+  if (!tags || tags.length === 0) return null;
+  const normalized = tags.map((t) => t.trim().toLowerCase());
+  const isGenDev = normalized.some((tag) => GENDEV_TAG_MARKERS.includes(tag));
+  return isGenDev ? "GenDev" : "Sparks";
+}
+
+/**
  * The origin the caller actually used (e.g. https://www.gendevcompass.com),
  * so generated portal links always match the serving domain. Falls back to
  * NEXT_PUBLIC_APP_URL for non-HTTP contexts.
@@ -74,7 +93,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       email: input.email,
       phone: input.phone ?? null,
       state: input.state ?? null,
-      source: input.source ?? null,
+      source: input.source ?? classifySourceFromTags(input.tags),
       campaign: input.campaign ?? null,
       ad_set: input.adSet ?? null,
       ad: input.ad ?? null,

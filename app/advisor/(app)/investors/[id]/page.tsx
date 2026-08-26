@@ -22,6 +22,7 @@ import { StageBadge } from "@/components/advisor/StageBadge";
 import { StageSelect } from "@/components/advisor/StageSelect";
 import { AssignAdvisorSelect } from "@/components/advisor/AssignAdvisorSelect";
 import { NoteForm } from "@/components/advisor/NoteForm";
+import { GhlTagsInline } from "@/components/advisor/GhlTagsInline";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -124,6 +125,9 @@ export default async function InvestorDetailPage({
                   Source: {lead.source ?? "—"}
                   {lead.campaign ? ` / ${lead.campaign}` : ""}
                 </span>
+              </div>
+              <div className="mt-2">
+                <GhlTagsInline investorId={lead.id} />
               </div>
               {followUp.needed && (
                 <ul className="mt-2 space-y-0.5 text-sm text-[#92400e]">

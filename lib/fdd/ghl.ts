@@ -233,4 +233,47 @@ async function dispatchViaApi(
   }
 }
 
+/**
+ * Reads a contact's current HighLevel tags by email — a plain lookup, never
+ * creates or modifies the contact (unlike /contacts/upsert elsewhere in
+ * this file). Used by the advisor dashboard to show a lead's live tag list
+ * (app/api/advisor/investors/[id]/ghl-tags/route.ts).
+ *
+ * Uses the "duplicate check" endpoint, which is GoHighLevel's documented
+ * way to find a contact by email/phone without side effects — verify
+ * against current GoHighLevel API docs if this stops matching (endpoint
+ * shape has moved before). Returns null (not []) when unconfigured or on
+ * any failure, so the caller can distinguish "no tags" from "couldn't ask."
+ */
+export async function getGhlContactTags(email: string): Promise<string[] | null> {
+  const config = getGhlConfig();
+  if (!config.apiToken || !config.locationId) return null;
+
+  try {
+    const url = `${GHL_API_BASE}/contacts/search/duplicate?locationId=${encodeURIComponent(
+      config.locationId,
+    )}&email=${encodeURIComponent(email)}`;
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${config.apiToken}`,
+        Version: "2021-07-28",
+      },
+      signal: AbortSignal.timeout(DISPATCH_TIMEOUT_MS),
+    });
+    if (response.status === 404) return [];
+    if (!response.ok) {
+      console.error(`[ghl] contact tag lookup responded ${response.status} for ${email}`);
+      return null;
+    }
+    const data = (await response.json().catch(() => null)) as
+      | { contact?: { tags?: unknown } }
+      | null;
+    const tags = data?.contact?.tags;
+    return Array.isArray(tags) ? tags.filter((t): t is string => typeof t === "string") : [];
+  } catch (error) {
+    console.error(`[ghl] contact tag lookup failed for ${email}:`, error);
+    return null;
+  }
+}
+
 export { isGhlConfigured };
