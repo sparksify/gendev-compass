@@ -1,6 +1,7 @@
 import { requireStaffUser } from "@/lib/advisor/auth";
 import { isAdmin } from "@/lib/advisor/access";
 import { getSiteLogoUrl } from "@/lib/assets";
+import { brand } from "@/lib/config/brand";
 import { AdvisorShell } from "@/components/advisor/AdvisorShell";
 import { loadNavCounts } from "@/lib/advisor/navCounts";
 
@@ -14,6 +15,7 @@ export default async function AdvisorAppLayout({ children }: { children: React.R
   return (
     <AdvisorShell
       logoUrl={logoUrl}
+      orgName={brand.orgName}
       userName={user.first_name}
       isAdmin={isAdmin(user)}
       counts={counts}
