@@ -121,7 +121,7 @@ export function AdvisorShell({
     <div className="advisor-theme flex min-h-screen bg-background">
       {/* Desktop rail */}
       <aside className="sticky top-0 hidden h-screen w-[246px] shrink-0 flex-col bg-[#181d1b] px-3 pb-4 pt-[18px] lg:flex">
-        <Link href="/advisor" aria-label="Overview" className="mx-1 mb-[36px] mt-[18px] flex justify-center">
+        <Link href="/advisor" aria-label="Overview" className="mx-1 mb-[36px] mt-[18px] flex justify-start pl-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element -- dynamic
               admin-uploaded asset, shown alone at its natural proportions —
               no tile, no wordmark */}
