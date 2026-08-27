@@ -24,7 +24,6 @@ export default async function PlatformAdminLayout({ children }: { children: Reac
   return (
     <AdvisorShell
       logoUrl={logoUrl}
-      orgName={brand.orgName}
       userName={user.first_name}
       isAdmin
       counts={counts}

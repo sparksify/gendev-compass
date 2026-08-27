@@ -98,15 +98,12 @@ function NavRow({ item, active }: { item: NavItem; active: boolean }) {
  */
 export function AdvisorShell({
   logoUrl,
-  orgName,
   userName,
   isAdmin,
   counts,
   children,
 }: {
   logoUrl: string;
-  /** Company line under the wordmark ("GenDev Capital"). */
-  orgName: string;
   userName: string;
   isAdmin: boolean;
   counts: AdvisorNavCounts;
@@ -120,21 +117,15 @@ export function AdvisorShell({
     <div className="advisor-theme flex min-h-screen bg-background">
       {/* Desktop rail */}
       <aside className="sticky top-0 hidden h-screen w-[246px] shrink-0 flex-col bg-[#181d1b] px-3 pb-4 pt-[18px] lg:flex">
-        <Link href="/advisor" className="mx-1 mb-4 flex items-center gap-2.5">
+        <Link href="/advisor" aria-label="Overview" className="mx-1 mb-4 block">
           {/* eslint-disable-next-line @next/next/no-img-element -- dynamic
-              admin-uploaded asset; the tile keeps a dark logo visible until
-              the white/knockout version arrives */}
+              admin-uploaded asset, shown alone at its natural proportions —
+              no tile, no wordmark */}
           <img
             src={logoUrl}
             alt=""
-            className="size-9 shrink-0 rounded-[9px] bg-[#212824] object-contain p-1.5"
+            className="h-10 w-auto max-w-full object-contain object-left"
           />
-          <span className="min-w-0">
-            <span className="block truncate text-[13.5px] font-extrabold text-white">Compass</span>
-            <span className="block truncate text-[10px] font-semibold text-[#8fa098]">
-              {orgName}
-            </span>
-          </span>
         </Link>
 
         <nav className="flex min-h-0 flex-1 flex-col overflow-y-auto" aria-label="Advisor">
