@@ -9,6 +9,7 @@ import { autoAdvanceStage } from "@/lib/advisor/stages";
 import { buildAnswerSnapshot, QUESTIONNAIRE_VERSION } from "@/lib/advisor/questionnaireCatalog";
 import { ensureLeadDomainChain, type LeadDomainChain } from "@/lib/domain/chain";
 import { syncPrimaryOpportunityQualification } from "@/lib/domain/opportunities";
+import { getAppUrl } from "@/lib/config/env";
 import type { QuestionnaireInput } from "@/types/questionnaire";
 
 export const dynamic = "force-dynamic";
@@ -120,12 +121,13 @@ export async function POST(
 
     await autoAdvanceStage(lead, "QUESTIONNAIRE_COMPLETED", "portal");
 
-    const submittedTracking = await trackEvent(lead, "questionnaire_submitted", null);
+    const pageUrl = `${getAppUrl()}${base}/questionnaire`;
+    const submittedTracking = await trackEvent(lead, "questionnaire_submitted", null, pageUrl);
     const qualificationTracking = await trackEvent(
       lead,
       qualification.qualified ? "lead_qualified" : "lead_sent_to_review",
       { score: qualification.score },
-      null,
+      pageUrl,
       // Tier 2 conversion (spec §8) — the business cares about qualified
       // volume, not raw submissions. Only a coarse boolean ever leaves the
       // portal; the score/reasons stay in Supabase.

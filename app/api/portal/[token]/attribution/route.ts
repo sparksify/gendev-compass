@@ -2,7 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireLead } from "@/lib/portal/api";
 import { getStore } from "@/lib/store";
-import { parseAttributionFromUrl, buildFirstTouchFields, buildLastTouchPatch, hasQualifiedTouch } from "@/lib/tracking/attribution";
+import {
+  parseAttributionFromUrl,
+  buildFirstTouchFields,
+  buildLastTouchPatch,
+  hasQualifiedTouch,
+  withSynthesizedFbc,
+} from "@/lib/tracking/attribution";
 import { clientIpFrom, rateLimit } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
@@ -38,21 +44,25 @@ export async function POST(
     return NextResponse.json({ success: false, error: "Invalid payload" }, { status: 400 });
   }
 
-  const signal = parseAttributionFromUrl(parsed.data.url, {
-    referrer: parsed.data.referrer,
-    fbp: parsed.data.fbp,
-    fbc: parsed.data.fbc,
-  });
+  const now = new Date();
+  const signal = withSynthesizedFbc(
+    parseAttributionFromUrl(parsed.data.url, {
+      referrer: parsed.data.referrer,
+      fbp: parsed.data.fbp,
+      fbc: parsed.data.fbc,
+    }),
+    now.getTime(),
+  );
 
   const store = getStore();
-  const now = new Date().toISOString();
+  const nowIso = now.toISOString();
 
   try {
     if (!lead.first_touch_at) {
-      await store.updateLead(lead.id, buildFirstTouchFields(signal, now));
+      await store.updateLead(lead.id, buildFirstTouchFields(signal, nowIso));
     }
     if (hasQualifiedTouch(signal)) {
-      await store.updateLead(lead.id, buildLastTouchPatch(signal, now));
+      await store.updateLead(lead.id, buildLastTouchPatch(signal, nowIso));
     }
   } catch (error) {
     // Attribution capture must never break the portal experience.

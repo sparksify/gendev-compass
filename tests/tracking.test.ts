@@ -6,6 +6,8 @@ import {
   buildLastTouchPatch,
   hasQualifiedTouch,
   parseAttributionFromUrl,
+  synthesizeFbc,
+  withSynthesizedFbc,
 } from "@/lib/tracking/attribution";
 import { hashEmail, hashPhone, hashName } from "@/lib/tracking/metaHash";
 import { marketingAllowed } from "@/lib/tracking/consent";
@@ -90,6 +92,29 @@ describe("first/last touch field builders", () => {
     const patch = buildLastTouchPatch(signal, "2026-08-08T00:00:00.000Z");
     expect(patch.last_utm_campaign).toBe("reminder");
     expect(patch.last_touch_at).toBe("2026-08-08T00:00:00.000Z");
+  });
+});
+
+describe("fbc synthesis", () => {
+  it("builds Meta's fb.1.<time>.<fbclid> format from a raw click ID", () => {
+    expect(synthesizeFbc("abc123", 1700000000000)).toBe("fb.1.1700000000000.abc123");
+  });
+
+  it("fills in fbc from fbclid only when the real cookie wasn't captured", () => {
+    const withoutFbc = parseAttributionFromUrl("https://portal.example.com/p/abc?fbclid=xyz789");
+    const filled = withSynthesizedFbc(withoutFbc, 1700000000000);
+    expect(filled.fbc).toBe("fb.1.1700000000000.xyz789");
+
+    const withRealFbc = parseAttributionFromUrl("https://portal.example.com/p/abc?fbclid=xyz789", {
+      fbc: "fb.1.1600000000000.xyz789",
+    });
+    // Real cookie value always wins — never overwritten by a synthesized one.
+    expect(withSynthesizedFbc(withRealFbc, 1700000000000).fbc).toBe("fb.1.1600000000000.xyz789");
+  });
+
+  it("leaves fbc null when there's no fbclid to synthesize from", () => {
+    const bare = parseAttributionFromUrl("https://portal.example.com/p/abc");
+    expect(withSynthesizedFbc(bare, 1700000000000).fbc).toBeNull();
   });
 });
 

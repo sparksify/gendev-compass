@@ -72,6 +72,26 @@ export function parseAttributionFromUrl(
   };
 }
 
+/**
+ * Meta's documented _fbc cookie format: fb.<subdomain_index>.<creation_time_ms>.<fbclid>
+ * (subdomain_index is 1 for a site's own apex/www domain, the common case
+ * here). The real Meta Pixel sets this cookie itself when it sees fbclid on
+ * a page load — but that only happens once the Pixel is actually enabled
+ * and firing. Synthesizing it here means CAPI match quality doesn't depend
+ * on the Pixel having already been turned on: whenever we see a raw fbclid
+ * and don't already have a real _fbc cookie value, we build the same
+ * format ourselves so Meta can still attribute the event to the ad click.
+ */
+export function synthesizeFbc(fbclid: string, nowMs: number): string {
+  return `fb.1.${nowMs}.${fbclid}`;
+}
+
+/** Fills in `fbc` from a raw `fbclid` when the real _fbc cookie wasn't present. */
+export function withSynthesizedFbc(signal: AttributionSignal, nowMs: number): AttributionSignal {
+  if (signal.fbc || !signal.fbclid) return signal;
+  return { ...signal, fbc: synthesizeFbc(signal.fbclid, nowMs) };
+}
+
 function sanitize(value: string | null): string | null {
   if (!value) return null;
   const trimmed = value.trim().slice(0, 500);

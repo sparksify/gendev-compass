@@ -7,6 +7,7 @@ import { ensureLeadDomainChain, type LeadDomainChain } from "@/lib/domain/chain"
 import { upsertMapping } from "@/lib/domain/mappings";
 import { getAdminTestPassword, getAppUrl, getInternalApiKey, isProduction } from "@/lib/config/env";
 import { clientIpFrom, rateLimit } from "@/lib/rateLimit";
+import { synthesizeFbc } from "@/lib/tracking/attribution";
 
 export const dynamic = "force-dynamic";
 
@@ -111,7 +112,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       first_gclid: input.gclid ?? null,
       first_msclkid: input.msclkid ?? null,
       first_fbp: input.fbp ?? null,
-      first_fbc: input.fbc ?? null,
+      // Synthesize Meta's fbc format from a raw fbclid when the caller only
+      // has that (no _fbc cookie captured) — lets CAPI still attribute the
+      // event to the ad click without depending on the Pixel having fired.
+      first_fbc: input.fbc ?? (input.fbclid ? synthesizeFbc(input.fbclid, Date.now()) : null),
       first_referrer: input.referrer ?? null,
       first_landing_page: input.landingPage ?? null,
       first_touch_at: new Date().toISOString(),

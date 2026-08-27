@@ -197,7 +197,11 @@ async function dispatchMetaCapi(
     eventName: metaEventName,
     eventId,
     eventTimeSeconds: Math.floor(Date.now() / 1000),
-    eventSourceUrl: options.meta?.eventSourceUrl,
+    // Falls back to the page URL trackEvent() was called with — Meta
+    // strongly weights event_source_url for match quality, and most
+    // callers already have the right URL on hand without needing to pass
+    // it twice.
+    eventSourceUrl: options.meta?.eventSourceUrl ?? options.pageUrl ?? undefined,
     customerData,
     customData: options.meta?.customData ?? null,
     testEventCode: settings.metaTestEventCode,
