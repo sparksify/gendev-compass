@@ -373,6 +373,47 @@ export function Overline({ children, className }: { children: React.ReactNode; c
 }
 
 /**
+ * The v3 tint/ink pairs used for initials badges. Deterministic per name, so
+ * the same person always wears the same color and a list stays scannable.
+ */
+const BADGE_PALETTE = [
+  "bg-primary-soft text-primary",
+  "bg-[#fff6d9] text-accent-strong",
+  "bg-[#f0fafb] text-[#0e7490]",
+  "bg-[#f3eeff] text-[#6d28d9]",
+] as const;
+
+export function initialsOf(name: string): string {
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("") || "?"
+  );
+}
+
+/** A round initials badge in one of the four v3 tints, keyed to the name. */
+export function InitialsBadge({ name, className }: { name: string; className?: string }) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "flex size-[30px] shrink-0 items-center justify-center rounded-full text-[10.5px] font-extrabold",
+        BADGE_PALETTE[hash % BADGE_PALETTE.length],
+        className,
+      )}
+    >
+      {initialsOf(name)}
+    </span>
+  );
+}
+
+/**
  * A KPI card led by a 4px bar in the metric's own color — the Portal Admin
  * variant of a stat card, where the color IS the category and there's no icon
  * to carry it.

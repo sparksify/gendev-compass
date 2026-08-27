@@ -41,16 +41,41 @@ export interface PipelineSegment {
 
 export interface WorkQueueItem {
   leadId: string;
+  /** "Maria Chen" — the row leads with the person, not the task. */
+  name: string;
+  email: string;
   /** "Schedule follow-up — Maria Chen" */
   title: string;
   /** "Unit Economics · questionnaire completed 2 days ago, no booking" */
   detail: string;
+  /** The reason clause alone, so identical ones can be summarized. */
+  reason: string;
   /** Spine color: the client's discovery stage. */
   spineColor: string;
   marker: { kind: "overdue"; label: string } | { kind: "warm" } | null;
+  /** Whole days overdue; null when this row isn't owed a follow-up. */
+  overdueDays: number | null;
   ctaLabel: string;
   /** Pre-filled reminder, when the recommendation carries one. */
   mailto: string | null;
+}
+
+export interface WorkQueueDigest {
+  /**
+   * One sentence covering the whole queue, for when every row is overdue for
+   * the same reason — the common case, and quicker to read than six rows
+   * repeating it. Null when the queue is mixed.
+   */
+  summary: string | null;
+  /** mailto that BCCs everyone in the queue, for the bulk nudge. */
+  remindAllMailto: string | null;
+}
+
+export interface Bottleneck {
+  /** "206 leads sit at Intro Call." */
+  text: string;
+  /** The move that clears it. */
+  advice: string;
 }
 
 export interface ConversionStep {
@@ -82,7 +107,10 @@ export interface Briefing {
   followUps: { count: number; oldestDays: number | null };
   pipeline: { total: number; segments: PipelineSegment[] };
   workQueue: WorkQueueItem[];
+  workQueueDigest: WorkQueueDigest;
   conversion: ConversionStep[];
+  /** The stage holding the most clients back, when one clearly dominates. */
+  bottleneck: Bottleneck | null;
   recentActivity: ActivityItem[];
 }
 
@@ -133,20 +161,81 @@ function buildWorkQueue(rows: InvestorRow[], now: Date): WorkQueueItem[] {
     const reason = row.followUp.reasons[0];
     const overdueDays = daysAgo(row.lastActivityAt, now);
 
+    const clause = reason ? toDetailClause(reason) : action.description;
+
     return {
       leadId: row.lead.id,
+      name: `${row.lead.first_name} ${row.lead.last_name}`,
+      email: row.lead.email,
       title: `${action.title} — ${row.lead.first_name} ${row.lead.last_name}`,
-      detail: [stage?.short ?? "Not a fit", reason ? toDetailClause(reason) : action.description]
-        .filter(Boolean)
-        .join(" · "),
+      detail: [stage?.short ?? "Not a fit", clause].filter(Boolean).join(" · "),
+      reason: clause,
       spineColor: stage?.color ?? SIGNAL.neutral,
       marker: row.followUp.needed
         ? { kind: "overdue" as const, label: `OVERDUE · ${Math.max(1, overdueDays)}d` }
         : { kind: "warm" as const },
+      overdueDays: row.followUp.needed ? Math.max(1, overdueDays) : null,
       ctaLabel: shortCta(action.title, action.ctaLabel),
       mailto: mailtoFor(row.lead.email, action.reminder),
     };
   });
+}
+
+/**
+ * Collapse the queue into one sentence when it says the same thing six times.
+ * Only fires when every row is overdue for an identical reason — a mixed
+ * queue gets no summary rather than a vague one that flattens the difference.
+ */
+function buildWorkQueueDigest(queue: WorkQueueItem[]): WorkQueueDigest {
+  const emails = queue.map((item) => item.email).filter(Boolean);
+  const remindAllMailto =
+    emails.length > 1
+      ? `mailto:?bcc=${encodeURIComponent(emails.join(","))}&subject=${encodeURIComponent(
+          "Following up on your franchise enquiry",
+        )}`
+      : null;
+
+  const allOverdue = queue.length > 1 && queue.every((item) => item.overdueDays !== null);
+  const reasons = new Set(queue.map((item) => item.reason));
+  if (!allOverdue || reasons.size !== 1) return { summary: null, remindAllMailto };
+
+  const days = queue.map((item) => item.overdueDays as number);
+  const oldest = Math.max(...days);
+  const uniform = days.every((day) => day === oldest);
+  const age = `${uniform ? "" : "up to "}${oldest} day${oldest === 1 ? "" : "s"} overdue`;
+
+  return {
+    summary: `All ${queue.length} are follow-ups on ${[...reasons][0]} — ${age}.`,
+    remindAllMailto,
+  };
+}
+
+/** The move that clears each stage, for the bottleneck note. */
+const STAGE_MOVE: Record<DiscoveryStageId, string> = {
+  1: "Booking consultations",
+  2: "Getting FDDs out",
+  3: "Designing territories",
+  4: "Confirming attendance",
+  5: "Closing the agreement",
+};
+
+/**
+ * The stage where the pipeline is piling up. Only reported when one stage
+ * holds a clear plurality — with an even spread there is no bottleneck to
+ * point at, and inventing one would send the advisor after noise.
+ */
+function buildBottleneck(segments: PipelineSegment[], total: number): Bottleneck | null {
+  if (total === 0) return null;
+  const ranked = [...segments].sort((a, b) => b.count - a.count);
+  const top = ranked[0];
+  // Terminal stage is where clients are meant to end up, not a blockage.
+  if (!top || top.count === 0 || top.stage.id === 5) return null;
+  if (top.count / total < 0.4) return null;
+
+  return {
+    text: `${top.count} lead${top.count === 1 ? "" : "s"} sit${top.count === 1 ? "s" : ""} at ${top.stage.tiny}.`,
+    advice: `${STAGE_MOVE[top.stage.id]} is this week's highest-leverage move.`,
+  };
 }
 
 /**
@@ -256,6 +345,14 @@ export function buildBriefing(rows: InvestorRow[], now: Date = new Date()): Brie
   const item23 = rows.filter((row) => row.lead.fdd_received_at);
   const scheduled = rows.filter((row) => row.activeAppointment !== null);
 
+  // Built once: the digest reads the queue, and the bottleneck reads the
+  // segments, so neither is recomputed inside the returned object.
+  const workQueue = buildWorkQueue(rows, now);
+  const segments = DISCOVERY_STAGES.map((stage) => ({
+    stage,
+    count: inProcess.filter((row) => discoveryStageIdFor(row.stage) === stage.id).length,
+  }));
+
   return {
     activePipeline: { count: active.length, newThisWeek: thisWeek.length },
     newLeads: { count: newLeads.length, thisWeek: thisWeek.length },
@@ -286,13 +383,12 @@ export function buildBriefing(rows: InvestorRow[], now: Date = new Date()): Brie
     },
     pipeline: {
       total: inProcess.length,
-      segments: DISCOVERY_STAGES.map((stage) => ({
-        stage,
-        count: inProcess.filter((row) => discoveryStageIdFor(row.stage) === stage.id).length,
-      })),
+      segments,
     },
-    workQueue: buildWorkQueue(rows, now),
+    workQueue,
+    workQueueDigest: buildWorkQueueDigest(workQueue),
     conversion: buildConversion(rows, now),
+    bottleneck: buildBottleneck(segments, inProcess.length),
     recentActivity: buildRecentActivity(rows, now),
   };
 }
