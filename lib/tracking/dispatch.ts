@@ -20,6 +20,9 @@ export interface TrackPortalEventOptions {
   /** Reuses a caller-supplied event ID instead of generating one — never generate a second ID for the same logical event (spec §9). */
   eventId?: string;
   pageUrl?: string | null;
+  /** The originating request's IP/user-agent — Meta's Conversions API setup wizard marks client_user_agent as required for good match quality/dedup verification. */
+  clientIp?: string | null;
+  userAgent?: string | null;
   /** Non-sensitive fields to fire alongside the event; never questionnaire/financial data. */
   dataLayerExtras?: Record<string, string | number | boolean | null>;
   /** Opt-in Meta CAPI customer-matching + custom data — only passed by callers that consciously decide what leaves the portal (spec §10). */
@@ -190,6 +193,8 @@ async function dispatchMetaCapi(
     externalId: lead.id,
     fbp: lead.first_fbp,
     fbc: lead.first_fbc,
+    clientIpAddress: options.clientIp ?? undefined,
+    clientUserAgent: options.userAgent ?? undefined,
     ...(options.meta?.customerData ?? {}),
   };
 

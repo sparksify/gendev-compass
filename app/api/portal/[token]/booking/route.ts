@@ -6,6 +6,7 @@ import { statusRank } from "@/lib/store/types";
 import { trackEvent } from "@/lib/portal/events";
 import { autoAdvanceStage } from "@/lib/advisor/stages";
 import { getAppUrl } from "@/lib/config/env";
+import { clientIpFrom } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
 
@@ -71,11 +72,13 @@ export async function POST(
       await autoAdvanceStage(lead, "CONSULTATION_SCHEDULED", "portal");
 
       const pageUrl = `${getAppUrl()}/p/${token}/schedule`;
+      const requestMeta = { clientIp: clientIpFrom(request), userAgent: request.headers.get("user-agent") };
       const bookingTracking = await trackEvent(
         lead,
         "calendar_booking_completed",
         { detectedVia: parsed.data.detectedVia },
         pageUrl,
+        requestMeta,
       );
       // Primary conversion event (spec §8 tier 1 / §24) — a distinct
       // canonical event so it maps cleanly to Meta's "Schedule" and any
@@ -90,6 +93,7 @@ export async function POST(
         },
         pageUrl,
         {
+          ...requestMeta,
           eventId: bookingTracking.eventId,
           meta: {
             customData: {

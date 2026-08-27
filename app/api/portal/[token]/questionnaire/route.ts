@@ -10,6 +10,7 @@ import { buildAnswerSnapshot, QUESTIONNAIRE_VERSION } from "@/lib/advisor/questi
 import { ensureLeadDomainChain, type LeadDomainChain } from "@/lib/domain/chain";
 import { syncPrimaryOpportunityQualification } from "@/lib/domain/opportunities";
 import { getAppUrl } from "@/lib/config/env";
+import { clientIpFrom } from "@/lib/rateLimit";
 import type { QuestionnaireInput } from "@/types/questionnaire";
 
 export const dynamic = "force-dynamic";
@@ -122,7 +123,8 @@ export async function POST(
     await autoAdvanceStage(lead, "QUESTIONNAIRE_COMPLETED", "portal");
 
     const pageUrl = `${getAppUrl()}${base}/questionnaire`;
-    const submittedTracking = await trackEvent(lead, "questionnaire_submitted", null, pageUrl);
+    const requestMeta = { clientIp: clientIpFrom(request), userAgent: request.headers.get("user-agent") };
+    const submittedTracking = await trackEvent(lead, "questionnaire_submitted", null, pageUrl, requestMeta);
     const qualificationTracking = await trackEvent(
       lead,
       qualification.qualified ? "lead_qualified" : "lead_sent_to_review",
@@ -132,8 +134,8 @@ export async function POST(
       // volume, not raw submissions. Only a coarse boolean ever leaves the
       // portal; the score/reasons stay in Supabase.
       qualification.qualified
-        ? { meta: { customData: { qualification_status: "qualified" } } }
-        : {},
+        ? { ...requestMeta, meta: { customData: { qualification_status: "qualified" } } }
+        : requestMeta,
     );
 
     // Every prospect proceeds directly to scheduling — the qualification
