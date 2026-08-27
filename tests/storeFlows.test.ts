@@ -300,6 +300,22 @@ describe("bulk deletion", () => {
       decision_criteria: "Unit economics",
       decision_participants: "spouse",
       accuracy_confirmed: true,
+      address_line_1: null,
+      address_line_2: null,
+      city: null,
+      state: null,
+      postal_code: null,
+      country: null,
+      estimated_credit_score_range: null,
+      anticipated_funding_sources: null,
+      financing_need: null,
+      preferred_financing_percentage: null,
+      available_cash_contribution: null,
+      lender_status: null,
+      funding_assistance_requested: null,
+      funding_followup_requested: false,
+      existing_business_entity: null,
+      prior_business_financing_experience: null,
     });
   }
 

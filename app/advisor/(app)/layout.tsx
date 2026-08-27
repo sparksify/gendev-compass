@@ -15,7 +15,6 @@ export default async function AdvisorAppLayout({ children }: { children: React.R
   return (
     <AdvisorShell
       logoUrl={logoUrl}
-      orgName={brand.orgName}
       userName={user.first_name}
       isAdmin={isAdmin(user)}
       counts={counts}
