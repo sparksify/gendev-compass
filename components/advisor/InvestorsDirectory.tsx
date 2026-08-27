@@ -14,8 +14,16 @@ import {
 } from "@/lib/advisor/discoveryStages";
 import { cn } from "@/lib/utils";
 import { LIQUID_CAPITAL_RANGES } from "@/types/questionnaire";
-import { PageBody, PageHeader } from "@/components/advisor/PageHeader";
-import { INK_BUTTON, SECONDARY_BUTTON } from "@/components/advisor/controls";
+import {
+  GridHead,
+  NameCell,
+  Panel,
+  PageTitle,
+  StackCell,
+  StagePill,
+  V3Page,
+} from "@/components/advisor/v3";
+import { ACCENT_BUTTON, SECONDARY_BUTTON } from "@/components/advisor/controls";
 import { VideoWatchedRing } from "@/components/advisor/VideoWatchedBar";
 import {
   BulkSelectBar,
@@ -28,7 +36,7 @@ export type InvestorsSearchParams = Record<string, string | string[] | undefined
 const PAGE_SIZE = 15;
 
 /** Table columns, per the handoff's grid ratios. */
-const GRID = "grid-cols-[2.1fr_1.7fr_1.1fr_1.3fr_1fr_1.6fr]";
+const COLS = "1.6fr .8fr .8fr .8fr .9fr 1.25fr";
 
 function param(params: InvestorsSearchParams, key: string): string | undefined {
   const value = params[key];
@@ -82,17 +90,17 @@ const SORT_RANK: Record<SortKey, (row: InvestorRow) => number> = {
  * along. Unknown strings fall back to the neutral chip; "—" stays plain.
  */
 const ACTION_BUBBLES: Record<string, { color: string; tint: string }> = {
-  "Schedule follow-up": { color: "#b42318", tint: "#fef3f2" },
+  "Schedule follow-up": { color: SIGNAL.alert, tint: SIGNAL.alertTint },
   "Rebook cancelled consultation": { color: "#be123c", tint: "#fff1f2" },
   "Resolve FDD delivery error": { color: "#c2410c", tint: "#fff7ed" },
-  "Encourage questionnaire completion": { color: "#b45309", tint: "#fffaeb" },
+  "Encourage questionnaire completion": { color: SIGNAL.warning, tint: SIGNAL.warningTint },
   "Follow up on FDD": { color: "#6d28d9", tint: "#f5f3ff" },
   "Prepare for consultation": { color: "#2463eb", tint: "#eff4ff" },
   "Review outcome and update stage": { color: "#4f46e5", tint: "#eef2ff" },
   "Begin due diligence discussion": { color: "#0e7490", tint: "#f0fafb" },
   "Discuss the franchise agreement": { color: "#047857", tint: "#ecfdf5" },
-  "Await portal activity": { color: "#0369a1", tint: "#f0f9ff" },
-  "Monitor engagement": { color: "#4d7c0f", tint: "#f7fee7" },
+  "Await portal activity": { color: "#0e7490", tint: "#f0fafb" },
+  "Monitor engagement": { color: SIGNAL.success, tint: SIGNAL.successTint },
 };
 
 function actionBubble(row: InvestorRow): { color: string; tint: string } {
@@ -178,11 +186,14 @@ export async function InvestorsDirectory({
       dir: sortKey === key && sortDir === "desc" ? "asc" : "desc",
     });
 
+  const firstShown = filtered.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const lastShown = (currentPage - 1) * PAGE_SIZE + rows.length;
+
   return (
-    <>
-      <PageHeader
+    <V3Page>
+      <PageTitle
         title={title}
-        subtitle={
+        meta={
           <>
             {allRows.length} active
             {q && <> · matching &ldquo;{q}&rdquo;</>}
@@ -191,7 +202,7 @@ export async function InvestorsDirectory({
         actions={
           <>
             <form action={basePath} method="get" className="hidden sm:block">
-              <label className="flex w-[270px] items-center gap-2 rounded-control border border-border px-[11px] py-[7px] text-[14px]">
+              <label className="flex w-[230px] items-center gap-2 rounded-control border border-border bg-card px-[13px] py-2 text-[13px]">
                 <Search className="size-3.5 shrink-0 text-faint-foreground" strokeWidth={2} />
                 <input
                   type="search"
@@ -199,7 +210,7 @@ export async function InvestorsDirectory({
                   defaultValue={q ?? ""}
                   placeholder="Search clients…"
                   aria-label="Search clients"
-                  className="w-full bg-transparent text-foreground placeholder:text-faint-foreground focus:outline-none"
+                  className="w-full bg-transparent text-foreground placeholder:text-[#8b968f] focus:outline-none"
                 />
               </label>
             </form>
@@ -208,74 +219,65 @@ export async function InvestorsDirectory({
                 Export
               </a>
             )}
-            <Link href="/create-lead" className={INK_BUTTON}>
-              New client
+            <Link href="/create-lead" className={ACCENT_BUTTON}>
+              ＋ New Client
             </Link>
           </>
         }
       />
 
-      <PageBody className="flex flex-col gap-[18px]">
-        <BulkSelectProvider
-          endpoint="/api/advisor/investors/bulk-delete"
-          noun="client"
-          allIds={admin ? sorted.map((row) => row.lead.id) : []}
-        >
+      <BulkSelectProvider
+        endpoint="/api/advisor/investors/bulk-delete"
+        noun="client"
+        allIds={admin ? sorted.map((row) => row.lead.id) : []}
+      >
         {/* Filter chips, with the admin's bulk-select controls at the right */}
-        <div className="flex flex-wrap items-center gap-2">
-          {CHIPS.map((chip) => {
-            const active = chip.key === activeChip.key;
-            const count = searched.filter(chip.matches).length;
-            return (
-              <Link
-                key={chip.key}
-                href={hrefFor(chip.key)}
-                aria-current={active ? "true" : undefined}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-[13px] py-1.5 text-[13px] transition-colors",
-                  active
-                    ? "bg-foreground font-bold text-white"
-                    : "border border-border font-semibold hover:bg-surface-raised",
-                )}
-                style={active ? undefined : { color: chip.color ?? "#667085" }}
-              >
-                {!active && chip.color && (
-                  <span
-                    aria-hidden
-                    className="size-[5px] rounded-full"
-                    style={{ backgroundColor: chip.color }}
-                  />
-                )}
-                {chip.label} · {count}
-              </Link>
-            );
-          })}
-          {admin && (
-            <span className="ml-auto">
-              <BulkSelectBar />
-            </span>
-          )}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {CHIPS.map((chip) => {
+              const active = chip.key === activeChip.key;
+              const count = searched.filter(chip.matches).length;
+              return (
+                <Link
+                  key={chip.key}
+                  href={hrefFor(chip.key)}
+                  aria-current={active ? "true" : undefined}
+                  className={cn(
+                    "inline-flex items-center gap-[7px] rounded-pill px-[13px] py-1.5 text-[12.5px] transition-colors",
+                    active
+                      ? "bg-primary font-bold text-white"
+                      : "border border-border bg-card font-semibold text-secondary-foreground hover:bg-surface-raised",
+                  )}
+                >
+                  {!active && chip.color && (
+                    <span
+                      aria-hidden
+                      className="size-1.5 rounded-full"
+                      style={{ backgroundColor: chip.color }}
+                    />
+                  )}
+                  {chip.label} · {count}
+                </Link>
+              );
+            })}
+          </div>
+          {admin && <BulkSelectBar />}
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto">
+        <Panel padded={false} className="overflow-x-auto px-[18px] pb-2.5 pt-1.5">
           <div className="min-w-[900px]">
-            <div
-              className={cn(
-                "grid gap-x-4 border-b border-border py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-faint-foreground",
-                GRID,
-              )}
-            >
+            <GridHead columns={COLS}>
               <span>Client</span>
               <span>Stage</span>
               <SortHeader
-                label="Liquid capital"
+                label="Liquid Capital"
                 href={sortHref("capital")}
                 active={sortKey === "capital"}
                 dir={sortDir}
               />
               <SortHeader
-                label="Video watched"
+                label="Video Watched"
                 href={sortHref("video")}
                 active={sortKey === "video"}
                 dir={sortDir}
@@ -286,128 +288,112 @@ export async function InvestorsDirectory({
                 active={sortKey === "activity"}
                 dir={sortDir}
               />
-              <span>Next action</span>
-            </div>
+              <span>Next Action</span>
+            </GridHead>
 
             {rows.length === 0 && (
-              <p className="py-10 text-center text-[14.5px] text-muted-foreground">
+              <p className="py-10 text-center text-[13.5px] text-muted-foreground">
                 No clients match this filter.
               </p>
             )}
 
-            {rows.map((row) => {
+            {rows.map((row, index) => {
               const chip = stageChipFor(row.stage);
               const capital = compactMoney(
                 labelForValue(row.questionnaire?.liquid_capital ?? row.lead.initial_liquid_capital),
               );
+              const bubble = actionBubble(row);
               return (
-                <Link
+                <div
                   key={row.lead.id}
-                  href={`/advisor/investors/${row.lead.id}`}
                   className={cn(
-                    "grid items-center gap-x-4 border-b border-border-soft py-[13px] text-[14.5px] transition-colors hover:bg-surface-raised",
-                    GRID,
+                    "grid items-center gap-x-3.5 py-[11px] transition-colors hover:bg-surface-raised",
+                    index < rows.length - 1 && "border-b border-border-soft",
                   )}
+                  style={{ gridTemplateColumns: COLS }}
                 >
-                  <span className="min-w-0">
-                    <span className="flex items-center gap-[7px] font-bold text-foreground">
-                      <BulkSelectCheckbox id={row.lead.id} />
-                      <span className="truncate">
-                        {row.lead.first_name} {row.lead.last_name}
-                      </span>
-                      {row.followUp.needed && (
-                        <span
-                          aria-label="Follow-up due"
-                          title={row.followUp.reasons[0]}
-                          className="size-1.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: SIGNAL.alert }}
-                        />
-                      )}
-                    </span>
-                    <span className="block truncate text-[12.5px] text-faint-foreground">
-                      {row.lead.email}
-                    </span>
-                  </span>
-                  <span>
-                    <span
-                      className="inline-flex items-center gap-1.5 rounded-full px-[11px] py-1 text-[12.5px] font-bold"
-                      style={{ color: chip.color, backgroundColor: chip.tint }}
-                    >
+                  <span className="flex min-w-0 items-center gap-[7px]">
+                    <BulkSelectCheckbox id={row.lead.id} />
+                    <NameCell
+                      href={`/advisor/investors/${row.lead.id}`}
+                      name={`${row.lead.first_name} ${row.lead.last_name}`}
+                      sub={row.lead.email}
+                    />
+                    {row.followUp.needed && (
                       <span
-                        aria-hidden
-                        className="size-[5px] rounded-full"
-                        style={{ backgroundColor: chip.color }}
+                        aria-label="Follow-up due"
+                        title={row.followUp.reasons[0]}
+                        className="size-1.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: SIGNAL.alert }}
                       />
-                      {chip.label}
-                    </span>
+                    )}
                   </span>
-                  <span className="tabular truncate text-secondary-foreground">{capital}</span>
+
+                  <span>
+                    <StagePill color={chip.color} tint={chip.tint} label={chip.label} />
+                  </span>
+
+                  <span className="tabular truncate text-[13px] font-bold text-foreground">
+                    {capital}
+                  </span>
+
                   <VideoWatchedRing
                     percent={row.video?.highest_percent_watched ?? null}
                     completed={row.video?.completed ?? false}
                   />
-                  <span className="min-w-0">
-                    <span className="tabular block truncate text-[13.5px] leading-[1.45] text-secondary-foreground">
-                      {formatRelative(row.lastActivityAt)}
-                    </span>
-                    <span className="tabular block truncate text-[12px] text-ghost-foreground">
-                      joined {formatDate(row.lead.created_at)}
-                    </span>
-                  </span>
+
+                  <StackCell
+                    value={formatRelative(row.lastActivityAt)}
+                    sub={`joined ${formatDate(row.lead.created_at)}`}
+                  />
+
                   {row.nextAction === "—" ? (
-                    <span className="text-[13.5px] text-ghost-foreground">—</span>
+                    <span className="text-[12.5px] text-ghost-foreground">—</span>
                   ) : (
-                    (() => {
-                      const bubble = actionBubble(row);
-                      return (
-                        <span className="min-w-0">
-                          <span
-                            className="inline-flex max-w-full items-center rounded-full px-[11px] py-1 text-[12.5px] font-bold"
-                            style={{ color: bubble.color, backgroundColor: bubble.tint }}
-                          >
-                            <span className="truncate">{row.nextAction}</span>
-                          </span>
-                        </span>
-                      );
-                    })()
+                    <span className="min-w-0">
+                      <span
+                        className="inline-flex max-w-full items-center rounded-pill px-[11px] py-[3px] text-[11.5px] font-bold"
+                        style={{ color: bubble.color, backgroundColor: bubble.tint }}
+                      >
+                        <span className="truncate">{row.nextAction}</span>
+                      </span>
+                    </span>
                   )}
-                </Link>
+                </div>
               );
             })}
-
-            {/* Footer */}
-            <div className="flex items-center justify-between gap-4 pt-3.5 text-[13px] text-faint-foreground">
-              <span>
-                Showing {rows.length} of {filtered.length}
-              </span>
-              {pageCount > 1 && (
-                <span className="flex gap-1.5">
-                  <PageLink
-                    href={hrefFor(activeChip.key, currentPage - 1)}
-                    disabled={currentPage === 1}
-                    label="←"
-                  />
-                  {Array.from({ length: pageCount }, (_, index) => index + 1).map((number) => (
-                    <PageLink
-                      key={number}
-                      href={hrefFor(activeChip.key, number)}
-                      label={String(number)}
-                      current={number === currentPage}
-                    />
-                  ))}
-                  <PageLink
-                    href={hrefFor(activeChip.key, currentPage + 1)}
-                    disabled={currentPage === pageCount}
-                    label="→"
-                  />
-                </span>
-              )}
-            </div>
           </div>
+        </Panel>
+
+        <div className="flex items-center justify-between gap-4 text-[12.5px] font-semibold text-muted-foreground">
+          <span>
+            Showing {firstShown}–{lastShown} of {filtered.length} clients
+          </span>
+          {pageCount > 1 && (
+            <span className="flex items-center gap-1.5">
+              <PageLink
+                href={hrefFor(activeChip.key, currentPage - 1)}
+                disabled={currentPage === 1}
+                label="Previous"
+              />
+              {Array.from({ length: pageCount }, (_, index) => index + 1).map((number) => (
+                <PageLink
+                  key={number}
+                  href={hrefFor(activeChip.key, number)}
+                  label={String(number)}
+                  current={number === currentPage}
+                />
+              ))}
+              <PageLink
+                href={hrefFor(activeChip.key, currentPage + 1)}
+                disabled={currentPage === pageCount}
+                label="Next"
+              />
+            </span>
+          )}
         </div>
-        </BulkSelectProvider>
-      </PageBody>
-    </>
+      </BulkSelectProvider>
+    </V3Page>
   );
 }
 
@@ -429,12 +415,12 @@ function SortHeader({
       href={href}
       aria-sort={active ? (dir === "desc" ? "descending" : "ascending") : undefined}
       className={cn(
-        "inline-flex items-center gap-1 uppercase transition-colors hover:text-foreground",
+        "inline-flex items-center gap-1 transition-colors hover:text-foreground",
         active && "text-foreground",
       )}
     >
       {label}
-      <Icon className="size-3 shrink-0" strokeWidth={2.2} />
+      <Icon className="size-[11px] shrink-0" strokeWidth={2.2} />
     </Link>
   );
 }
@@ -451,8 +437,10 @@ function PageLink({
   disabled?: boolean;
 }) {
   const className = cn(
-    "rounded-md border border-border px-2.5 py-1",
-    current && "font-bold text-foreground",
+    "rounded-control px-2.5 py-[5px]",
+    current
+      ? "bg-primary font-bold text-white"
+      : "border border-border bg-card text-muted-foreground",
     disabled && "text-ghost-foreground",
   );
   if (disabled) {
@@ -463,7 +451,11 @@ function PageLink({
     );
   }
   return (
-    <Link href={href} aria-current={current ? "page" : undefined} className={cn(className, "hover:bg-surface-raised")}>
+    <Link
+      href={href}
+      aria-current={current ? "page" : undefined}
+      className={cn(className, !current && "hover:bg-surface-raised")}
+    >
       {label}
     </Link>
   );

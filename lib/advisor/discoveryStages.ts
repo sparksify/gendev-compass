@@ -71,26 +71,33 @@ export const DISCOVERY_STAGES: readonly DiscoveryStage[] = [
     name: "Confirmation Day Commitment",
     short: "Commitment",
     tiny: "Commitment",
-    color: "#15803d",
-    tint: "#f0fdf4",
+    color: "#178042",
+    tint: "#e3f4e8",
     entryStage: "CLOSED_INVESTED",
   },
 ] as const;
 
-/** Semantic colors that sit outside the stage spectrum. */
+/**
+ * Semantic colors that sit outside the stage spectrum. These track the v3
+ * .advisor-theme tokens — the same greens, ambers and reds the pills use —
+ * so a value read from here and a value read from a token always agree.
+ */
 export const SIGNAL = {
   alert: "#b42318",
-  alertTint: "#fef3f2",
-  success: "#15803d",
-  successTint: "#f0fdf4",
-  warning: "#b45309",
-  warningTint: "#fffaeb",
+  alertTint: "#fef0ee",
+  success: "#178042",
+  successTint: "#e3f4e8",
+  warning: "#8f680c",
+  warningTint: "#fbf0cf",
   /** Neutral chip/pill fill for "no stage" and restricted states. */
-  neutral: "#667085",
-  neutralTint: "#f2f3f6",
-  track: "#f2f3f6",
-  rule: "#ececf0",
-  ghost: "#c6cbd4",
+  neutral: "#5f6e67",
+  neutralTint: "#eef1ef",
+  track: "#eef2ef",
+  rule: "#eef2ef",
+  ghost: "#a9b4ad",
+  /** The yellow action accent, for the few places JS needs it as a value. */
+  accent: "#f5cf49",
+  accentInk: "#43350a",
 } as const;
 
 const STAGE_MAP: Record<InvestorStage, DiscoveryStageId | null> = {

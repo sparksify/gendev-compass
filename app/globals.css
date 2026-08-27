@@ -33,6 +33,21 @@
   --ring: #2563eb;
   /* Card radius per comp. Smaller elements step down from it. */
   --radius: 10px;
+  /* Control radius, indirected so a scoped theme can step it without the
+   * override leaking into the prospect portal (the advisor theme uses 10px). */
+  --control-radius: 8px;
+
+  /* Advisor "v3" accent scale. Defined here so every bg-accent/text-accent-*
+   * utility resolves everywhere, but only ever consumed inside
+   * .advisor-theme — the prospect portal has no yellow action color. */
+  --accent: #f5cf49;
+  --accent-hover: #edc22f;
+  --accent-foreground: #43350a;
+  --accent-soft: #fff9e8;
+  --accent-soft-border: #f0dfa8;
+  --accent-strong: #8f680c;
+  --warning-soft: #fffaeb;
+  --destructive-soft: #fef3f2;
 
   /* Dark navy rail — the app's left/mobile navigation. --sidebar and
    * --sidebar-foreground are also used by the dashboard's dark "Fast Lane"
@@ -88,8 +103,19 @@
   --color-accent-gold: var(--accent-gold);
   --color-accent-gold-soft: var(--accent-gold-soft);
 
+  /* Advisor v3 accent + soft tints (see :root for why they live globally). */
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-border: var(--accent-soft-border);
+  --color-accent-strong: var(--accent-strong);
+  --color-warning-soft: var(--warning-soft);
+  --color-destructive-soft: var(--destructive-soft);
+
   --radius-card: var(--radius);
-  --radius-control: 8px;
+  --radius-control: var(--control-radius);
+  --radius-pill: 999px;
 
   --font-sans: "DM Sans Variable", "DM Sans", system-ui, -apple-system, "Segoe UI",
     Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -377,49 +403,72 @@ main:has(.ti-workspace) + aside {
 }
 
 /* ---------------------------------------------------------------------------
- * Advisor visual system — "Signal Spectrum" (design_handoff_advisor_redesign).
- * Flat editorial fintech: white ground, no card shells, no shadows, ink-first
- * typography, and per-stage color that only ever appears next to a label.
+ * Advisor visual system — "v3" (Claude Design handoff, CRM Dashboard project).
+ * A soft green canvas carrying white bordered cards: deep green is the brand
+ * and link color, yellow is the single action accent, and the five discovery
+ * hues survive untouched as stage color. Replaces the earlier flat white/ink
+ * "Signal Spectrum" pass — every advisor screen wears this.
+ *
  * Scoped token overrides: every utility that reads a token (bg-surface,
  * border-border, rounded-card, font-serif, shadow-card…) resolves to these
  * values inside .advisor-theme, so the portal keeps its own look untouched.
  * ------------------------------------------------------------------------- */
 .advisor-theme {
-  --background: #ffffff;
-  --surface: #ffffff;
-  --surface-raised: #fafafb;
+  --background: #f1f4f0;
+  --surface: #f1f4f0;
+  --surface-raised: #f6f9f6;
   --card: #ffffff;
-  --foreground: #101828;
-  --secondary-foreground: #344054;
-  --muted-foreground: #667085;
-  --faint-foreground: #98a2b3;
-  --ghost-foreground: #c6cbd4;
-  --border: #ececf0;
-  --border-soft: #f2f3f6;
-  --border-strong: #d0d5dd;
-  --border-leader: #d7d9de;
-  /* Ink is the only "primary": the system has no blue buttons. Blue is a
-   * stage color (Unit Economics), never an action color. */
-  --primary: #101828;
-  --primary-hover: #000000;
-  --primary-soft: #f6f6f7;
-  --primary-soft-border: #ececf0;
-  --success: #15803d;
-  --success-soft: #f0fdf4;
-  --warning: #b45309;
+  --foreground: #1f2b26;
+  --secondary-foreground: #3a4a43;
+  --muted-foreground: #52625b;
+  --faint-foreground: #75847c;
+  --ghost-foreground: #a9b4ad;
+  --border: #dce6de;
+  --border-soft: #eef2ef;
+  --border-strong: #c9dcd2;
+  --border-leader: #d3e0d8;
+  /* Deep green is the brand: links, outline buttons, active nav. It is not a
+   * stage color — the five discovery hues below own that job. */
+  --primary: #16705a;
+  --primary-hover: #114f41;
+  --primary-soft: #e7f4ee;
+  --primary-soft-border: #c9dcd2;
+  /* Yellow is the one action accent: primary buttons, active tab underline,
+   * the current pipeline stage. The scale itself is declared at :root; only
+   * the tints that differ from the portal's are restated here. */
+  --success: #178042;
+  --success-soft: #e3f4e8;
+  --warning: #8f680c;
+  --warning-soft: #fbf0cf;
   --destructive: #b42318;
-  --ring: #101828;
-  --radius: 10px;
-  /* Flat by design — no card shells, no shadows. */
+  --destructive-soft: #fef0ee;
+  --ring: #16705a;
+  --radius: 14px;
+  --control-radius: 10px;
+  /* Cards carry a hairline border, never a shadow. */
   --shadow-card: none;
   --font-sans: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", system-ui, -apple-system,
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  /* No serif in the new system — headings use the same family, bold. */
+  /* No serif in this system — headings use the same family, bold. */
   --font-serif: var(--font-sans);
   font-family: var(--font-sans);
   letter-spacing: -0.01em;
   background-color: var(--surface);
   color: var(--foreground);
+}
+
+
+/* The shared form primitives (components/ui/form-fields) wear the portal's
+ * 2px field border, which reads as heavy against v3's hairline cards. Inside
+ * the advisor theme they step down to the same 1px green hairline the v3
+ * fields use — scoped here so the prospect portal's forms are untouched. */
+.advisor-theme :is(input, textarea, select).border-2 {
+  border-width: 1px;
+  border-color: var(--border);
+}
+
+.advisor-theme :is(input, textarea, select).border-2:focus {
+  border-color: var(--primary);
 }
 
 /* Numerals that must line up column-to-column: metrics, money, counts,

@@ -3,14 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Phone, Pin } from "lucide-react";
-import { SectionRule } from "@/components/advisor/PageHeader";
-import { INK_BUTTON_SM } from "@/components/advisor/controls";
+import { AccentNote, Panel, PanelHeader } from "@/components/advisor/v3";
+import { ACCENT_BUTTON_SM } from "@/components/advisor/controls";
 import { Textarea, FieldError } from "@/components/ui/form-fields";
 import { formatDate } from "@/lib/advisor/format";
-import { SIGNAL } from "@/lib/advisor/discoveryStages";
 import type { AdvisorNoteRecord } from "@/types/advisor";
-
-const AMBER_BORDER = "#f3e2c8";
 
 export interface UpcomingActivity {
   id: string;
@@ -117,23 +114,22 @@ export function NotesRail({
   }
 
   return (
-    <div id="notes">
-      <SectionRule
-        label="Notes"
+    <Panel id="notes" className="scroll-mt-4">
+      <PanelHeader
+        title="Notes"
         meta={
           <button
             type="button"
             onClick={() => setComposing((open) => !open)}
-            className="text-[13px] font-semibold text-foreground underline"
+            className="text-[12px] font-bold text-primary hover:underline"
           >
-            {composing ? "Cancel" : "Add"}
+            {composing ? "Cancel" : "＋ Add"}
           </button>
         }
-        className="mb-2"
       />
 
       {composing && (
-        <form onSubmit={onSubmit} className="mb-3 space-y-2">
+        <form onSubmit={onSubmit} className="mt-2.5 space-y-2">
           <Textarea
             value={note}
             onChange={(event) => setNote(event.target.value)}
@@ -143,92 +139,79 @@ export function NotesRail({
             autoFocus
           />
           <FieldError message={error ?? undefined} />
-          <button type="submit" disabled={submitting || !note.trim()} className={INK_BUTTON_SM}>
+          <button type="submit" disabled={submitting || !note.trim()} className={ACCENT_BUTTON_SM}>
             {submitting ? "Saving…" : "Save note"}
           </button>
         </form>
       )}
 
       {!pinned ? (
-        <p className="text-[13.5px] text-muted-foreground">No notes yet.</p>
+        <p className="mt-2.5 text-[13px] text-muted-foreground">No notes yet.</p>
       ) : (
-        <div
-          className="overflow-hidden rounded-card border"
-          style={{ borderColor: AMBER_BORDER, backgroundColor: SIGNAL.warningTint }}
-        >
-          <div
-            className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b px-3.5 py-2.5 text-[12px] text-secondary-foreground"
-            style={{ borderColor: AMBER_BORDER }}
-          >
-            <Pin className="size-[13px] shrink-0" style={{ color: SIGNAL.warning }} strokeWidth={2} />
+        <AccentNote className="mt-2.5 overflow-hidden p-0">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-accent-soft-border px-3.5 py-2 text-[11.5px] text-muted-foreground">
+            <Pin className="size-[11px] shrink-0 text-accent-strong" strokeWidth={2} />
             <strong className="font-bold text-foreground">Pinned</strong>
             <span>· {byline(pinned, staffNameById[pinned.staff_user_id] ?? "Staff")}</span>
-            <button
-              type="button"
-              onClick={() => setComposing(true)}
-              className="ml-auto font-semibold text-foreground underline"
-            >
-              Add a comment
-            </button>
           </div>
-          <div className="px-3.5 py-3">
-            <p className="text-[14px] font-bold text-foreground">{splitNote(pinned.note).title}</p>
+          <div className="px-3.5 py-2.5">
+            <p className="text-[13px] font-bold text-foreground">{splitNote(pinned.note).title}</p>
             {splitNote(pinned.note).body && (
-              <p className="mt-1.5 whitespace-pre-line text-[13.5px] leading-[1.7] text-secondary-foreground">
+              <p className="mt-1.5 whitespace-pre-line text-[12.5px] leading-[1.6] text-muted-foreground">
                 {splitNote(pinned.note).body}
               </p>
             )}
           </div>
-        </div>
+        </AccentNote>
       )}
 
       {upcoming && (
-        <div className="mt-2 flex items-center gap-2.5 rounded-card border border-border px-3.5 py-2.5">
+        <div className="mt-2 flex items-center gap-2.5 rounded-[11px] border border-border-soft px-3.5 py-2.5">
           <button
             type="button"
             onClick={completeActivity}
             disabled={completing || completed}
             aria-label={`Mark ${upcoming.type} complete`}
-            className="flex size-[15px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-border-strong transition-colors disabled:opacity-60"
-            style={completed ? { backgroundColor: SIGNAL.success, borderColor: SIGNAL.success } : undefined}
+            className="flex size-[14px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-ghost-foreground transition-colors disabled:opacity-60 data-[done=true]:border-success data-[done=true]:bg-success"
+            data-done={completed}
           >
             {completed && <span className="text-[9px] font-bold leading-none text-white">✓</span>}
           </button>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[14px] font-bold text-foreground">{upcoming.type}</span>
-            <span className="mt-px block truncate text-[12px] text-muted-foreground">
+            <span className="block truncate text-[13px] font-bold text-foreground">
+              {upcoming.type}
+            </span>
+            <span className="mt-px block truncate text-[11.5px] font-semibold text-faint-foreground">
               {upcoming.meta}
             </span>
           </span>
-          <Phone className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.8} />
+          <Phone className="size-3.5 shrink-0 text-faint-foreground" strokeWidth={1.8} />
         </div>
       )}
 
       {rest.length > 0 && (
-        <div className="mt-3 flex flex-col gap-3">
-          {(showAll ? rest : rest.slice(0, 2)).map((entry) => (
-            <p
-              key={entry.id}
-              className="border-l-2 pl-3 text-[13.5px] leading-relaxed text-secondary-foreground"
-              style={{ borderLeftColor: AMBER_BORDER }}
-            >
-              {entry.note}
-              <span className="mt-1 block text-[12px] text-ghost-foreground">
-                {staffNameById[entry.staff_user_id] ?? "Staff"} · {formatDate(entry.created_at)}
-              </span>
-            </p>
-          ))}
-          {rest.length > 2 && (
-            <button
-              type="button"
-              onClick={() => setShowAll((open) => !open)}
-              className="self-start text-[13px] font-semibold text-foreground underline"
-            >
-              {showAll ? "Show fewer" : `Show all ${notes.length} notes`}
-            </button>
-          )}
+        <div className="mt-2.5 flex flex-col gap-2.5">
+          {showAll &&
+            rest.map((entry) => (
+              <p
+                key={entry.id}
+                className="border-l-2 border-accent-soft-border pl-3 text-[12.5px] leading-relaxed text-muted-foreground"
+              >
+                {entry.note}
+                <span className="mt-1 block text-[11.5px] text-ghost-foreground">
+                  {staffNameById[entry.staff_user_id] ?? "Staff"} · {formatDate(entry.created_at)}
+                </span>
+              </p>
+            ))}
+          <button
+            type="button"
+            onClick={() => setShowAll((open) => !open)}
+            className="self-start text-[12px] font-bold text-primary hover:underline"
+          >
+            {showAll ? "Show fewer" : `Show all ${notes.length} notes`}
+          </button>
         </div>
       )}
-    </div>
+    </Panel>
   );
 }

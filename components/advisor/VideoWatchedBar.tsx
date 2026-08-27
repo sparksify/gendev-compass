@@ -27,9 +27,9 @@ export function VideoWatchedRing({
 }) {
   if (percent === null || percent <= 0) {
     return (
-      <span className="flex items-center gap-1.5 text-[13.5px] leading-[1.45] text-ghost-foreground">
-        <Play aria-hidden className="size-3.5 shrink-0 fill-current" strokeWidth={0} />
-        not started
+      <span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-[#8b968f]">
+        <Play aria-hidden className="size-3 shrink-0 fill-current" strokeWidth={0} />
+        Not started
       </span>
     );
   }
@@ -37,9 +37,9 @@ export function VideoWatchedRing({
   const color = watchColor(clamped, completed);
 
   return (
-    <span className="flex items-center gap-2">
-      <svg viewBox="0 0 28 28" aria-hidden className="size-[26px] shrink-0 -rotate-90">
-        <circle cx="14" cy="14" r={RADIUS} fill="none" stroke="#f2f3f6" strokeWidth="4.5" />
+    <span className="flex items-center gap-[7px]">
+      <svg viewBox="0 0 28 28" aria-hidden className="size-[22px] shrink-0 -rotate-90">
+        <circle cx="14" cy="14" r={RADIUS} fill="none" stroke="#eef2ef" strokeWidth="4.5" />
         <circle
           cx="14"
           cy="14"
@@ -52,7 +52,7 @@ export function VideoWatchedRing({
           strokeDashoffset={CIRCUMFERENCE * (1 - clamped / 100)}
         />
       </svg>
-      <span className="tabular text-[13px] font-bold" style={{ color }}>
+      <span className="tabular text-[12.5px] font-extrabold" style={{ color }}>
         {clamped}%
       </span>
     </span>

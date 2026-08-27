@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { PageBody, PageHeader, SectionRule } from "@/components/advisor/PageHeader";
-import { INK_BUTTON } from "@/components/advisor/controls";
+import { Overline, Panel, PageTitle, V3Page } from "@/components/advisor/v3";
+import { ACCENT_BUTTON } from "@/components/advisor/controls";
 import { TerritoryTabs } from "@/components/advisor/territories/TerritoryTabs";
 import { EligibilityGrid } from "@/components/advisor/territories/EligibilityGrid";
 import { STATUS_META } from "@/components/territory/statusMeta";
@@ -63,18 +63,17 @@ export function EligibilityScreen({
   const outcomeTotal = outcomes.reduce((sum, entry) => sum + entry.count, 0);
 
   return (
-    <>
-      <PageHeader
+    <V3Page>
+      <PageTitle
         title="Territory Advisor"
-        subtitle={brandName ? `${brandName} · state eligibility` : "State eligibility"}
-        tabs={<TerritoryTabs pendingReviews={pendingReviews} />}
+        meta={brandName ? `${brandName} · state eligibility` : "State eligibility"}
         actions={
           brandId ? (
             <button
               type="button"
               onClick={() => setSaveSignal((signal) => signal + 1)}
               disabled={dirtyCount === 0}
-              className={INK_BUTTON}
+              className={ACCENT_BUTTON}
             >
               Save changes{dirtyCount > 0 ? ` (${dirtyCount})` : ""}
             </button>
@@ -82,25 +81,29 @@ export function EligibilityScreen({
         }
       />
 
-      <PageBody>
+      <TerritoryTabs pendingReviews={pendingReviews} />
+
         {!brandId ? (
-          <p className="text-[14.5px] text-muted-foreground">No brands configured yet.</p>
+          <p className="text-[13.5px] text-muted-foreground">No brands configured yet.</p>
         ) : (
-          <div className="grid gap-10 xl:grid-cols-[1.6fr_1fr] [&>*]:min-w-0">
+          <div className="grid items-start gap-3.5 xl:grid-cols-[1.6fr_1fr] [&>*]:min-w-0">
+            <Panel>
             <EligibilityGrid
               brandId={brandId}
               initialRows={initialRows}
               onDirtyChange={setDirtyCount}
               saveSignal={saveSignal}
             />
+            </Panel>
 
-            <div>
-              <SectionRule
-                label="Recent searches"
-                meta={<span className="tabular">last 7 days · {searchTotal}</span>}
-                className="mb-1.5"
-              />
-              <div className="flex flex-col text-[14px]">
+            <Panel>
+              <div className="flex items-baseline justify-between gap-3">
+                <Overline>Recent searches</Overline>
+                <span className="tabular text-[12px] font-semibold text-muted-foreground">
+                  last 7 days · {searchTotal}
+                </span>
+              </div>
+              <div className="mt-1 flex flex-col text-[13px]">
                 {recentSearches.length === 0 && (
                   <p className="py-2 text-muted-foreground">No searches in the last 7 days.</p>
                 )}
@@ -161,10 +164,9 @@ export function EligibilityScreen({
                   </>
                 )}
               </div>
-            </div>
+            </Panel>
           </div>
         )}
-      </PageBody>
-    </>
+    </V3Page>
   );
 }

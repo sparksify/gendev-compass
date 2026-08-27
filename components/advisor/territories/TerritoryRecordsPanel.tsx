@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { AlertTriangle, ChevronDown, ChevronUp, FileUp, Loader2, Trash2, Upload } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Panel } from "@/components/advisor/v3";
+import { ACCENT_BUTTON } from "@/components/advisor/controls";
 import { Button } from "@/components/ui/button";
 import { Input, Label, NativeSelect, Textarea, FieldError } from "@/components/ui/form-fields";
 import { cn } from "@/lib/utils";
@@ -58,11 +59,11 @@ const STATUS_STYLES: Record<TerritoryStatus, { color: string; tint: string }> = 
 /** The same tones as a class string, for the report-preview select. */
 const STATUS_SELECT_CLASS: Record<TerritoryStatus, string> = {
   available: "border-success/30 bg-success-soft text-success",
-  reserved: "border-[#f3e2c8] bg-[#fffaeb] text-[#b45309]",
+  reserved: "border-[#f0dfa8] bg-[#fbf0cf] text-[#8f680c]",
   pending: "border-[#e0d2f9] bg-[#f5f3ff] text-[#6d28d9]",
-  sold: "border-[#f5b8b8] bg-[#fef3f2] text-[#b42318]",
+  sold: "border-[#f5b8b8] bg-[#fef0ee] text-[#b42318]",
   corporate: "border-[#e0d2f9] bg-[#f5f3ff] text-[#6d28d9]",
-  unavailable: "border-[#f5b8b8] bg-[#fef3f2] text-[#b42318]",
+  unavailable: "border-[#f5b8b8] bg-[#fef0ee] text-[#b42318]",
   archived: "border-border bg-surface text-muted-foreground",
 };
 
@@ -103,6 +104,8 @@ interface TerritoryRecordsPanelProps {
   onCloseCreate: () => void;
   /** Rendered between the records table and the import tools. */
   afterTable?: React.ReactNode;
+  /** Brand chips + status legend, rendered inside the records card. */
+  header?: React.ReactNode;
 }
 
 const emptyForm = {
@@ -126,6 +129,7 @@ export function TerritoryRecordsPanel({
   showCreate,
   onCloseCreate,
   afterTable,
+  header,
 }: TerritoryRecordsPanelProps) {
   const [territories, setTerritories] = useState(initialTerritories);
   const [zipCounts, setZipCounts] = useState(initialZipCounts);
@@ -234,10 +238,10 @@ export function TerritoryRecordsPanel({
   }
 
   return (
-    <div className="flex flex-col gap-[26px]">
+    <div className="flex flex-col gap-3.5">
       {showCreate && (
-        <Card>
-          <CardContent className="grid grid-cols-1 gap-3.5 p-5 sm:grid-cols-2">
+        <Panel>
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
             <div>
               <Label htmlFor="territoryName">Territory name</Label>
               <Input id="territoryName" className="mt-1.5" value={form.territoryName} onChange={(e) => setForm({ ...form, territoryName: e.target.value })} />
@@ -305,13 +309,15 @@ export function TerritoryRecordsPanel({
               </Button>
               <Button type="button" variant="ghost" onClick={onCloseCreate}>Cancel</Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </Panel>
       )}
 
-      <div className="overflow-x-auto">
+      <Panel>
+        {header}
+        <div className={cn("overflow-x-auto", header && "mt-2")}>
         <div className="min-w-[820px]">
-          <div className={cn(RECORDS_GRID, "grid gap-x-4 border-b border-border py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-faint-foreground")}>
+          <div className={cn(RECORDS_GRID, "grid gap-x-3.5 border-b border-border py-[11px] text-[10.5px] font-extrabold uppercase tracking-[0.11em] text-muted-foreground")}>
             <span>Territory</span>
             <span>Definition</span>
             <span>ZIPs</span>
@@ -332,23 +338,24 @@ export function TerritoryRecordsPanel({
             />
           ))}
           {territories.length === 0 && (
-            <p className="py-10 text-center text-[14.5px] text-muted-foreground">No territories yet.</p>
+            <p className="py-10 text-center text-[13.5px] text-muted-foreground">No territories yet.</p>
           )}
         </div>
-      </div>
+        </div>
+      </Panel>
 
       {afterTable}
 
       <UploadReportCard brandId={brandId} onSaved={handleReportSaved} />
 
-      <Card id="zip-import">
-        <CardContent className="space-y-3.5 p-5">
-          <div className="flex items-center gap-2">
-            <Upload className="size-4 text-muted-foreground" strokeWidth={1.8} />
-            <p className="text-[15.5px] leading-[1.45] font-semibold text-foreground">Bulk ZIP Import (CSV)</p>
+      <Panel id="zip-import" className="scroll-mt-4">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2.5">
+            <Upload className="size-[15px] text-primary" strokeWidth={2} />
+            <p className="text-[15px] font-bold text-foreground">Bulk ZIP Import (CSV)</p>
           </div>
-          <p className="text-[15.5px] leading-[1.45] text-muted-foreground">
-            Columns: <code className="rounded bg-surface px-1 py-0.5 text-[13.5px] leading-[1.45]">{CSV_TEMPLATE_HEADER}</code>.
+          <p className="text-[12.5px] leading-[1.6] text-muted-foreground">
+            Columns: <code className="rounded-[5px] bg-[#eef1ef] px-1.5 py-px text-[11.5px] text-foreground">{CSV_TEMPLATE_HEADER}</code>.
             Rows are grouped by territory_code (or territory_name) — existing territories are reused.
           </p>
           <Textarea
@@ -357,9 +364,14 @@ export function TerritoryRecordsPanel({
             value={csvText}
             onChange={(e) => setCsvText(e.target.value)}
           />
-          <Button type="button" disabled={csvBusy || !csvText.trim()} onClick={submitCsv}>
-            {csvBusy && <Loader2 className="animate-spin" />} Import CSV
-          </Button>
+          <button
+            type="button"
+            disabled={csvBusy || !csvText.trim()}
+            onClick={submitCsv}
+            className={ACCENT_BUTTON}
+          >
+            {csvBusy && <Loader2 className="size-[15px] animate-spin" />} Import ZIPs
+          </button>
           {csvResult && (
             <div className="rounded-control border-2 border-border-strong bg-surface p-3.5 text-[15.5px] leading-[1.45]">
               <p className="font-medium text-foreground">
@@ -376,8 +388,8 @@ export function TerritoryRecordsPanel({
               )}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </Panel>
     </div>
   );
 }
@@ -473,7 +485,7 @@ function TerritoryRow({
 
   return (
     <>
-      <div className={cn(RECORDS_GRID, "grid items-center gap-x-4 border-b border-border-soft py-3 text-[14.5px]")}>
+      <div className={cn(RECORDS_GRID, "grid items-center gap-x-3.5 border-b border-border-soft py-[11px] text-[13px]")}>
         <span className="min-w-0">
           <span className="block truncate font-bold text-foreground">{territory.territory_name}</span>
           {territory.territory_code && (
@@ -679,15 +691,15 @@ function UploadReportCard({
   const includedCount = preview ? preview.zips.length - preview.excludedZips.size : 0;
 
   return (
-    <Card>
-      <CardContent className="space-y-3.5 p-5">
-        <div className="flex items-center gap-2.5">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-soft">
-            <FileUp className="size-4 text-primary" strokeWidth={1.8} />
+    <Panel>
+      <div className="space-y-3">
+        <div className="flex items-start gap-[13px]">
+          <span className="flex size-[34px] shrink-0 items-center justify-center rounded-[10px] bg-primary-soft">
+            <FileUp className="size-[15px] text-primary" strokeWidth={2} />
           </span>
           <div>
-            <p className="text-[15.5px] leading-[1.45] font-semibold text-foreground">Upload Territory Report</p>
-            <p className="text-[15.5px] leading-[1.45] text-muted-foreground">
+            <p className="text-[15px] font-bold text-foreground">Upload Territory Report</p>
+            <p className="mt-1 text-[12.5px] leading-[1.6] text-muted-foreground">
               Upload the Territory Demographic Report PDF exported from the mapping software. We read the
               territory name and ZIP codes from it — you choose the status and confirm before anything is saved.
             </p>
@@ -827,7 +839,7 @@ function UploadReportCard({
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </Panel>
   );
 }

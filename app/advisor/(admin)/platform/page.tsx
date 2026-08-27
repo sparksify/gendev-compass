@@ -5,7 +5,7 @@ import { loadInvestorRows } from "@/lib/advisor/investors";
 import { isGhlCalendarConfigured } from "@/lib/calendar/ghl";
 import { AdminOverviewPanels } from "@/components/admin/AdminOverviewPanels";
 import { PlatformPageShell } from "@/components/admin/PlatformPageShell";
-import { INK_BUTTON } from "@/components/advisor/controls";
+import { ACCENT_BUTTON } from "@/components/advisor/controls";
 
 export const metadata: Metadata = { title: "Portal Admin Dashboard" };
 export const dynamic = "force-dynamic";
@@ -41,8 +41,8 @@ export default async function PlatformDashboardPage() {
     <PlatformPageShell
       subtitle="Manage portal content, data, and platform settings"
       actions={
-        <Link href="/advisor/platform/test-leads" className={INK_BUTTON}>
-          Create test lead
+        <Link href="/advisor/platform/test-leads" className={ACCENT_BUTTON}>
+          ＋ Create Test Lead
         </Link>
       }
     >

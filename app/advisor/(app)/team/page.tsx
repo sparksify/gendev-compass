@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { requireStaffUser } from "@/lib/advisor/auth";
 import { isAdmin } from "@/lib/advisor/access";
 import { TeamPanel } from "@/components/advisor/TeamPanel";
-import { PageBody, PageHeader } from "@/components/advisor/PageHeader";
+import { PageTitle, V3Page } from "@/components/advisor/v3";
 
 export const metadata: Metadata = { title: "Team" };
 export const dynamic = "force-dynamic";
@@ -16,16 +16,12 @@ export default async function TeamPage() {
   const user = await requireStaffUser();
 
   return (
-    <>
-      <PageHeader
+    <V3Page width="narrow">
+      <PageTitle
         title="Team"
-        subtitle={`Staff accounts for this dashboard${isAdmin(user) ? " — add members and manage access" : ""}`}
+        meta={`Staff accounts for this dashboard${isAdmin(user) ? " — add members and manage access" : ""}`}
       />
-      <PageBody>
-        <div className="max-w-3xl">
-          <TeamPanel isAdminUser={isAdmin(user)} />
-        </div>
-      </PageBody>
-    </>
+      <TeamPanel isAdminUser={isAdmin(user)} />
+    </V3Page>
   );
 }

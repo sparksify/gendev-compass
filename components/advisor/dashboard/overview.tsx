@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
   ArrowUpRight,
-  CalendarDays,
   ChartColumn,
   ChevronDown,
   CircleCheck,
@@ -11,58 +10,35 @@ import {
   Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Panel, Pill } from "@/components/advisor/v3";
 import { SECONDARY_BUTTON_SM } from "@/components/advisor/controls";
 import { relativeShort } from "@/components/advisor/dashboard/panels";
-import { DISCOVERY_STAGES, type DiscoveryStageId } from "@/lib/advisor/discoveryStages";
-import type { ActivityItem, ConversionStep, PipelineSegment, WorkQueueItem } from "@/lib/advisor/briefing";
+import type { DiscoveryStageId } from "@/lib/advisor/discoveryStages";
+import type {
+  ActivityItem,
+  ConversionStep,
+  PipelineSegment,
+  WorkQueueItem,
+} from "@/lib/advisor/briefing";
 
 /**
- * The overview mock's own stage palette. It reuses the app's five hues but
- * swaps violet onto Intro Call and teal onto FDD & Territory (the reverse of
- * the chip spectrum the rest of the app wears) — scoped here so the clients
- * list and detail pages keep their existing colors.
+ * One icon per discovery stage. The colors are NOT restated here — the v3
+ * handoff puts the dashboard on the same five hues as the clients list and
+ * the detail page, so each card reads its stage's own color and tint from
+ * lib/advisor/discoveryStages.
  */
-const DASH_STAGE: Record<
+const STAGE_ICON: Record<
   DiscoveryStageId,
-  { color: string; tint: string; icon: React.ComponentType<{ className?: string; strokeWidth?: number }> }
+  React.ComponentType<{ className?: string; strokeWidth?: number }>
 > = {
-  1: { color: "#6d28d9", tint: "#f3eefb", icon: Phone },
-  2: { color: "#2463eb", tint: "#edf2fe", icon: ChartColumn },
-  3: { color: "#0e7490", tint: "#e9f5f8", icon: MapIcon },
-  4: { color: "#d97706", tint: "#fdf3e6", icon: Send },
-  5: { color: "#15803d", tint: "#ecf9f1", icon: CircleCheck },
+  1: Phone,
+  2: ChartColumn,
+  3: MapIcon,
+  4: Send,
+  5: CircleCheck,
 };
 
-/** Overdue reds — brighter than the app's alert ink, per the mock. */
-const OVERDUE = "#dc2626";
-const DELTA_GREEN = "#16a34a";
-
-/** Stage-spectrum color → this page's palette, for activity dots etc. */
-const REMAP: Record<string, string> = Object.fromEntries(
-  DISCOVERY_STAGES.map((stage) => [stage.color, DASH_STAGE[stage.id].color]),
-);
-export function dashColor(color: string): string {
-  return REMAP[color] ?? color;
-}
-
-/** The white rounded card every panel on this page sits in. */
-export function Card({
-  id,
-  className,
-  children,
-}: {
-  id?: string;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div id={id} className={cn("rounded-card border border-border bg-card", className)}>
-      {children}
-    </div>
-  );
-}
-
-/** Icon-circle stat card: Active Leads 213, "+ 89 new this week ↗". */
+/** The v3 stat card: a rounded icon chip, the label, the count, a delta. */
 export function StatCard({
   icon: Icon,
   color,
@@ -70,6 +46,8 @@ export function StatCard({
   label,
   value,
   delta,
+  /** Deltas of zero read as neutral rather than as growth. */
+  positive = true,
 }: {
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   color: string;
@@ -77,115 +55,105 @@ export function StatCard({
   label: string;
   value: number;
   delta: string;
+  positive?: boolean;
 }) {
   return (
-    <Card className="px-5 py-[18px]">
-      <div className="flex items-center gap-3.5">
+    <Panel className="px-[18px] py-[15px]">
+      <div className="flex items-center gap-[11px]">
         <span
-          className="flex size-11 shrink-0 items-center justify-center rounded-full"
+          className="flex size-[34px] shrink-0 items-center justify-center rounded-[10px]"
           style={{ backgroundColor: tint, color }}
         >
-          <Icon className="size-5" strokeWidth={1.8} />
+          <Icon className="size-[15px]" strokeWidth={2} />
         </span>
         <span className="min-w-0">
-          <span className="block truncate text-[13.5px] font-medium text-muted-foreground">
+          <span className="block truncate text-[12px] font-semibold text-muted-foreground">
             {label}
           </span>
-          <span className="tabular mt-0.5 block text-[27px] font-extrabold leading-none tracking-[-0.02em] text-foreground">
+          <span className="tabular mt-px block text-[21px] font-extrabold leading-tight text-foreground">
             {value}
           </span>
         </span>
       </div>
       <p
-        className="mt-3 flex items-center gap-1 text-[13px] font-semibold"
-        style={{ color: DELTA_GREEN }}
+        className={cn(
+          "mt-2.5 flex items-center gap-1 text-[12px]",
+          positive ? "font-bold text-success" : "font-semibold text-faint-foreground",
+        )}
       >
         {delta}
-        <ArrowUpRight className="size-3.5" strokeWidth={2.2} />
+        {positive && <ArrowUpRight className="size-3" strokeWidth={2.2} />}
       </p>
-    </Card>
+    </Panel>
   );
 }
 
 /** One pipeline stage card: icon, name, count, share, colored bottom bar. */
 export function StageCard({ segment, total }: { segment: PipelineSegment; total: number }) {
   const { stage, count } = segment;
-  const dash = DASH_STAGE[stage.id];
-  const Icon = dash.icon;
+  const Icon = STAGE_ICON[stage.id];
   const share = total > 0 ? Math.round((count / total) * 100) : 0;
 
   return (
     <Link
       href={`/advisor/investors?stage=${stage.id}`}
-      className="relative block overflow-hidden rounded-card border border-border bg-card px-5 pb-[22px] pt-5 transition-colors hover:bg-surface-raised"
+      className="block overflow-hidden rounded-card border border-border bg-card px-[18px] pt-[15px] transition-colors hover:bg-surface-raised"
     >
-      <span className="flex items-center justify-center gap-3.5">
+      <span className="flex items-center gap-[11px]">
         <span
-          className="flex size-11 shrink-0 items-center justify-center rounded-full"
-          style={{ backgroundColor: dash.tint, color: dash.color }}
+          className="flex size-[34px] shrink-0 items-center justify-center rounded-[10px]"
+          style={{ backgroundColor: stage.tint, color: stage.color }}
         >
-          <Icon className="size-5" strokeWidth={1.8} />
+          <Icon className="size-[15px]" strokeWidth={2} />
         </span>
         <span className="min-w-0">
-          <span className="block truncate text-[13.5px] font-medium text-muted-foreground">
+          <span className="block truncate text-[12px] font-semibold text-muted-foreground">
             {stage.tiny}
           </span>
-          <span className="tabular mt-0.5 block text-[27px] font-extrabold leading-none tracking-[-0.02em] text-foreground">
+          <span className="tabular mt-px block text-[20px] font-extrabold leading-tight text-foreground">
             {count}
           </span>
         </span>
       </span>
-      <span className="mt-2.5 block text-center text-[12.5px] text-faint-foreground">
+      <span className="mb-3 mt-2 block text-[11.5px] font-semibold text-faint-foreground">
         {share}% of pipeline
       </span>
       <span
         aria-hidden
-        className="absolute inset-x-0 bottom-0 h-[5px]"
-        style={{ backgroundColor: dash.color }}
+        className="-mx-[18px] block h-1"
+        style={{ backgroundColor: stage.color }}
       />
     </Link>
   );
 }
 
-/** Panel header: "WORK QUEUE" + count chip on the left, an action right. */
-export function PanelHeader({
-  label,
-  chip,
-  right,
-}: {
-  label: string;
-  chip?: number;
-  right?: React.ReactNode;
-}) {
+/** A panel title with a yellow count chip beside it ("Work Queue 6"). */
+export function CountTitle({ label, count }: { label: string; count?: number }) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <p className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.13em] text-foreground">
-        {label}
-        {chip !== undefined && (
-          <span className="tabular inline-flex min-w-[22px] items-center justify-center rounded-md bg-surface-raised px-1.5 py-0.5 text-[11.5px] font-bold normal-case tracking-normal text-secondary-foreground">
-            {chip}
-          </span>
-        )}
-      </p>
-      {right}
-    </div>
+    <p className="inline-flex items-center gap-2 text-[15px] font-bold text-foreground">
+      {label}
+      {count !== undefined && (
+        <span className="tabular inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-pill bg-[#fff6d9] px-[5px] text-[11px] font-extrabold text-accent-strong">
+          {count}
+        </span>
+      )}
+    </p>
   );
 }
 
 /** The faint "Last 24 hours ⌄" range label panels carry on the right. */
 export function RangeLabel({ children }: { children: React.ReactNode }) {
   return (
-    <span className="flex items-center gap-1 text-[13px] text-faint-foreground">
+    <span className="flex items-center gap-1 text-[12px] font-semibold text-muted-foreground">
       {children}
-      <ChevronDown className="size-3.5" strokeWidth={2} />
+      <ChevronDown className="size-3" strokeWidth={2} />
     </span>
   );
 }
 
-/** A work-queue row: red spine, task, overdue marker, Remind, kebab. */
-export function QueueRow({ item }: { item: WorkQueueItem }) {
+/** A work-queue row: the task, an overdue pill, the one-word CTA, a kebab. */
+export function QueueRow({ item, last }: { item: WorkQueueItem; last: boolean }) {
   const overdue = item.marker?.kind === "overdue";
-  const spine = overdue ? OVERDUE : dashColor(item.spineColor);
 
   const cta = item.mailto ? (
     <a href={item.mailto} className={SECONDARY_BUTTON_SM}>
@@ -198,43 +166,37 @@ export function QueueRow({ item }: { item: WorkQueueItem }) {
   );
 
   return (
-    <div className="flex items-center gap-3.5 border-b border-border-soft py-3.5 last:border-b-0 last:pb-1">
-      <span
-        aria-hidden
-        className="h-[38px] w-[3px] shrink-0 rounded-full"
-        style={{ backgroundColor: spine }}
-      />
+    <div
+      className={cn(
+        "flex items-center gap-3.5 py-[11px]",
+        !last && "border-b border-border-soft",
+      )}
+    >
       <Link href={`/advisor/investors/${item.leadId}`} className="group min-w-0 flex-1">
-        <span className="block truncate text-[15px] font-bold tracking-[-0.01em] text-foreground group-hover:underline">
+        <span className="block truncate text-[13.5px] font-bold text-foreground group-hover:underline">
           {item.title}
         </span>
-        <span className="mt-[3px] block truncate text-[13px] text-muted-foreground">
+        <span className="mt-0.5 block truncate text-[12px] font-medium text-muted-foreground">
           {item.detail}
         </span>
       </Link>
+
       {overdue && item.marker?.kind === "overdue" && (
-        <span
-          className="hidden shrink-0 items-center gap-1.5 text-[11.5px] font-bold tracking-[0.06em] sm:inline-flex"
-          style={{ color: OVERDUE }}
-        >
-          <CalendarDays className="size-[13px]" strokeWidth={2} />
+        <Pill tone="danger" className="hidden sm:inline-flex">
           {item.marker.label}
-        </span>
+        </Pill>
       )}
       {item.marker?.kind === "warm" && (
-        <span
-          className="hidden shrink-0 items-center gap-1.5 text-[11.5px] font-bold tracking-[0.06em] sm:inline-flex"
-          style={{ color: DELTA_GREEN }}
-        >
-          <span aria-hidden className="size-[5px] rounded-full" style={{ backgroundColor: DELTA_GREEN }} />
-          WARM
-        </span>
+        <Pill tone="success" dot className="hidden sm:inline-flex">
+          Warm
+        </Pill>
       )}
+
       <span className="shrink-0">{cta}</span>
       <Link
         href={`/advisor/investors/${item.leadId}`}
         aria-label="Open client"
-        className="shrink-0 rounded-md p-1 text-faint-foreground transition-colors hover:bg-surface-raised hover:text-foreground"
+        className="shrink-0 rounded-md p-1 text-ghost-foreground transition-colors hover:bg-surface-raised hover:text-foreground"
       >
         <MoreVertical className="size-4" strokeWidth={2} />
       </Link>
@@ -243,43 +205,50 @@ export function QueueRow({ item }: { item: WorkQueueItem }) {
 }
 
 /** Activity monitor row: dot, bold name + what they did, short time. */
-export function MonitorRow({ item }: { item: ActivityItem }) {
+export function MonitorRow({ item, last }: { item: ActivityItem; last: boolean }) {
   return (
     <Link
       href={`/advisor/investors/${item.leadId}`}
-      className="flex items-center gap-2.5 py-[7px] text-[13.5px] text-secondary-foreground hover:bg-surface-raised"
+      className={cn(
+        "flex items-center justify-between gap-2.5 py-2 text-[13px] text-secondary-foreground hover:bg-surface-raised",
+        !last && "border-b border-border-soft",
+      )}
     >
-      <span
-        aria-hidden
-        className="size-[7px] shrink-0 rounded-full"
-        style={{ backgroundColor: dashColor(item.color) }}
-      />
       <span className="min-w-0 flex-1 truncate">
+        <span
+          aria-hidden
+          className="mr-2.5 inline-block size-1.5 rounded-full align-[2px]"
+          style={{ backgroundColor: item.color }}
+        />
         <strong className="font-bold text-foreground">{item.name}</strong> {item.text}
       </span>
-      <span className="tabular shrink-0 text-[12.5px] text-faint-foreground">
+      <span className="tabular shrink-0 text-[12px] font-semibold text-faint-foreground">
         {relativeShort(item.at)}
       </span>
     </Link>
   );
 }
 
-/** Stage-conversion row: from-stage dot, "A → B", leader, percent. */
+/** Stage-conversion row: from-stage dot, "A → B", dotted leader, percent. */
 export function ConversionRow({ step }: { step: ConversionStep }) {
   return (
-    <div className="flex items-center gap-2.5 py-[7px] text-[13.5px]">
-      <span
-        aria-hidden
-        className="size-[7px] shrink-0 rounded-full"
-        style={{ backgroundColor: DASH_STAGE[step.from.id].color }}
-      />
-      <span className="shrink-0 text-muted-foreground">
+    <span className="flex items-center justify-between gap-3.5 border-b border-dotted border-border-leader py-[9px] text-[13px] last:border-b-0">
+      <span className="min-w-0 truncate text-secondary-foreground">
+        <span
+          aria-hidden
+          className="mr-2.5 inline-block size-1.5 rounded-full align-[2px]"
+          style={{ backgroundColor: step.from.color }}
+        />
         {step.from.tiny} → {step.to.tiny}
       </span>
-      <span aria-hidden className="h-px min-w-4 flex-1 bg-border-soft" />
-      <strong className="tabular shrink-0 font-bold text-foreground">
+      <strong
+        className={cn(
+          "tabular shrink-0 font-extrabold",
+          step.percent === null ? "text-ghost-foreground" : "text-foreground",
+        )}
+      >
         {step.percent === null ? "—" : `${step.percent}%`}
       </strong>
-    </div>
+    </span>
   );
 }

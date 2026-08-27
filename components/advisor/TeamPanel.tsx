@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { GridHead, GridRow, Panel, Pill } from "@/components/advisor/v3";
+import { ACCENT_BUTTON, FIELD, FIELD_LABEL, SECONDARY_BUTTON } from "@/components/advisor/controls";
 
 interface StaffUserSummary {
   id: string;
@@ -13,20 +15,66 @@ interface StaffUserSummary {
   created_at: string;
 }
 
-const INPUT_CLASS =
-  "mt-1 block w-full rounded-control border-2 border-border-strong bg-card px-3 py-2 text-[15.5px] leading-[1.45] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15";
+/** name · email · role · last login */
+const COLS = "1fr 1.4fr .7fr 1fr";
 
 function formatWhen(iso: string | null): string {
   if (!iso) return "never";
   try {
-    return new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
+    return new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(
+      new Date(iso),
+    );
   } catch {
     return iso;
   }
 }
 
+function initialsOf(user: StaffUserSummary): string {
+  return `${user.first_name[0] ?? ""}${user.last_name[0] ?? ""}`.toUpperCase() || "?";
+}
+
+/** A form's result line — green when it worked, red when it didn't. */
+function FormMessage({ message }: { message: { ok: boolean; text: string } | null }) {
+  if (!message) return null;
+  return (
+    <p
+      role="status"
+      className={`text-[12.5px] font-semibold ${message.ok ? "text-success" : "text-destructive"}`}
+    >
+      {message.text}
+    </p>
+  );
+}
+
+function Field({
+  label,
+  hint,
+  span,
+  ...props
+}: React.InputHTMLAttributes<HTMLInputElement> & {
+  label: string;
+  hint?: string;
+  span?: boolean;
+}) {
+  return (
+    <div className={span ? "sm:col-span-2" : undefined}>
+      <label className={FIELD_LABEL}>
+        {label}
+        {hint && <span className="font-medium text-faint-foreground"> ({hint})</span>}
+      </label>
+      <input className={FIELD} {...props} />
+    </div>
+  );
+}
+
 function CreateUserForm({ onCreated }: { onCreated: (user: StaffUserSummary) => void }) {
-  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", password: "", role: "ADVISOR" });
+  const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    password: "",
+    role: "ADVISOR",
+  });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -57,81 +105,58 @@ function CreateUserForm({ onCreated }: { onCreated: (user: StaffUserSummary) => 
   }
 
   return (
-    <form onSubmit={submit} className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <div>
-        <label className="text-[13.5px] leading-[1.45] font-medium text-secondary-foreground">
-          First name
-          <input
-            required
-            value={form.firstName}
-            onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
-            className={INPUT_CLASS}
-          />
-        </label>
-      </div>
-      <div>
-        <label className="text-[13.5px] leading-[1.45] font-medium text-secondary-foreground">
-          Last name
-          <input
-            required
-            value={form.lastName}
-            onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
-            className={INPUT_CLASS}
-          />
-        </label>
-      </div>
-      <div>
-        <label className="text-[13.5px] leading-[1.45] font-medium text-secondary-foreground">
-          Email
-          <input
-            required
-            type="email"
-            value={form.email}
-            onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-            className={INPUT_CLASS}
-          />
-        </label>
-      </div>
-      <div>
-        <label className="text-[13.5px] leading-[1.45] font-medium text-secondary-foreground">
-          Role
+    <form onSubmit={submit}>
+      <div className="mt-3 grid grid-cols-1 gap-x-3.5 gap-y-3 sm:grid-cols-2">
+        <Field
+          label="First name"
+          required
+          value={form.firstName}
+          onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
+        />
+        <Field
+          label="Last name"
+          required
+          value={form.lastName}
+          onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
+        />
+        <Field
+          label="Email"
+          required
+          type="email"
+          value={form.email}
+          onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+        />
+        <div>
+          <label className={FIELD_LABEL} htmlFor="new-member-role">
+            Role
+          </label>
           <select
+            id="new-member-role"
             value={form.role}
             onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
-            className={INPUT_CLASS}
+            className={`${FIELD} font-semibold`}
           >
             <option value="ADVISOR">Advisor</option>
             <option value="ADMIN">Admin</option>
           </select>
-        </label>
+        </div>
+        <Field
+          span
+          label="Temporary password"
+          hint="12+ characters — they should change it after first login"
+          required
+          type="password"
+          minLength={12}
+          autoComplete="new-password"
+          value={form.password}
+          onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+        />
       </div>
-      <div className="sm:col-span-2">
-        <label className="text-[13.5px] leading-[1.45] font-medium text-secondary-foreground">
-          Temporary password (12+ characters — they should change it after first login)
-          <input
-            required
-            type="password"
-            minLength={12}
-            value={form.password}
-            onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-            className={INPUT_CLASS}
-            autoComplete="new-password"
-          />
-        </label>
-      </div>
-      <div className="sm:col-span-2 flex items-center gap-3">
-        <button
-          type="submit"
-          disabled={busy}
-          className="rounded-control bg-primary px-4 py-2 text-[15.5px] leading-[1.45] font-semibold text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-60"
-        >
-          {busy ? "Creating…" : "Add Team Member"}
+      <div className="mt-3.5 flex flex-wrap items-center gap-3">
+        <button type="submit" disabled={busy} className={ACCENT_BUTTON}>
+          {busy ? "Creating…" : "＋ Add Team Member"}
         </button>
-        {message && (
-          <p className={`text-[13.5px] leading-[1.45] font-medium ${message.ok ? "text-success" : "text-destructive"}`} role="status">
-            {message.text}
-          </p>
-        )}
+        <FormMessage message={message} />
       </div>
     </form>
   );
@@ -154,7 +179,10 @@ function ChangePasswordForm() {
       const response = await fetch("/api/advisor/users/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentPassword: form.currentPassword, newPassword: form.newPassword }),
+        body: JSON.stringify({
+          currentPassword: form.currentPassword,
+          newPassword: form.newPassword,
+        }),
       });
       const data = await response.json();
       if (data.success) {
@@ -162,7 +190,10 @@ function ChangePasswordForm() {
         setMessage({ ok: true, text: "Password changed." });
       } else {
         const detail = data.details ? Object.values(data.details).flat().join(" ") : "";
-        setMessage({ ok: false, text: `${data.error ?? "Could not change password."} ${detail}`.trim() });
+        setMessage({
+          ok: false,
+          text: `${data.error ?? "Could not change password."} ${detail}`.trim(),
+        });
       }
     } catch {
       setMessage({ ok: false, text: "Request failed. Check your connection and try again." });
@@ -172,55 +203,42 @@ function ChangePasswordForm() {
   }
 
   return (
-    <form onSubmit={submit} className="mt-4 grid max-w-md grid-cols-1 gap-3">
-      <label className="text-[13.5px] leading-[1.45] font-medium text-secondary-foreground">
-        Current password
-        <input
+    <form onSubmit={submit}>
+      <div className="mt-3 grid max-w-[640px] grid-cols-1 gap-x-3.5 gap-y-3 sm:grid-cols-2">
+        <Field
+          span
+          label="Current password"
           required
           type="password"
+          autoComplete="current-password"
           value={form.currentPassword}
           onChange={(e) => setForm((f) => ({ ...f, currentPassword: e.target.value }))}
-          className={INPUT_CLASS}
-          autoComplete="current-password"
         />
-      </label>
-      <label className="text-[13.5px] leading-[1.45] font-medium text-secondary-foreground">
-        New password (12+ characters)
-        <input
+        <Field
+          label="New password"
+          hint="12+ characters"
           required
           type="password"
           minLength={12}
+          autoComplete="new-password"
           value={form.newPassword}
           onChange={(e) => setForm((f) => ({ ...f, newPassword: e.target.value }))}
-          className={INPUT_CLASS}
-          autoComplete="new-password"
         />
-      </label>
-      <label className="text-[13.5px] leading-[1.45] font-medium text-secondary-foreground">
-        Confirm new password
-        <input
+        <Field
+          label="Confirm new password"
           required
           type="password"
           minLength={12}
+          autoComplete="new-password"
           value={form.confirm}
           onChange={(e) => setForm((f) => ({ ...f, confirm: e.target.value }))}
-          className={INPUT_CLASS}
-          autoComplete="new-password"
         />
-      </label>
-      <div className="flex items-center gap-3">
-        <button
-          type="submit"
-          disabled={busy}
-          className="rounded-control bg-primary px-4 py-2 text-[15.5px] leading-[1.45] font-semibold text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-60"
-        >
-          {busy ? "Saving…" : "Change Password"}
+      </div>
+      <div className="mt-3.5 flex flex-wrap items-center gap-3">
+        <button type="submit" disabled={busy} className={SECONDARY_BUTTON}>
+          {busy ? "Saving…" : "Update Password"}
         </button>
-        {message && (
-          <p className={`text-[13.5px] leading-[1.45] font-medium ${message.ok ? "text-success" : "text-destructive"}`} role="status">
-            {message.text}
-          </p>
-        )}
+        <FormMessage message={message} />
       </div>
     </form>
   );
@@ -251,62 +269,86 @@ export function TeamPanel({ isAdminUser }: { isAdminUser: boolean }) {
   }, [isAdminUser]);
 
   return (
-    <div className="space-y-4">
+    <>
       {isAdminUser && (
-        <div className="rounded-card border border-border bg-card p-5">
-          <h2 className="text-[15.5px] leading-[1.45] font-semibold text-foreground">Team Members</h2>
-          {error && <p className="mt-2 text-[13.5px] leading-[1.45] text-destructive">{error}</p>}
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-left text-[15.5px] leading-[1.45]">
-              <thead>
-                <tr className="border-b border-border text-[12.5px] uppercase tracking-wide text-muted-foreground">
-                  <th className="py-2 pr-4 font-medium">Name</th>
-                  <th className="py-2 pr-4 font-medium">Email</th>
-                  <th className="py-2 pr-4 font-medium">Role</th>
-                  <th className="py-2 pr-4 font-medium">Last login</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users === null && !error && (
-                  <tr>
-                    <td colSpan={4} className="py-3 text-[13.5px] leading-[1.45] text-muted-foreground">
-                      Loading…
-                    </td>
-                  </tr>
-                )}
-                {users?.map((user) => (
-                  <tr key={user.id} className="border-b border-border-soft">
-                    <td className="py-2.5 pr-4 font-medium text-foreground">
-                      {user.first_name} {user.last_name}
-                      {!user.active && <span className="ml-2 text-[12.5px] text-muted-foreground">(inactive)</span>}
-                    </td>
-                    <td className="py-2.5 pr-4 text-secondary-foreground">{user.email}</td>
-                    <td className="py-2.5 pr-4">
-                      <span className="rounded-full bg-primary-soft px-2 py-0.5 text-[12.5px] font-semibold text-primary">
-                        {user.role}
-                      </span>
-                    </td>
-                    <td className="py-2.5 pr-4 text-[13.5px] leading-[1.45] text-muted-foreground">{formatWhen(user.last_login_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <>
+          <Panel>
+            <p className="text-[15px] font-bold text-foreground">Team Members</p>
+            {error && <p className="mt-2 text-[12.5px] text-destructive">{error}</p>}
 
-          <h3 className="mt-6 text-[15.5px] leading-[1.45] font-semibold text-foreground">Add Team Member</h3>
-          <CreateUserForm
-            onCreated={(user) => setUsers((prev) => (prev ? [...prev, user] : [user]))}
-          />
-        </div>
+            <div className="mt-1 overflow-x-auto">
+              <div className="min-w-[620px]">
+                <GridHead columns={COLS}>
+                  <span>Name</span>
+                  <span>Email</span>
+                  <span>Role</span>
+                  <span>Last Login</span>
+                </GridHead>
+
+                {users === null && !error && (
+                  <p className="py-3 text-[12.5px] text-muted-foreground">Loading…</p>
+                )}
+
+                {users?.map((user, index) => (
+                  <GridRow key={user.id} columns={COLS} last={index === users.length - 1}>
+                    <span className="flex min-w-0 items-center gap-2.5 text-[13.5px] font-bold text-foreground">
+                      <span
+                        aria-hidden
+                        className={`flex size-[30px] shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold ${
+                          user.role === "ADMIN"
+                            ? "bg-[#fff6d9] text-accent-strong"
+                            : "bg-primary-soft text-primary"
+                        }`}
+                      >
+                        {initialsOf(user)}
+                      </span>
+                      <span className="truncate">
+                        {user.first_name} {user.last_name}
+                        {!user.active && (
+                          <span className="ml-1.5 font-semibold text-faint-foreground">
+                            (inactive)
+                          </span>
+                        )}
+                      </span>
+                    </span>
+                    <span className="truncate text-[13px] font-medium text-secondary-foreground">
+                      {user.email}
+                    </span>
+                    <span>
+                      <Pill
+                        tone={user.role === "ADMIN" ? "neutral" : "info"}
+                        className={`tracking-[0.05em] ${
+                          user.role === "ADMIN" ? "bg-primary-soft text-primary" : ""
+                        }`}
+                      >
+                        {user.role}
+                      </Pill>
+                    </span>
+                    <span className="truncate text-[12.5px] font-semibold text-muted-foreground">
+                      {formatWhen(user.last_login_at)}
+                    </span>
+                  </GridRow>
+                ))}
+              </div>
+            </div>
+          </Panel>
+
+          <Panel>
+            <p className="text-[15px] font-bold text-foreground">Add Team Member</p>
+            <CreateUserForm
+              onCreated={(user) => setUsers((prev) => (prev ? [...prev, user] : [user]))}
+            />
+          </Panel>
+        </>
       )}
 
-      <div className="rounded-card border border-border bg-card p-5">
-        <h2 className="text-[15.5px] leading-[1.45] font-semibold text-foreground">My Password</h2>
-        <p className="mt-0.5 text-[13.5px] leading-[1.45] text-muted-foreground">
+      <Panel>
+        <p className="text-[15px] font-bold text-foreground">My Password</p>
+        <p className="mt-[3px] text-[12.5px] font-medium text-muted-foreground">
           Change the password you use to sign in to this dashboard.
         </p>
         <ChangePasswordForm />
-      </div>
-    </div>
+      </Panel>
+    </>
   );
 }
