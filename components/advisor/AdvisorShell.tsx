@@ -11,7 +11,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { LogoutButton } from "@/components/advisor/LogoutButton";
+import { LogoutIconButton } from "@/components/advisor/LogoutButton";
 
 interface NavItem {
   href: string;
@@ -20,7 +20,7 @@ interface NavItem {
   exact?: boolean;
   /** Right-aligned faint count. */
   count?: number;
-  /** Right-aligned filled ink pill — "these are waiting on you". */
+  /** Right-aligned yellow pill — "these are waiting on you". */
   badge?: number;
 }
 
@@ -57,20 +57,56 @@ function isActive(pathname: string | null, item: NavItem): boolean {
   return item.exact ? pathname === item.href : pathname.startsWith(item.href);
 }
 
+/** One pill-shaped nav row on the ink ground. */
+function NavRow({ item, active }: { item: NavItem; active: boolean }) {
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "flex items-center gap-2.5 rounded-pill px-3.5 py-[9px] text-[13px] transition-colors duration-[120ms]",
+        active
+          ? "bg-[#1b7a61] font-extrabold text-white shadow-[0_2px_8px_rgba(27,122,97,.4)]"
+          : "font-semibold text-[#aab8b1] hover:bg-[#212824]",
+      )}
+    >
+      <Icon className="size-3.5 shrink-0" strokeWidth={2} />
+      {item.label}
+      {item.count !== undefined && (
+        <span className="tabular ml-auto text-[11px] font-bold text-[#5f6e67]">{item.count}</span>
+      )}
+      {item.badge !== undefined && item.badge > 0 && (
+        <span className="tabular ml-auto inline-flex h-4 min-w-4 items-center justify-center rounded-pill bg-accent px-1 text-[10px] font-extrabold text-accent-foreground">
+          {item.badge}
+        </span>
+      )}
+    </Link>
+  );
+}
+
 /**
- * Advisor workspace chrome (v3): a white 212px rail against the green canvas,
- * with the active row marked by green type plus a 2px inset spine. Pages
- * supply their own header inside the content column (components/advisor/v3),
- * so the rail carries navigation and nothing else.
+ * Advisor workspace chrome — the "Ink" sidebar (v3 handoff, option 1b): a
+ * 246px #181d1b rail carrying the logo lockup, pill-shaped nav (the active
+ * route filled brand green), and the signed-in user pinned to the bottom.
+ * One component, so the black rail lands on every advisor screen at once.
+ *
+ * The rail is the one advisor surface that reverses out of the light theme,
+ * so its grays are spelled out here rather than read from tokens: #212824
+ * hover, #262d29 divider, #2a3430 avatar, #aab8b1 inactive, #8fa098 muted,
+ * #5f6e67 faint.
  */
 export function AdvisorShell({
   logoUrl,
+  orgName,
   userName,
   isAdmin,
   counts,
   children,
 }: {
   logoUrl: string;
+  /** Company line under the wordmark ("GenDev Capital"). */
+  orgName: string;
   userName: string;
   isAdmin: boolean;
   counts: AdvisorNavCounts;
@@ -83,80 +119,61 @@ export function AdvisorShell({
   return (
     <div className="advisor-theme flex min-h-screen bg-background">
       {/* Desktop rail */}
-      <aside className="sticky top-0 hidden h-screen w-[212px] shrink-0 flex-col border-r border-border bg-card pb-5 pt-[26px] lg:flex">
-        <Link href="/advisor" className="flex items-center gap-2.5 px-[22px] pb-[30px]">
+      <aside className="sticky top-0 hidden h-screen w-[246px] shrink-0 flex-col bg-[#181d1b] px-3 pb-4 pt-[18px] lg:flex">
+        <Link href="/advisor" className="mx-1 mb-4 flex items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element -- dynamic
-              admin-uploaded asset URL; shown in its natural color on white */}
-          <img src={logoUrl} alt="" className="size-[22px] shrink-0" />
-          <span className="text-[15.5px] leading-[1.45] font-extrabold tracking-[-0.02em] text-foreground">Compass</span>
+              admin-uploaded asset; the tile keeps a dark logo visible until
+              the white/knockout version arrives */}
+          <img
+            src={logoUrl}
+            alt=""
+            className="size-9 shrink-0 rounded-[9px] bg-[#212824] object-contain p-1.5"
+          />
+          <span className="min-w-0">
+            <span className="block truncate text-[13.5px] font-extrabold text-white">Compass</span>
+            <span className="block truncate text-[10px] font-semibold text-[#8fa098]">
+              {orgName}
+            </span>
+          </span>
         </Link>
 
         <nav className="flex min-h-0 flex-1 flex-col overflow-y-auto" aria-label="Advisor">
           {groups.map((items, index) => (
-            <div key={index}>
+            <div key={index} className="flex flex-col gap-[3px]">
               {index > 0 && (
-                <p className="px-[22px] pb-2 pt-5 text-[11px] font-bold uppercase tracking-[0.14em] text-ghost-foreground">
+                <p className="mx-3.5 mb-1 mt-[18px] text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-[#5f6e67]">
                   Administration
                 </p>
               )}
-              {items.map((item) => {
-                const active = isActive(pathname, item);
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    aria-current={active ? "page" : undefined}
-                    className={cn(
-                      "flex items-center gap-[11px] px-[22px] py-[9px] text-[14.5px] transition-colors",
-                      active
-                        ? "bg-primary-soft font-bold text-primary shadow-[inset_2px_0_0_var(--primary)]"
-                        : "font-medium text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    <Icon className="size-[15px] shrink-0" strokeWidth={1.8} />
-                    {item.label}
-                    {item.count !== undefined && (
-                      <span className="tabular ml-auto text-[12px] font-bold text-faint-foreground">
-                        {item.count}
-                      </span>
-                    )}
-                    {item.badge !== undefined && item.badge > 0 && (
-                      <span className="ml-auto inline-flex size-4 items-center justify-center rounded-full bg-accent text-[11px] font-extrabold text-accent-foreground">
-                        {item.badge}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
+              {items.map((item) => (
+                <NavRow key={item.href} item={item} active={isActive(pathname, item)} />
+              ))}
             </div>
           ))}
         </nav>
 
         {/* Footer user chip */}
-        <div className="mx-[22px] mt-auto border-t border-border pt-[18px]">
-          <div className="flex items-center gap-2.5">
-            <span className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-primary-soft text-[13.5px] leading-[1.45] font-extrabold text-primary">
-              {userName.charAt(0).toUpperCase()}
+        <div className="mt-auto flex items-center gap-[9px] border-t border-[#262d29] pt-3">
+          <span
+            aria-hidden
+            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#2a3430] text-[11.5px] font-extrabold text-accent"
+          >
+            {userName.charAt(0).toUpperCase()}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[12.5px] font-bold text-white">{userName}</span>
+            <span className="block text-[10.5px] font-semibold text-[#8fa098]">
+              {isAdmin ? "Administrator" : "Advisor"}
             </span>
-            <span className="min-w-0">
-              <span className="block truncate text-[14px] font-bold text-foreground">{userName}</span>
-              <span className="block text-[12px] text-faint-foreground">
-                {isAdmin ? "Administrator" : "Advisor"}
-              </span>
-            </span>
-          </div>
-          <LogoutButton
-            variant="link"
-            className="mt-2 h-auto p-0 text-[13px] font-semibold text-faint-foreground hover:text-foreground"
-          />
+          </span>
+          <LogoutIconButton />
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Mobile nav: the rail collapses into a scrollable chip row. */}
+        {/* Mobile nav: the rail collapses into a scrollable ink chip row. */}
         <nav
-          className="flex gap-1.5 overflow-x-auto border-b border-border bg-card px-4 py-2.5 lg:hidden"
+          className="flex items-center gap-1.5 overflow-x-auto bg-[#181d1b] px-4 py-2.5 lg:hidden"
           aria-label="Advisor sections"
         >
           {flatItems.map((item) => {
@@ -167,17 +184,17 @@ export function AdvisorShell({
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "shrink-0 rounded-pill px-3.5 py-1.5 text-[12.5px] font-bold transition-colors",
+                  "shrink-0 rounded-pill px-3.5 py-1.5 text-[12.5px] transition-colors duration-[120ms]",
                   active
-                    ? "bg-primary text-white"
-                    : "border border-border bg-card text-secondary-foreground hover:text-foreground",
+                    ? "bg-[#1b7a61] font-extrabold text-white"
+                    : "border border-[#262d29] font-semibold text-[#aab8b1] hover:bg-[#212824]",
                 )}
               >
                 {item.label}
               </Link>
             );
           })}
-          <LogoutButton className="ml-auto shrink-0" />
+          <LogoutIconButton className="ml-auto" />
         </nav>
 
         {children}

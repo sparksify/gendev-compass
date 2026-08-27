@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requireStaffUser } from "@/lib/advisor/auth";
 import { isAdmin } from "@/lib/advisor/access";
 import { getSiteLogoUrl } from "@/lib/assets";
+import { brand } from "@/lib/config/brand";
 import { AdvisorShell } from "@/components/advisor/AdvisorShell";
 import { loadNavCounts } from "@/lib/advisor/navCounts";
 
@@ -21,7 +22,13 @@ export default async function PlatformAdminLayout({ children }: { children: Reac
   const [logoUrl, counts] = await Promise.all([getSiteLogoUrl(), loadNavCounts(user)]);
 
   return (
-    <AdvisorShell logoUrl={logoUrl} userName={user.first_name} isAdmin counts={counts}>
+    <AdvisorShell
+      logoUrl={logoUrl}
+      orgName={brand.orgName}
+      userName={user.first_name}
+      isAdmin
+      counts={counts}
+    >
       {children}
     </AdvisorShell>
   );
