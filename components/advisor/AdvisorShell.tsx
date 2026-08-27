@@ -58,11 +58,10 @@ function isActive(pathname: string | null, item: NavItem): boolean {
 }
 
 /**
- * Advisor workspace chrome per the "Signal Spectrum" handoff: a flat white
- * 212px rail on a white page — no gray canvas, no card shells — with the
- * active row marked by ink type plus a 2px inset spine. Pages supply their
- * own 64px header (components/advisor/PageHeader) so section tabs, titles and
- * actions all live in one bordered block.
+ * Advisor workspace chrome (v3): a white 212px rail against the green canvas,
+ * with the active row marked by green type plus a 2px inset spine. Pages
+ * supply their own header inside the content column (components/advisor/v3),
+ * so the rail carries navigation and nothing else.
  */
 export function AdvisorShell({
   logoUrl,
@@ -111,7 +110,7 @@ export function AdvisorShell({
                     className={cn(
                       "flex items-center gap-[11px] px-[22px] py-[9px] text-[14.5px] transition-colors",
                       active
-                        ? "bg-surface-raised font-bold text-foreground shadow-[inset_2px_0_0_#101828]"
+                        ? "bg-primary-soft font-bold text-primary shadow-[inset_2px_0_0_var(--primary)]"
                         : "font-medium text-muted-foreground hover:text-foreground",
                     )}
                   >
@@ -123,7 +122,7 @@ export function AdvisorShell({
                       </span>
                     )}
                     {item.badge !== undefined && item.badge > 0 && (
-                      <span className="ml-auto inline-flex size-4 items-center justify-center rounded-full bg-foreground text-[11px] font-bold text-white">
+                      <span className="ml-auto inline-flex size-4 items-center justify-center rounded-full bg-accent text-[11px] font-extrabold text-accent-foreground">
                         {item.badge}
                       </span>
                     )}
@@ -137,7 +136,7 @@ export function AdvisorShell({
         {/* Footer user chip */}
         <div className="mx-[22px] mt-auto border-t border-border pt-[18px]">
           <div className="flex items-center gap-2.5">
-            <span className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-foreground text-[13.5px] leading-[1.45] font-bold text-white">
+            <span className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-primary-soft text-[13.5px] leading-[1.45] font-extrabold text-primary">
               {userName.charAt(0).toUpperCase()}
             </span>
             <span className="min-w-0">
@@ -168,10 +167,10 @@ export function AdvisorShell({
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "shrink-0 rounded-full px-3 py-1.5 text-[13.5px] font-semibold transition-colors",
+                  "shrink-0 rounded-pill px-3.5 py-1.5 text-[12.5px] font-bold transition-colors",
                   active
-                    ? "bg-foreground text-white"
-                    : "border border-border text-muted-foreground hover:text-foreground",
+                    ? "bg-primary text-white"
+                    : "border border-border bg-card text-secondary-foreground hover:text-foreground",
                 )}
               >
                 {item.label}

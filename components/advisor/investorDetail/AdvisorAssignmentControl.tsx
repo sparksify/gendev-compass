@@ -22,10 +22,13 @@ export function AdvisorAssignmentControl({
   investorId,
   currentAdvisorId,
   advisors,
+  tone = "default",
 }: {
   investorId: string;
   currentAdvisorId: string | null;
   advisors: AdvisorOption[];
+  /** `onDark` reverses the control out for the green header band. */
+  tone?: "default" | "onDark";
 }) {
   const router = useRouter();
   const [advisorId, setAdvisorId] = useState(currentAdvisorId ?? "");
@@ -78,14 +81,26 @@ export function AdvisorAssignmentControl({
             </option>
           ))}
         </select>
-        <span className="pointer-events-none flex items-center gap-1.5 text-[15.5px] leading-[1.45] font-medium text-foreground">
-          {current && <InitialsAvatar name={current.name} size="sm" />}
+        <span
+          className={cn(
+            "pointer-events-none flex items-center gap-1.5",
+            tone === "onDark"
+              ? "text-[12.5px] font-bold text-white"
+              : "text-[13px] font-bold text-foreground",
+          )}
+        >
+          {current && tone === "default" && <InitialsAvatar name={current.name} size="sm" />}
           {current ? current.name.split(" ")[0] : "Unassigned"}
-          <ChevronDown className="size-3 text-muted-foreground" />
+          <ChevronDown
+            className={cn("size-3", tone === "onDark" ? "text-white/70" : "text-muted-foreground")}
+          />
         </span>
       </div>
       {error && (
-        <p role="alert" className="text-[12.5px] text-destructive">
+        <p
+          role="alert"
+          className={cn("text-[12.5px]", tone === "onDark" ? "text-white" : "text-destructive")}
+        >
           {error}
         </p>
       )}

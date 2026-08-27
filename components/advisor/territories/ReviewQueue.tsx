@@ -4,7 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { Textarea } from "@/components/ui/form-fields";
-import { INK_BUTTON_SM } from "@/components/advisor/controls";
+import { ACCENT_BUTTON_SM } from "@/components/advisor/controls";
+import { AccentNote } from "@/components/advisor/v3";
+import { cn } from "@/lib/utils";
 import { STATUS_META } from "@/components/territory/statusMeta";
 import { SIGNAL, DISCOVERY_STAGES } from "@/lib/advisor/discoveryStages";
 import {
@@ -73,20 +75,32 @@ export function TerritoryReviewRows({
   const visible = limit ? rows.slice(0, limit) : rows;
 
   if (visible.length === 0) {
-    return <p className="py-3 text-[14px] text-muted-foreground">No review requests.</p>;
+    return <p className="py-3 text-[13px] text-muted-foreground">No review requests.</p>;
   }
 
   return (
-    <div>
+    <div className="mt-[11px] flex flex-col gap-2">
       {visible.map(({ review, lead, brandName, search }) => {
         const status = search?.result_status as TerritoryResultStatus | undefined;
         const market = search?.normalized_location ?? search?.raw_query ?? brandName;
         const open = openId === review.id;
+        // Anything still waiting on the team wears the cream callout; rows
+        // already dealt with recede to a plain bordered card. These are the
+        // same two statuses countPendingTerritoryReviews badges, so the tab's
+        // number and the highlighted rows always agree.
+        const pending = review.status === "new" || review.status === "in_review";
+        const Shell = pending ? AccentNote : "div";
         return (
-          <div key={review.id} className="border-b border-border-soft last:border-b-0">
-            <div className="flex flex-wrap items-center gap-3.5 py-3">
+          <Shell
+            key={review.id}
+            className={cn(
+              "px-[15px] py-3",
+              !pending && "rounded-[11px] border border-border-soft",
+            )}
+          >
+            <div className="flex flex-wrap items-center gap-4">
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[15px] font-bold text-foreground">
+                <span className="block truncate text-[13.5px] font-bold text-foreground">
                   {lead ? (
                     <Link href={`/advisor/investors/${lead.id}`} className="hover:underline">
                       {lead.first_name} {lead.last_name}
@@ -96,7 +110,7 @@ export function TerritoryReviewRows({
                   )}
                   {market && <> — {market}</>}
                 </span>
-                <span className="mt-0.5 block truncate text-[13.5px] leading-[1.45] text-muted-foreground">
+                <span className="mt-[3px] block truncate text-[12.5px] font-medium text-muted-foreground">
                   Searched {reviewDate(review.created_at)} · result:{" "}
                   {status ? (
                     <strong className="font-bold" style={{ color: RESULT_COLOR[status] }}>
@@ -109,7 +123,7 @@ export function TerritoryReviewRows({
                 </span>
               </span>
 
-              <span className="relative inline-flex shrink-0 items-center gap-1 text-[13.5px] leading-[1.45] text-muted-foreground">
+              <span className="relative inline-flex shrink-0 items-center gap-1 text-[12.5px] font-semibold text-muted-foreground">
                 Assign:{" "}
                 <span className="relative inline-flex items-center pr-4 font-bold text-foreground">
                   <select
@@ -137,7 +151,7 @@ export function TerritoryReviewRows({
                 type="button"
                 onClick={() => setOpenId(open ? null : review.id)}
                 aria-expanded={open}
-                className={INK_BUTTON_SM}
+                className={ACCENT_BUTTON_SM}
               >
                 Review
               </button>
@@ -174,7 +188,7 @@ export function TerritoryReviewRows({
                 </label>
               </div>
             )}
-          </div>
+          </Shell>
         );
       })}
     </div>

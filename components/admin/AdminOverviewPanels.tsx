@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { SectionRule } from "@/components/advisor/PageHeader";
-import { MetricRule } from "@/components/advisor/dashboard/panels";
+import { AccentNote, LeaderRow, Panel, PanelHeader, Pill, TopBarStat } from "@/components/advisor/v3";
 import { DISCOVERY_STAGES, SIGNAL } from "@/lib/advisor/discoveryStages";
 import type { FddLeadSummary } from "@/components/adminSections/FddSection";
 import type { CensusDataHealth } from "@/components/adminSections/CensusDataHealthSection";
@@ -50,7 +49,7 @@ function StatusPill({ status }: { status: string }) {
     status === "error_manual_review" ? "error · resend" : status.replaceAll("_", " ");
   return (
     <span
-      className="shrink-0 rounded-full px-2.5 py-[3px] text-[12px] font-bold"
+      className="shrink-0 whitespace-nowrap rounded-pill px-[11px] py-[3px] text-[11.5px] font-bold capitalize"
       style={{ color: tone.color, backgroundColor: tone.tint }}
     >
       {label}
@@ -61,8 +60,11 @@ function StatusPill({ status }: { status: string }) {
 function Fact({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <span>
-      <span className="block text-[11.5px] text-faint-foreground">{label}</span>
-      <strong className="tabular font-bold" style={color ? { color } : undefined}>
+      <span className="block text-[11px] font-semibold text-faint-foreground">{label}</span>
+      <strong
+        className="tabular mt-0.5 block text-[14px] font-extrabold"
+        style={color ? { color } : undefined}
+      >
         {value}
       </strong>
     </span>
@@ -73,31 +75,29 @@ function IntegrationRow({
   ok,
   label,
   value,
-  emphasize,
+  plain,
 }: {
   ok: boolean;
   label: string;
   value: string;
-  emphasize?: boolean;
+  /** A setting rather than a connection — reads as text, not a status pill. */
+  plain?: boolean;
 }) {
   return (
-    <span className="flex items-center gap-2 border-b border-[#f6f6f7] py-2 last:border-b-0">
-      <span
-        aria-hidden
-        className="size-[7px] shrink-0 rounded-full"
-        style={{ backgroundColor: ok ? SIGNAL.success : SIGNAL.warning }}
-      />
-      <strong className="font-bold text-foreground">{label}</strong>
-      <span
-        className="ml-auto text-[13px]"
-        style={
-          emphasize
-            ? { color: ok ? SIGNAL.success : SIGNAL.warning, fontWeight: 600 }
-            : { color: "#667085" }
-        }
-      >
-        {value}
+    <span className="flex items-center justify-between gap-3.5 border-b border-border-soft py-[9px] last:border-b-0">
+      <span className="inline-flex items-center gap-2 font-semibold text-foreground">
+        <span
+          aria-hidden
+          className="size-[7px] shrink-0 rounded-full"
+          style={{ backgroundColor: ok ? SIGNAL.success : "#c2410c" }}
+        />
+        {label}
       </span>
+      {plain ? (
+        <span className="font-bold text-muted-foreground">{value}</span>
+      ) : (
+        <Pill tone={ok ? "success" : "danger"}>{value}</Pill>
+      )}
     </span>
   );
 }
@@ -207,22 +207,19 @@ export function AdminOverviewPanels({
         </p>
       )}
 
-      <div className="grid gap-8 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricRule
-          label="Total investors"
+      <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
+        <TopBarStat
+          label="Total Investors"
           value={stats.totalInvestors.toLocaleString()}
-          color="#101828"
+          color="#16705a"
           footnote={
             <>
-              <strong className="font-bold" style={{ color: SIGNAL.success }}>
-                +{stats.newThisWeek}
-              </strong>{" "}
-              this week
+              <strong className="font-bold text-success">+{stats.newThisWeek}</strong> this week
             </>
           }
         />
-        <MetricRule
-          label="Active journeys"
+        <TopBarStat
+          label="Active Journeys"
           value={stats.activeJourneys.toLocaleString()}
           color={DISCOVERY_STAGES[0].color}
           footnote={
@@ -231,79 +228,80 @@ export function AdminOverviewPanels({
               : "no investors yet"
           }
         />
-        <MetricRule
-          label="FDD requests"
+        <TopBarStat
+          label="FDD Requests"
           value={stats.fddRequested.toLocaleString()}
           color={DISCOVERY_STAGES[2].color}
           footnote={`${stats.fddInFlight} in flight`}
         />
-        <MetricRule
+        <TopBarStat
           label="Resources"
           value={resourceCount === null ? "—" : resourceCount.toLocaleString()}
-          color="#101828"
+          color="#f5cf49"
+          colorValue={false}
           footnote="on the prospect portal"
         />
       </div>
 
-      <div className="grid gap-10 xl:grid-cols-[1.6fr_1fr] [&>*]:min-w-0">
-        <div className="flex flex-col gap-6">
+      <div className="grid items-start gap-3.5 xl:grid-cols-[1.55fr_1fr] [&>*]:min-w-0">
+        <div className="flex flex-col gap-3.5">
           {/* Recent FDD requests */}
-          <div>
-            <SectionRule
-              label="Recent FDD requests"
+          <Panel>
+            <PanelHeader
+              title="Recent FDD Requests"
               meta={
-                <Link href="/advisor/platform/fdd" className="font-semibold text-foreground underline">
+                <Link href="/advisor/platform/fdd" className="text-[12px] font-bold text-primary hover:underline">
                   View all
                 </Link>
               }
-              className="mb-1.5"
             />
             {fddLeads === null ? (
-              <p className="py-2 text-[13.5px] leading-[1.45] text-muted-foreground">Loading…</p>
+              <p className="py-2 text-[13px] text-muted-foreground">Loading…</p>
             ) : recentFdd.length === 0 ? (
-              <p className="py-2 text-[13.5px] leading-[1.45] text-muted-foreground">No FDD requests yet.</p>
+              <p className="py-2 text-[13px] text-muted-foreground">No FDD requests yet.</p>
             ) : (
-              recentFdd.map((lead) => (
-                <div
-                  key={lead.id}
-                  className="flex flex-wrap items-center gap-3.5 border-b border-border-soft py-2.5 last:border-b-0"
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[14.5px] font-bold text-foreground">
-                      {lead.name}
+              <div className="mt-1">
+                {recentFdd.map((lead) => (
+                  <div
+                    key={lead.id}
+                    className="flex flex-wrap items-center gap-3.5 border-b border-border-soft py-2.5 last:border-b-0"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13.5px] font-bold text-foreground">
+                        {lead.name}
+                      </span>
+                      <span className="block truncate text-[12px] font-medium text-faint-foreground">
+                        {lead.email}
+                      </span>
                     </span>
-                    <span className="block truncate text-[12.5px] text-faint-foreground">
-                      {lead.email}
+                    <span className="tabular shrink-0 text-[12px] font-semibold text-muted-foreground">
+                      {formatDateTime(lead.fdd_requested_at)}
                     </span>
-                  </span>
-                  <span className="tabular shrink-0 text-[13px] text-faint-foreground">
-                    {formatDateTime(lead.fdd_requested_at)}
-                  </span>
-                  <StatusPill status={lead.fdd_effective_status} />
-                </div>
-              ))
+                    <StatusPill status={lead.fdd_effective_status} />
+                  </div>
+                ))}
+              </div>
             )}
-          </div>
+          </Panel>
 
           {/* Census data health */}
-          <div>
-            <SectionRule
-              label="Census data health"
+          <Panel>
+            <PanelHeader
+              title="Census Data Health"
               meta={
                 <Link
                   href="/advisor/platform/census-health"
-                  className="font-semibold text-foreground underline"
+                  className="text-[12px] font-bold text-primary hover:underline"
                 >
                   Details
                 </Link>
               }
-              className="mb-3"
             />
             {health === null ? (
-              <p className="text-[13.5px] leading-[1.45] text-muted-foreground">Loading…</p>
+              <p className="mt-2 text-[13px] text-muted-foreground">Loading…</p>
             ) : (
               <>
-                <div className="grid grid-cols-2 gap-x-5 gap-y-3.5 text-[14px] sm:grid-cols-3">
+                <div className="mt-3 grid grid-cols-2 gap-x-[18px] gap-y-3 sm:grid-cols-3">
                   <Fact label="Active ACS vintage" value={health.vintage} />
                   <Fact
                     label="Geography records"
@@ -336,9 +334,9 @@ export function AdminOverviewPanels({
                     color={health.currentJob ? SIGNAL.warning : SIGNAL.success}
                   />
                 </div>
-                <div className="mt-3.5 h-2 overflow-hidden rounded-full bg-border-soft">
+                <div className="mt-[13px] h-1.5 overflow-hidden rounded-[6px] bg-border-soft">
                   <span
-                    className="block h-2 rounded-full"
+                    className="block h-full rounded-[6px]"
                     style={{
                       width: `${health.coveragePercent}%`,
                       backgroundColor: DISCOVERY_STAGES[0].color,
@@ -346,85 +344,84 @@ export function AdminOverviewPanels({
                   />
                 </div>
                 {health.lastFailedImport?.error && (
-                  <p
-                    className="mt-3 rounded-card border px-3 py-2 text-[13.5px] leading-[1.45]"
-                    style={{
-                      borderColor: "#fde68a",
-                      backgroundColor: SIGNAL.warningTint,
-                      color: SIGNAL.warning,
-                    }}
-                  >
-                    Last failure: {health.lastFailedImport.error}
-                  </p>
+                  <AccentNote className="mt-3">
+                    <p className="text-[12.5px] leading-[1.6] text-[#6b5510]">
+                      <strong className="font-bold">Last failure:</strong>{" "}
+                      {health.lastFailedImport.error}
+                    </p>
+                  </AccentNote>
                 )}
               </>
             )}
-          </div>
+          </Panel>
         </div>
 
         {/* Right rail */}
-        <div className="flex flex-col gap-6">
-          <div>
-            <SectionRule label="Quick actions" className="mb-1.5" />
-            <div className="flex flex-col text-[14.5px] font-semibold text-secondary-foreground">
+        <div className="flex flex-col gap-3.5">
+          <Panel>
+            <p className="text-[15px] font-bold text-foreground">Quick Actions</p>
+            <div className="mt-1 flex flex-col text-[13.5px] font-semibold text-foreground">
               {QUICK_ACTIONS.map((action) => (
                 <Link
                   key={action.href}
                   href={action.href}
-                  className="flex items-center gap-2.5 border-b border-[#f6f6f7] py-2 last:border-b-0 hover:text-foreground"
+                  className="flex items-center gap-2.5 border-b border-border-soft py-[9px] last:border-b-0 hover:text-primary"
                 >
                   {action.label}
-                  <span aria-hidden className="ml-auto text-ghost-foreground">
+                  <span aria-hidden className="ml-auto text-primary">
                     →
                   </span>
                 </Link>
               ))}
             </div>
-          </div>
+          </Panel>
 
-          <div>
-            <SectionRule label="Portal assets" className="mb-1.5" />
-            <div className="flex flex-col text-[14px]">
-              <Link
-                href="/advisor/platform/resources"
-                className="flex justify-between border-b border-dotted border-border-leader py-2"
-              >
-                <strong className="font-bold text-foreground">Resources</strong>
-                <span className="tabular text-muted-foreground">
-                  {resourceCount === null
-                    ? "…"
-                    : `${resourceCount} file${resourceCount === 1 ? "" : "s"}`}
-                </span>
-              </Link>
-              <Link href="/advisor/platform/branding" className="flex justify-between py-2">
-                <strong className="font-bold text-foreground">Brand assets</strong>
-                <span
-                  className="tabular"
-                  style={
-                    assetsIncomplete
-                      ? { color: SIGNAL.warning, fontWeight: 700 }
-                      : { color: "#667085" }
-                  }
-                >
-                  {assetCounts === null
-                    ? "…"
-                    : `${assetCounts.configured}/${assetCounts.total} configured`}
-                </span>
-              </Link>
+          <Panel>
+            <p className="text-[15px] font-bold text-foreground">Portal Assets</p>
+            <div className="mt-1 flex flex-col text-[13.5px]">
+              <LeaderRow
+                label={
+                  <Link href="/advisor/platform/resources" className="font-semibold text-foreground hover:underline">
+                    Resources
+                  </Link>
+                }
+                value={
+                  <span className="tabular font-semibold text-muted-foreground">
+                    {resourceCount === null
+                      ? "…"
+                      : `${resourceCount} file${resourceCount === 1 ? "" : "s"}`}
+                  </span>
+                }
+              />
+              <LeaderRow
+                label={
+                  <Link href="/advisor/platform/branding" className="font-semibold text-foreground hover:underline">
+                    Brand assets
+                  </Link>
+                }
+                value={
+                  assetCounts === null ? (
+                    <span className="tabular font-semibold text-muted-foreground">…</span>
+                  ) : (
+                    <Pill tone={assetsIncomplete ? "warning" : "success"}>
+                      {assetCounts.configured}/{assetCounts.total} configured
+                    </Pill>
+                  )
+                }
+              />
             </div>
-          </div>
+          </Panel>
 
-          <div>
-            <SectionRule label="Integrations" className="mb-1.5" />
+          <Panel>
+            <p className="text-[15px] font-bold text-foreground">Integrations</p>
             {fddConfig === null ? (
-              <p className="py-2 text-[13.5px] leading-[1.45] text-muted-foreground">Loading…</p>
+              <p className="py-2 text-[13px] text-muted-foreground">Loading…</p>
             ) : (
-              <div className="flex flex-col text-[14px]">
+              <div className="mt-1 flex flex-col text-[13.5px]">
                 <IntegrationRow
                   ok={fddConfig.ghlConfigured}
                   label="GoHighLevel"
                   value={fddConfig.ghlConfigured ? "Connected" : "Not configured"}
-                  emphasize
                 />
                 <IntegrationRow
                   ok={fddConfig.webhookSecretConfigured}
@@ -435,16 +432,16 @@ export function AdminOverviewPanels({
                   ok={ghlCalendarConfigured}
                   label="GHL calendar"
                   value={ghlCalendarConfigured ? "Connected" : "Not configured"}
-                  emphasize={!ghlCalendarConfigured}
                 />
                 <IntegrationRow
                   ok
                   label="FDD waiting period"
                   value={`${fddConfig.waitingPeriodDays} days`}
+                  plain
                 />
               </div>
             )}
-          </div>
+          </Panel>
         </div>
       </div>
     </div>

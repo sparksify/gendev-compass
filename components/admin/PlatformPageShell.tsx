@@ -1,9 +1,9 @@
-import { PageBody, PageHeader } from "@/components/advisor/PageHeader";
+import { PageTitle, V3Page } from "@/components/advisor/v3";
 import { PlatformTabs } from "@/components/admin/PlatformTabs";
 
 /**
- * Header + body for the Portal Admin tabs: the same title block as the
- * overview, with the section tab row inside it.
+ * Title + tab row + body for the Portal Admin tabs: the same title block as
+ * the overview, with the section tab row under it.
  */
 export function PlatformPageShell({
   title = "Portal Admin",
@@ -19,9 +19,10 @@ export function PlatformPageShell({
   children: React.ReactNode;
 }) {
   return (
-    <>
-      <PageHeader title={title} subtitle={subtitle} actions={actions} tabs={<PlatformTabs />} />
-      <PageBody className={bodyClassName}>{children}</PageBody>
-    </>
+    <V3Page className={bodyClassName}>
+      <PageTitle title={title} meta={subtitle} actions={actions} />
+      <PlatformTabs />
+      {children}
+    </V3Page>
   );
 }

@@ -1,3 +1,4 @@
+import type { PillTone } from "@/components/advisor/v3";
 import type { MilestoneKey, ProcessMilestones } from "@/types/lead";
 
 /** Pill tone shared by the Client Progress and Process Milestones cards. */
@@ -20,8 +21,23 @@ export interface MilestoneDef {
   hasDate: boolean;
 }
 
-/** The four sequential steps to close a franchise sale, in order. */
+/**
+ * The advisor-set steps to close a franchise sale, in the order the handoff
+ * lays them out. They are preceded on the page by two rows the advisor does
+ * not set — questionnaire submission and the FDD Item 23 receipt — which are
+ * derived from the lead record instead (see ProcessMilestonesCard).
+ */
 export const MILESTONES: MilestoneDef[] = [
+  {
+    key: "territory_designed",
+    label: "Territory designed",
+    hasDate: false,
+    statuses: [
+      { value: "not_started", label: "Not started", tone: "neutral" },
+      { value: "in_progress", label: "In progress", tone: "amber" },
+      { value: "complete", label: "Complete", tone: "green", complete: true },
+    ],
+  },
   {
     key: "ops_zoom_call",
     label: "Ops Zoom call",
@@ -40,16 +56,6 @@ export const MILESTONES: MilestoneDef[] = [
       { value: "not_booked", label: "Not booked", tone: "neutral" },
       { value: "booked", label: "Booked", tone: "amber" },
       { value: "completed", label: "Completed", tone: "green", complete: true },
-    ],
-  },
-  {
-    key: "territory_designed",
-    label: "Territory designed",
-    hasDate: false,
-    statuses: [
-      { value: "not_started", label: "Not started", tone: "neutral" },
-      { value: "in_progress", label: "In progress", tone: "amber" },
-      { value: "complete", label: "Complete", tone: "green", complete: true },
     ],
   },
   {
@@ -78,9 +84,9 @@ export function isValidMilestoneStatus(key: string, status: string): boolean {
   return Boolean(def?.statuses.some((s) => s.value === status));
 }
 
-/** Shared pill classes for milestone/progress statuses. */
-export const TONE_PILL: Record<MilestoneTone, string> = {
-  neutral: "bg-[#f2f4f7] text-muted-foreground",
-  amber: "bg-[#fdf3d7] text-[#926a0b]",
-  green: "bg-[#e8f6ec] text-[#15803d]",
+/** Shared pill tone for milestone/progress statuses (v3 semantic tones). */
+export const TONE_PILL: Record<MilestoneTone, PillTone> = {
+  neutral: "neutral",
+  amber: "warning",
+  green: "success",
 };

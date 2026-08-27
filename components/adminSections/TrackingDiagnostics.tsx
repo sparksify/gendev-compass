@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SectionRule } from "@/components/advisor/PageHeader";
+import { Panel, PanelHeader, PanelMeta } from "@/components/advisor/v3";
 import { DISCOVERY_STAGES, SIGNAL } from "@/lib/advisor/discoveryStages";
 
 interface DiagnosticsPayload {
@@ -123,8 +123,8 @@ export function TrackingDiagnostics({ authHeaders }: { authHeaders: Record<strin
   const okPercent = total > 0 ? Math.round(((total - failed) / total) * 1000) / 10 : 100;
 
   return (
-    <div>
-      <SectionRule label="Delivery diagnostics" meta="last 24h" className="mb-1.5" />
+    <Panel>
+      <PanelHeader title="Delivery Diagnostics" meta={<PanelMeta>last 24h</PanelMeta>} />
       {events.length === 0 ? (
         <p className="py-2 text-[13.5px] leading-[1.45] text-muted-foreground">No delivery events yet.</p>
       ) : (
@@ -211,10 +211,10 @@ export function TrackingDiagnostics({ authHeaders }: { authHeaders: Record<strin
         )}
       </div>
 
-      <p className="mt-4 text-[12.5px] leading-relaxed text-faint-foreground">
+      <p className="mt-4 text-[12px] leading-relaxed text-faint-foreground">
         The CAPI access token never leaves the server. Questionnaire and financial answers are never
         sent to GTM or Meta.
       </p>
-    </div>
+    </Panel>
   );
 }

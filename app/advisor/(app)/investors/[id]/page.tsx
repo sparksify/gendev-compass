@@ -1,27 +1,40 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Mail, Phone } from "lucide-react";
+import { Sparkles, User } from "lucide-react";
 import { requireStaffUser } from "@/lib/advisor/auth";
 import { canAccessLead, isAdmin } from "@/lib/advisor/access";
 import { getStore } from "@/lib/store";
 import { evaluateFollowUp } from "@/lib/advisor/followUp";
 import { deriveNextBestAction } from "@/lib/advisor/nextBestAction";
-import { formatDate, formatRelative } from "@/lib/advisor/format";
+import { formatDate } from "@/lib/advisor/format";
 import { labelForValue } from "@/lib/advisor/questionnaireCatalog";
 import { compactMoney } from "@/lib/advisor/money";
+import {
+  intentRead,
+  qualificationFactors,
+  stageAge,
+} from "@/lib/advisor/clientIntelligence";
 import { effectiveFddStatus, FDD_STATUS_LABELS } from "@/lib/fdd/status";
+import { getFddWaitingPeriodDays } from "@/lib/config/fdd";
+import { fetchGhlContactTags } from "@/lib/ghl/contactTags";
 import { resolveClientFromLead } from "@/lib/domain/clients";
 import { listOpportunitiesForClient } from "@/lib/domain/opportunities";
 import { getAppUrl } from "@/lib/config/env";
-import { cn } from "@/lib/utils";
-import { DISCOVERY_STAGES, SIGNAL } from "@/lib/advisor/discoveryStages";
 import { pipelineProgress } from "@/lib/advisor/pipelineProgress";
 import type { BrandRecord, ClientRecord, OpportunityRecord } from "@/types/domain";
-import { PageBody, PageHeader, SectionRule } from "@/components/advisor/PageHeader";
-import { INK_BUTTON, SECONDARY_BUTTON } from "@/components/advisor/controls";
-import { PipelineStageSlider } from "@/components/advisor/investorDetail/PipelineStageSlider";
-import { VideoEngagementHero } from "@/components/advisor/investorDetail/VideoEngagementHero";
+import {
+  AccentNote,
+  LeaderRow,
+  Panel,
+  Pill,
+  V3Page,
+} from "@/components/advisor/v3";
+import { ACCENT_BUTTON, SECONDARY_BUTTON, TERTIARY_BUTTON } from "@/components/advisor/controls";
+import { ClientHeaderBand } from "@/components/advisor/investorDetail/ClientHeaderBand";
+import { PipelineStepper } from "@/components/advisor/investorDetail/PipelineStepper";
+import { VideoEngagementCard } from "@/components/advisor/investorDetail/VideoEngagementCard";
+import { ClientIntelligenceCard } from "@/components/advisor/investorDetail/ClientIntelligenceCard";
 import { ActivityRail } from "@/components/advisor/investorDetail/ActivityRail";
 import {
   NotesRail,
@@ -33,46 +46,22 @@ import { CopyPortalButton } from "@/components/advisor/investorDetail/CopyPortal
 import { ProcessMilestonesCard } from "@/components/advisor/investorDetail/ProcessMilestonesCard";
 import { QuestionnaireResponsesCard } from "@/components/advisor/investorDetail/QuestionnaireResponsesCard";
 import { AttributionCard } from "@/components/advisor/investorDetail/AttributionCard";
+import { TagsCard } from "@/components/advisor/investorDetail/TagsCard";
 import { OwnershipProfileCard } from "@/components/advisor/OwnershipProfileCard";
-import { watchColor } from "@/components/advisor/VideoWatchedBar";
 
 export const metadata: Metadata = { title: "Client" };
 export const dynamic = "force-dynamic";
 
-function KeyStat({ label, value, color }: { label: string; value: string; color: string }) {
-  return (
-    <div>
-      <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-faint-foreground">
-        {label}
-      </p>
-      <p
-        className={cn(
-          "tabular mt-1 font-extrabold tracking-[-0.03em]",
-          value === "—" ? "text-[19.5px] leading-[1.4] text-ghost-foreground" : "text-[26px] leading-[1.2]",
-        )}
-        style={value === "—" ? undefined : { color }}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}
-
-/** A dotted-leader fact row — the qualification block's anatomy. */
-function LeaderRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <span className="flex items-center justify-between gap-4 border-b border-dotted border-border-leader py-2 last:border-b-0">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-right font-bold text-foreground">{value}</span>
-    </span>
-  );
+function initialsOf(first: string, last: string): string {
+  return `${first[0] ?? ""}${last[0] ?? ""}`.toUpperCase() || "?";
 }
 
 /**
- * The client detail page (handoff mock 5c): who they are and the three
- * numbers that matter, the 5-stage discovery strip, the video-engagement
- * hero, and a right rail carrying the next best action, the qualification
- * facts and the notes.
+ * The client detail page (v3 handoff): a green identity band over the 12-stage
+ * pipeline strip, then a two-column body — engagement, milestones and activity
+ * on the left; the next best action, the intelligence read, qualification,
+ * notes, the record and the HighLevel tags on the right — closed by the full
+ * questionnaire and attribution record.
  */
 export default async function InvestorDetailPage({
   params,
@@ -99,6 +88,10 @@ export default async function InvestorDetailPage({
       store.listStaffUsers(),
       store.getOwnershipProfile(lead.id),
     ]);
+
+  // HighLevel owns the contact's tags; the lookup degrades to a rendered
+  // "unavailable" state rather than failing the page.
+  const ghlTags = await fetchGhlContactTags(lead);
 
   // Platform domain: the client record and ALL of their opportunities (a
   // client may pursue multiple brands). Failure falls back to lead-only view.
@@ -154,6 +147,9 @@ export default async function InvestorDetailPage({
   // Where this client sits on the 12-stage pipeline, and how long they have
   // been sitting there.
   const progress = pipelineProgress(stage, events, lead.created_at);
+  const intent = intentRead(lead.qualification_score, events);
+  const factors = qualificationFactors(questionnaire);
+  const age = stageAge(progress.daysInStage);
 
   // The next scheduled touch, attached under the pinned note.
   const activeAppointment = appointments.find(
@@ -170,228 +166,220 @@ export default async function InvestorDetailPage({
           activeAppointment.advisor_id
             ? (staffNameById[activeAppointment.advisor_id] ?? null)
             : null,
-          `${lead.first_name} ${lead.last_name}`,
+          name,
         ]
           .filter(Boolean)
           .join(" · "),
       }
     : null;
 
-  // The faint half of the contact line — email and phone lead it separately.
-  const meta = [
-    lead.state,
-    lead.source ? `${lead.source} lead` : null,
-    `joined ${formatRelative(lead.created_at)}`,
-    primaryBrand?.name ?? null,
-  ].filter(Boolean);
+  // The band's faint second line: only the facts we actually hold.
+  const bandMeta: Array<{ icon: "location" | "source" | "advisor" | "joined"; label: string }> = [];
+  const place = [questionnaire?.city, lead.state].filter(Boolean).join(", ");
+  if (place) bandMeta.push({ icon: "location", label: place });
+  if (lead.source) bandMeta.push({ icon: "source", label: `${lead.source} Lead` });
+  if (lead.assigned_advisor_id && staffNameById[lead.assigned_advisor_id]) {
+    bandMeta.push({ icon: "advisor", label: `Advisor: ${staffNameById[lead.assigned_advisor_id]}` });
+  }
+  bandMeta.push({ icon: "joined", label: `Joined ${formatDate(lead.created_at)}` });
+  if (primaryBrand?.name) bandMeta.push({ icon: "source", label: primaryBrand.name });
 
   return (
-    <>
-      <PageHeader
-        breadcrumb={{ href: "/advisor/investors", label: "Clients", current: name }}
+    <V3Page>
+      {/* Breadcrumb + the page's own utility. */}
+      <div className="flex items-center justify-between gap-4">
+        <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
+          <Link href="/advisor" className="hover:text-foreground">
+            Dashboard
+          </Link>
+          <span aria-hidden>›</span>
+          <Link href="/advisor/investors" className="hover:text-foreground">
+            Clients
+          </Link>
+          <span aria-hidden>›</span>
+          <span className="font-bold text-foreground">{name}</span>
+        </p>
+        <Link href="#notes" className={SECONDARY_BUTTON}>
+          ＋ Add Note
+        </Link>
+      </div>
+
+      <ClientHeaderBand
+        name={name}
+        initials={initialsOf(lead.first_name, lead.last_name)}
+        email={lead.email}
+        phone={lead.phone}
+        meta={bandMeta}
+        followUp={followUp.needed ? followUp.reasons.join(" ") : null}
+        tabs={[
+          { href: "#profile", label: "Profile" },
+          { href: "#notes", label: "Notes", count: notes.length },
+          { href: "#activity", label: "Activity", count: events.length },
+          { href: "#questionnaire-responses", label: "Questionnaire" },
+          { href: "#milestones", label: "Milestones" },
+          { href: "#attribution", label: "Attribution" },
+        ]}
         actions={
-          <>
-            <Link href="#notes" className={SECONDARY_BUTTON}>
-              Add note
-            </Link>
-            <a href={reminderHref} className={INK_BUTTON}>
-              Send reminder
-            </a>
-          </>
+          isAdminUser ? (
+            <span className="inline-flex items-center gap-[7px] rounded-[9px] border border-white/55 px-[13px] py-[7px]">
+              <User className="size-3 text-white" strokeWidth={2} />
+              <AdvisorAssignmentControl
+                investorId={lead.id}
+                advisors={staff.map((s) => ({
+                  id: s.id,
+                  name: `${s.first_name} ${s.last_name}`,
+                }))}
+                currentAdvisorId={lead.assigned_advisor_id}
+                tone="onDark"
+              />
+            </span>
+          ) : undefined
         }
       />
 
-      <PageBody className="flex flex-col gap-[26px]">
-        {/* Identity + the three numbers that matter */}
-        <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-5">
-          <div className="min-w-[320px] flex-1">
-            <div className="flex flex-wrap items-center gap-3">
-              <h2 className="text-[28px] font-extrabold tracking-[-0.03em] text-foreground">{name}</h2>
-              {followUp.needed && (
-                <span
-                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-[3px] text-[11px] font-bold tracking-[0.08em]"
-                  style={{ color: SIGNAL.alert, backgroundColor: SIGNAL.alertTint }}
-                  title={followUp.reasons.join(" ")}
-                >
-                  <span
-                    aria-hidden
-                    className="size-[5px] rounded-full"
-                    style={{ backgroundColor: SIGNAL.alert }}
-                  />
-                  FOLLOW-UP DUE
-                </span>
-              )}
-            </div>
-            {/* Two tiers: what you'd act on (email, phone) reads stronger
-                than what merely describes them. */}
-            <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[14px]">
-              <a
-                href={`mailto:${lead.email}`}
-                className="inline-flex items-center gap-1.5 font-semibold text-secondary-foreground hover:underline"
-              >
-                <Mail className="size-[13px] shrink-0 text-ghost-foreground" strokeWidth={1.8} />
-                {lead.email}
-              </a>
-              {lead.phone && (
-                <a
-                  href={`tel:${lead.phone}`}
-                  className="inline-flex items-center gap-1.5 font-semibold text-secondary-foreground hover:underline"
-                >
-                  <Phone className="size-[13px] shrink-0 text-ghost-foreground" strokeWidth={1.8} />
-                  {lead.phone}
-                </a>
-              )}
-              {meta.length > 0 && (
-                <>
-                  <span aria-hidden className="h-[13px] w-px bg-border" />
-                  <span className="text-muted-foreground">{meta.join(" · ")}</span>
-                </>
-              )}
-            </p>
-          </div>
-          <div className="flex shrink-0 gap-x-9 gap-y-4 text-right">
-            <KeyStat
-              label="Video watched"
-              value={percent === null ? "—" : `${percent}%`}
-              color={
-                percent === null
-                  ? SIGNAL.neutral
-                  : watchColor(percent, video?.completed ?? false)
-              }
-            />
-            <KeyStat label="Liquid capital" value={capital} color={SIGNAL.success} />
-            <KeyStat
-              label="Score"
-              value={lead.qualification_score === null ? "—" : String(lead.qualification_score)}
-              color={DISCOVERY_STAGES[2].color}
-            />
-          </div>
+      <PipelineStepper investorId={lead.id} progress={progress} />
+
+      <div id="profile" className="grid items-start gap-3.5 scroll-mt-4 xl:grid-cols-[1.55fr_1fr] [&>*]:min-w-0">
+        {/* Left column: what they did, and what has to happen next. */}
+        <div className="flex flex-col gap-3.5">
+          <VideoEngagementCard video={video} />
+
+          <ProcessMilestonesCard
+            investorId={lead.id}
+            milestones={lead.process_milestones ?? null}
+            questionnaireSubmittedAt={latestSubmission?.submitted_at ?? null}
+            fdd={{
+              status: fddStatus,
+              receivedAt: lead.fdd_received_at,
+              eligibleAt: lead.fdd_eligible_at,
+              waitingPeriodDays: getFddWaitingPeriodDays(),
+            }}
+          />
+
+          <ActivityRail events={events} />
         </div>
 
-        {/* Where they are in the pipeline — the label's chevron changes it. */}
-        <PipelineStageSlider investorId={lead.id} progress={progress} />
-
-        <div className="grid gap-10 xl:grid-cols-[1.5fr_1fr] xl:gap-11 [&>*]:min-w-0">
-          <div className="flex flex-col gap-6">
-            <VideoEngagementHero video={video} />
-
-            <div>
-              <SectionRule label="Activity" className="mb-1.5" />
-              <ActivityRail events={events} />
+        {/* Right rail: the read on this client, and the record's facts. */}
+        <div className="flex flex-col gap-3.5">
+          <AccentNote className="bg-[linear-gradient(180deg,#fffdf5,#fff9e8)] px-[18px] py-[15px]">
+            <div className="flex items-center justify-between gap-2.5">
+              <p className="text-[10.5px] font-extrabold uppercase tracking-[0.13em] text-accent-strong">
+                Next Best Action
+              </p>
+              <Sparkles className="size-3.5 text-[#c99e1a]" strokeWidth={2} />
             </div>
-          </div>
-
-          <div className="flex flex-col gap-6">
-            {/* Next best action */}
-            <div className="rounded-card border border-[#fde68a] bg-[linear-gradient(180deg,#fffdf5,#fffaeb)] px-[18px] py-4">
-              <p
-                className="text-[11px] font-bold uppercase tracking-[0.15em]"
-                style={{ color: SIGNAL.warning }}
-              >
-                Next best action
+            <p className="mt-2 text-[15.5px] font-extrabold leading-[1.4] text-foreground">
+              {action.title}
+            </p>
+            <p className="mt-[5px] text-[12.5px] leading-[1.55] text-muted-foreground">
+              {action.description}
+            </p>
+            {action.whyItMatters && (
+              <p className="mt-[5px] text-[12.5px] leading-[1.55] text-muted-foreground">
+                {action.whyItMatters}
               </p>
-              <p className="mt-2 text-[15.5px] leading-[1.45] font-bold text-foreground">{action.title}</p>
-              <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
-                {action.description}
-              </p>
-              {action.whyItMatters && (
-                <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
-                  {action.whyItMatters}
-                </p>
-              )}
-              {action.reminder && (
-                <a href={reminderHref} className={`${INK_BUTTON} mt-3`}>
+            )}
+            {action.reminder && (
+              <div className="mt-[11px] flex items-center gap-3">
+                <a href={reminderHref} className={ACCENT_BUTTON}>
                   {action.ctaLabel}
                 </a>
-              )}
-            </div>
-
-            {/* Qualification */}
-            <div>
-              <SectionRule label="Qualification" className="mb-1" />
-              <div className="flex flex-col text-[14px]">
-                <LeaderRow label="Liquid capital" value={<span className="tabular">{capital}</span>} />
-                <LeaderRow label="Net worth" value={<span className="tabular">{netWorth}</span>} />
-                <LeaderRow
-                  label="Timeline"
-                  value={labelForValue(questionnaire?.investment_timeline)}
-                />
-                <LeaderRow label="Funding" value={labelForValue(questionnaire?.financing_need)} />
-                <LeaderRow
-                  label="Score"
-                  value={
-                    lead.qualification_score === null ? (
-                      "—"
-                    ) : (
-                      <span className="tabular" style={{ color: DISCOVERY_STAGES[2].color }}>
-                        {lead.qualification_score} / 100
-                        {lead.qualification_result
-                          ? ` · ${lead.qualification_result === "qualified" ? "Qualified" : "Review required"}`
-                          : ""}
-                      </span>
-                    )
-                  }
-                />
+                <Link href="#milestones" className={TERTIARY_BUTTON}>
+                  Not now
+                </Link>
               </div>
+            )}
+          </AccentNote>
+
+          <ClientIntelligenceCard
+            intent={intent}
+            score={lead.qualification_score}
+            factors={factors}
+            videoPercent={percent}
+            daysInStage={progress.daysInStage}
+            age={age}
+          />
+
+          <Panel>
+            <p className="text-[15px] font-bold text-foreground">Qualification</p>
+            <div className="mt-[3px] flex flex-col text-[13px]">
+              <LeaderRow label="Liquid capital" value={<span className="tabular">{capital}</span>} />
+              <LeaderRow label="Net worth" value={<span className="tabular">{netWorth}</span>} />
+              <LeaderRow
+                label="Timeline"
+                value={labelForValue(questionnaire?.investment_timeline)}
+              />
+              <LeaderRow label="Funding" value={labelForValue(questionnaire?.financing_need)} />
+              <LeaderRow
+                label="Result"
+                value={
+                  lead.qualification_result === "qualified" ? (
+                    <Pill tone="success">Qualified</Pill>
+                  ) : lead.qualification_result === "review_required" ? (
+                    <Pill tone="warning">Review required</Pill>
+                  ) : (
+                    "—"
+                  )
+                }
+              />
             </div>
+          </Panel>
 
-            <NotesRail
-              investorId={lead.id}
-              notes={notes}
-              staffNameById={staffNameById}
-              upcoming={upcoming}
-            />
+          <NotesRail
+            investorId={lead.id}
+            notes={notes}
+            staffNameById={staffNameById}
+            upcoming={upcoming}
+          />
 
-            {/* The record's editable facts — assignment, territories, FDD and
-                the prospect's portal link. Stage lives in the slider above. */}
-            <div>
-              <SectionRule label="Record" className="mb-1" />
-              <div className="flex flex-col text-[14px]">
-                <LeaderRow
-                  label="Advisor"
-                  value={
-                    isAdminUser ? (
-                      <AdvisorAssignmentControl
-                        investorId={lead.id}
-                        advisors={staff.map((s) => ({
-                          id: s.id,
-                          name: `${s.first_name} ${s.last_name}`,
-                        }))}
-                        currentAdvisorId={lead.assigned_advisor_id}
-                      />
-                    ) : lead.assigned_advisor_id ? (
-                      (staffNameById[lead.assigned_advisor_id] ?? "—")
-                    ) : (
-                      "Unassigned"
-                    )
-                  }
-                />
-                <LeaderRow
-                  label="Territories wanted"
-                  value={
-                    <TerritoriesWantedControl
+          {/* The record's editable facts — assignment, territories, FDD and
+              the prospect's portal link. Stage lives in the strip above. */}
+          <Panel>
+            <p className="text-[15px] font-bold text-foreground">Record</p>
+            <div className="mt-[3px] flex flex-col text-[13px]">
+              <LeaderRow
+                label="Advisor"
+                value={
+                  isAdminUser ? (
+                    <AdvisorAssignmentControl
                       investorId={lead.id}
-                      value={lead.territories_wanted ?? null}
+                      advisors={staff.map((s) => ({
+                        id: s.id,
+                        name: `${s.first_name} ${s.last_name}`,
+                      }))}
+                      currentAdvisorId={lead.assigned_advisor_id}
                     />
-                  }
-                />
-                <LeaderRow label="FDD" value={FDD_STATUS_LABELS[fddStatus]} />
-                <LeaderRow label="Portal link" value={<CopyPortalButton portalUrl={portalUrl} />} />
-              </div>
+                  ) : lead.assigned_advisor_id ? (
+                    (staffNameById[lead.assigned_advisor_id] ?? "—")
+                  ) : (
+                    "Unassigned"
+                  )
+                }
+              />
+              <LeaderRow
+                label="Territories wanted"
+                value={
+                  <TerritoriesWantedControl
+                    investorId={lead.id}
+                    value={lead.territories_wanted ?? null}
+                  />
+                }
+              />
+              <LeaderRow label="FDD" value={FDD_STATUS_LABELS[fddStatus]} />
+              <LeaderRow label="Portal link" value={<CopyPortalButton portalUrl={portalUrl} />} />
             </div>
-          </div>
-        </div>
+          </Panel>
 
-        {/* The full record: everything the summary above doesn't carry. */}
-        <div className="flex flex-col gap-4 border-t border-border pt-6">
-          <ProcessMilestonesCard investorId={lead.id} milestones={lead.process_milestones ?? null} />
-          {latestSubmission && (
-            <QuestionnaireResponsesCard questionnaire={questionnaire} submission={latestSubmission} />
-          )}
-          <OwnershipProfileCard profile={ownershipProfile} />
-          <AttributionCard lead={lead} />
+          <TagsCard tags={ghlTags} />
         </div>
-      </PageBody>
-    </>
+      </div>
+
+      {/* The full record: everything the summary above doesn't carry. */}
+      {latestSubmission && (
+        <QuestionnaireResponsesCard questionnaire={questionnaire} submission={latestSubmission} />
+      )}
+      <OwnershipProfileCard profile={ownershipProfile} />
+      <AttributionCard lead={lead} />
+    </V3Page>
   );
 }

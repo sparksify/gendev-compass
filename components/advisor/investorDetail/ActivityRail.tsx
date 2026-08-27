@@ -1,3 +1,4 @@
+import { Panel, PanelHeader } from "@/components/advisor/v3";
 import { eventLabel } from "@/lib/advisor/format";
 import { DISCOVERY_STAGES, SIGNAL } from "@/lib/advisor/discoveryStages";
 import { relativeShort } from "@/components/advisor/dashboard/panels";
@@ -14,30 +15,45 @@ function eventColor(name: string): string {
 
 /** The activity list: a semantic dot, the event, and a relative time. */
 export function ActivityRail({ events }: { events: PortalEventRecord[] }) {
-  if (events.length === 0) {
-    return <p className="py-2 text-[14px] text-muted-foreground">No recorded activity yet.</p>;
-  }
+  const shown = events.slice(0, 5);
 
   return (
-    <div className="flex flex-col text-[14px] text-secondary-foreground">
-      {events.slice(0, 12).map((event) => (
-        <span
-          key={event.id}
-          className="flex justify-between gap-2.5 border-b border-[#f6f6f7] py-2.5 last:border-b-0"
-        >
-          <span className="min-w-0">
+    <Panel id="activity" className="scroll-mt-4">
+      <PanelHeader
+        title="Recent Activity"
+        meta={
+          events.length > shown.length ? (
+            <a href="#activity" className="text-[12px] font-bold text-primary hover:underline">
+              View all {events.length}
+            </a>
+          ) : undefined
+        }
+      />
+
+      {events.length === 0 ? (
+        <p className="py-2 text-[13px] text-muted-foreground">No recorded activity yet.</p>
+      ) : (
+        <div className="mt-1 flex flex-col text-[13px] text-secondary-foreground">
+          {shown.map((event) => (
             <span
-              aria-hidden
-              className="mr-2 inline-block size-1.5 rounded-full"
-              style={{ backgroundColor: eventColor(event.event_name) }}
-            />
-            {eventLabel(event.event_name)}
-          </span>
-          <span className="tabular shrink-0 text-ghost-foreground">
-            {relativeShort(event.created_at)}
-          </span>
-        </span>
-      ))}
-    </div>
+              key={event.id}
+              className="flex justify-between gap-2.5 border-b border-border-soft py-2 last:border-b-0"
+            >
+              <span className="min-w-0">
+                <span
+                  aria-hidden
+                  className="mr-2.5 inline-block size-1.5 rounded-full align-[2px]"
+                  style={{ backgroundColor: eventColor(event.event_name) }}
+                />
+                {eventLabel(event.event_name)}
+              </span>
+              <span className="tabular shrink-0 font-semibold text-faint-foreground">
+                {relativeShort(event.created_at)}
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
+    </Panel>
   );
 }

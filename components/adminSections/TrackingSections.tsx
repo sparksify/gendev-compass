@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { PageBody, PageHeader } from "@/components/advisor/PageHeader";
+import { PageTitle, V3Page } from "@/components/advisor/v3";
 import { PlatformTabs } from "@/components/admin/PlatformTabs";
-import { INK_BUTTON, SECONDARY_BUTTON } from "@/components/advisor/controls";
+import { ACCENT_BUTTON, SECONDARY_BUTTON } from "@/components/advisor/controls";
 import {
   TrackingAdminSections,
   type TrackingSettingsApi,
@@ -20,11 +20,10 @@ export function TrackingSections({ authHeaders }: { authHeaders: Record<string, 
   const onReady = useCallback((next: TrackingSettingsApi) => setApi(next), []);
 
   return (
-    <>
-      <PageHeader
+    <V3Page>
+      <PageTitle
         title="Tracking & Pixels"
-        subtitle="GTM · Meta Pixel · Conversions API · consent — zero deploys"
-        tabs={<PlatformTabs />}
+        meta="GTM · Meta Pixel · Conversions API · consent — zero deploys"
         actions={
           <>
             <button
@@ -39,19 +38,18 @@ export function TrackingSections({ authHeaders }: { authHeaders: Record<string, 
               type="button"
               onClick={() => api?.save()}
               disabled={!api}
-              className={INK_BUTTON}
+              className={ACCENT_BUTTON}
             >
               Save changes
             </button>
           </>
         }
       />
-      <PageBody>
-        <div className="grid gap-10 xl:grid-cols-[1.4fr_1fr] [&>*]:min-w-0">
-          <TrackingAdminSections authHeaders={authHeaders} onReady={onReady} />
-          <TrackingDiagnostics authHeaders={authHeaders} />
-        </div>
-      </PageBody>
-    </>
+      <PlatformTabs />
+      <div className="grid items-start gap-3.5 xl:grid-cols-[1.4fr_1fr] [&>*]:min-w-0">
+        <TrackingAdminSections authHeaders={authHeaders} onReady={onReady} />
+        <TrackingDiagnostics authHeaders={authHeaders} />
+      </div>
+    </V3Page>
   );
 }

@@ -12,6 +12,23 @@ export const PIPELINE_STAGES: InvestorStage[] = INVESTOR_STAGES.filter(
 
 export const PIPELINE_LENGTH = PIPELINE_STAGES.length;
 
+/**
+ * Compact stage names for the 12-step strip, where each label has ~52px to
+ * sit in. Only the long ones are shortened; the rest reuse STAGE_LABELS.
+ */
+const STEP_LABEL_OVERRIDES: Partial<Record<InvestorStage, string>> = {
+  QUESTIONNAIRE_STARTED: "Quest. Started",
+  QUESTIONNAIRE_COMPLETED: "Quest. Done",
+  CONSULTATION_SCHEDULED: "Consult Scheduled",
+  CONSULTATION_COMPLETED: "Consult Done",
+  FDD_ACKNOWLEDGED: "FDD Ack.",
+  CLOSED_INVESTED: "Closed",
+};
+
+export function stepLabel(stage: InvestorStage): string {
+  return STEP_LABEL_OVERRIDES[stage] ?? STAGE_LABELS[stage];
+}
+
 export interface PipelineProgress {
   /** The lead's stage, as stored. */
   stage: InvestorStage;

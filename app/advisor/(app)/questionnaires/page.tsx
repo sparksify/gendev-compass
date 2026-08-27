@@ -1,6 +1,12 @@
-import Link from "next/link";
 import { Download } from "lucide-react";
-import { PageBody, PageHeader } from "@/components/advisor/PageHeader";
+import {
+  GridHead,
+  NameCell,
+  Panel,
+  PageTitle,
+  StackCell,
+  V3Page,
+} from "@/components/advisor/v3";
 import { SECONDARY_BUTTON_SM } from "@/components/advisor/controls";
 import {
   BulkSelectBar,
@@ -20,15 +26,36 @@ export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Completed Questionnaires" };
 
-/** Table columns — same flat grid the clients list uses. */
-const GRID = "grid-cols-[2fr_1.3fr_1.5fr_1.2fr_1.2fr_1.1fr_1.2fr_1fr]";
+/** Table columns, per the handoff's grid ratios. */
+const COLS = "1.4fr .75fr 1.05fr .95fr .8fr .7fr 1.05fr 84px";
 
 /**
- * Every completed questionnaire, newest first — the advisor's reading
- * queue, styled to match the clients list: flat grid table, bold name with
- * the email beneath, chips for the qualification verdict. Each row links
- * into the full responses on the client card; PDF downloads the formatted
- * report. Admins can bulk-select rows to clear them from the queue.
+ * A questionnaire answer that may never have been collected. An unanswered
+ * question is ghosted as "Not provided" rather than shown as an em dash — the
+ * distinction between "we didn't ask" and "they declined" matters when an
+ * advisor is deciding whether to chase it.
+ */
+function Answer({ value, className }: { value: string; className?: string }) {
+  const missing = !value || value === "—";
+  return (
+    <span
+      className={cn(
+        "truncate text-[12.5px]",
+        missing ? "font-medium text-ghost-foreground" : "font-semibold text-secondary-foreground",
+        className,
+      )}
+    >
+      {missing ? "Not provided" : value}
+    </span>
+  );
+}
+
+/**
+ * Every completed questionnaire, newest first — the advisor's reading queue,
+ * styled to match the clients list: a card table with a bold name over the
+ * email, and a dotted pill for the qualification verdict and its score. Each
+ * row links into the full responses on the client card; PDF downloads the
+ * formatted report. Admins can bulk-select rows to clear them from the queue.
  */
 export default async function QuestionnairesPage() {
   const user = await requireStaffUser();
@@ -47,135 +74,125 @@ export default async function QuestionnairesPage() {
       noun="questionnaire"
       allIds={admin ? rows.map((row) => row.lead.id) : []}
     >
-      <PageHeader
-        title="Questionnaires"
-        subtitle={`${rows.length} completed · newest first`}
-        actions={admin ? <BulkSelectBar /> : undefined}
-      />
-      <PageBody className="flex flex-col gap-[18px]">
-        <div className="overflow-x-auto">
+      <V3Page>
+        <PageTitle
+          title="Questionnaires"
+          meta={`${rows.length} completed · newest first`}
+          actions={admin ? <BulkSelectBar /> : undefined}
+        />
+
+        <Panel padded={false} className="overflow-x-auto px-[18px] pb-2.5 pt-1.5">
           <div className="min-w-[1040px]">
-            <div
-              className={cn(
-                "grid gap-x-4 border-b border-border py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-faint-foreground",
-                GRID,
-              )}
-            >
+            <GridHead columns={COLS}>
               <span>Investor</span>
               <span>Submitted</span>
               <span>Qualification</span>
-              <span>Liquid capital</span>
+              <span>Liquid Capital</span>
               <span>Timeline</span>
-              <span>Credit range</span>
+              <span>Credit Range</span>
               <span>Financing</span>
               <span className="text-right">Report</span>
-            </div>
+            </GridHead>
 
             {rows.length === 0 && (
-              <p className="py-10 text-center text-[14.5px] text-muted-foreground">
+              <p className="py-10 text-center text-[13.5px] text-muted-foreground">
                 No completed questionnaires yet — investors appear here the moment they submit.
               </p>
             )}
 
-            {rows.map((row) => {
-              const fullName = `${row.lead.first_name} ${row.lead.last_name}`;
+            {rows.map((row, index) => {
               const submittedAt =
                 row.lead.questionnaire_completed_at ?? row.questionnaire?.created_at ?? null;
               const qualified = row.lead.qualification_result === "qualified";
+              const verdict = qualified
+                ? { color: SIGNAL.success, tint: SIGNAL.successTint, label: "Qualified" }
+                : { color: SIGNAL.warning, tint: SIGNAL.warningTint, label: "Review required" };
               return (
                 <div
                   key={row.lead.id}
                   className={cn(
-                    "grid items-center gap-x-4 border-b border-border-soft py-[13px] text-[14.5px] transition-colors hover:bg-surface-raised",
-                    GRID,
+                    "grid items-center gap-x-3.5 py-2.5 transition-colors hover:bg-surface-raised",
+                    index < rows.length - 1 && "border-b border-border-soft",
                   )}
+                  style={{ gridTemplateColumns: COLS }}
                 >
-                  <span className="min-w-0">
-                    <span className="flex items-center gap-[7px] font-bold text-foreground">
-                      <BulkSelectCheckbox id={row.lead.id} />
-                      <Link
-                        href={`/advisor/investors/${row.lead.id}#questionnaire-responses`}
-                        className="truncate hover:underline"
-                      >
-                        {fullName}
-                      </Link>
-                    </span>
-                    <span className="block truncate text-[12.5px] text-faint-foreground">
-                      {row.lead.email}
-                    </span>
+                  <span className="flex min-w-0 items-center gap-[7px]">
+                    <BulkSelectCheckbox id={row.lead.id} />
+                    <NameCell
+                      href={`/advisor/investors/${row.lead.id}#questionnaire-responses`}
+                      name={`${row.lead.first_name} ${row.lead.last_name}`}
+                      sub={row.lead.email}
+                    />
                   </span>
-                  <span className="min-w-0">
-                    <span className="tabular block truncate text-[13.5px] leading-[1.45] text-secondary-foreground">
-                      {submittedAt ? formatDate(submittedAt) : "—"}
-                    </span>
-                    {submittedAt && (
-                      <span className="tabular block truncate text-[12px] text-ghost-foreground">
-                        {formatRelative(submittedAt)}
-                      </span>
-                    )}
-                  </span>
+
+                  {submittedAt ? (
+                    <StackCell value={formatDate(submittedAt)} sub={formatRelative(submittedAt)} />
+                  ) : (
+                    <span className="text-[12.5px] text-ghost-foreground">—</span>
+                  )}
+
                   <span className="min-w-0">
                     {row.lead.qualification_result ? (
                       <span
-                        className="inline-flex max-w-full items-center gap-1.5 rounded-full px-[11px] py-1 text-[12.5px] font-bold"
-                        style={
-                          qualified
-                            ? { color: SIGNAL.success, backgroundColor: SIGNAL.successTint }
-                            : { color: SIGNAL.warning, backgroundColor: SIGNAL.warningTint }
-                        }
+                        className="inline-flex max-w-full items-center gap-1.5 rounded-pill px-[11px] py-[3px] text-[11.5px] font-bold"
+                        style={{ color: verdict.color, backgroundColor: verdict.tint }}
                       >
                         <span
                           aria-hidden
                           className="size-[5px] shrink-0 rounded-full"
-                          style={{
-                            backgroundColor: qualified ? SIGNAL.success : SIGNAL.warning,
-                          }}
+                          style={{ backgroundColor: verdict.color }}
                         />
                         <span className="truncate">
-                          {qualified ? "Qualified" : "Review required"}
+                          {verdict.label}
                           {typeof row.lead.qualification_score === "number"
                             ? ` · ${row.lead.qualification_score}`
                             : ""}
                         </span>
                       </span>
                     ) : (
-                      <span className="text-[13.5px] text-ghost-foreground">—</span>
+                      <span className="text-[12.5px] text-ghost-foreground">—</span>
                     )}
                   </span>
-                  <span className="tabular truncate text-secondary-foreground">
+
+                  <span className="tabular truncate text-[13px] font-bold text-foreground">
                     {labelForValue(row.questionnaire?.liquid_capital)}
                   </span>
-                  <span className="truncate text-[13.5px] text-secondary-foreground">
-                    {labelForValue(row.questionnaire?.investment_timeline)}
-                  </span>
-                  <span className="tabular truncate text-[13.5px] text-secondary-foreground">
-                    {labelIn(CREDIT_SCORE_RANGES, row.questionnaire?.estimated_credit_score_range)}
-                  </span>
-                  <span className="truncate text-[13.5px] text-secondary-foreground">
-                    {labelIn(FINANCING_NEED_OPTIONS, row.questionnaire?.financing_need)}
-                  </span>
+
+                  <Answer value={labelForValue(row.questionnaire?.investment_timeline)} />
+                  <Answer
+                    className="tabular"
+                    value={labelIn(
+                      CREDIT_SCORE_RANGES,
+                      row.questionnaire?.estimated_credit_score_range,
+                    )}
+                  />
+                  <Answer
+                    value={labelIn(FINANCING_NEED_OPTIONS, row.questionnaire?.financing_need)}
+                  />
+
                   <span className="flex justify-end">
                     <a
                       href={`/api/advisor/investors/${row.lead.id}/questionnaire-pdf`}
                       download
                       className={SECONDARY_BUTTON_SM}
+                      aria-label={`Download ${row.lead.first_name} ${row.lead.last_name}'s questionnaire PDF`}
                     >
-                      <Download className="size-3.5" strokeWidth={2} />
+                      <Download className="size-[11px]" strokeWidth={2} />
                       PDF
                     </a>
                   </span>
                 </div>
               );
             })}
-
-            {rows.length > 0 && (
-              <p className="pt-3.5 text-[13px] text-faint-foreground">
-                Showing {rows.length} of {rows.length}
-              </p>
-            )}
           </div>
-        </div>
-      </PageBody>
+        </Panel>
+
+        {rows.length > 0 && (
+          <p className="text-[12.5px] font-semibold text-muted-foreground">
+            Showing {rows.length} of {rows.length} questionnaires
+          </p>
+        )}
+      </V3Page>
     </BulkSelectProvider>
   );
 }
