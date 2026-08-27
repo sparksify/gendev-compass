@@ -65,13 +65,16 @@ function NavRow({ item, active }: { item: NavItem; active: boolean }) {
       href={item.href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex items-center gap-2.5 rounded-pill px-3.5 py-[9px] text-[13px] transition-colors duration-[120ms]",
+        "relative flex items-center gap-2.5 rounded-[10px] px-3.5 py-[9px] text-[13px] transition-colors duration-[120ms]",
         active
-          ? "bg-[#1b7a61] font-extrabold text-white shadow-[0_2px_8px_rgba(27,122,97,.4)]"
+          ? "bg-[#262d29] font-extrabold text-white"
           : "font-semibold text-[#aab8b1] hover:bg-[#212824]",
       )}
     >
-      <Icon className="size-3.5 shrink-0" strokeWidth={2} />
+      {active && (
+        <span aria-hidden className="absolute inset-y-1 left-0 w-[3.5px] rounded-pill bg-[#5f9c86]" />
+      )}
+      <Icon className={cn("size-3.5 shrink-0", active && "text-[#6ba18c]")} strokeWidth={2} />
       {item.label}
       {item.count !== undefined && (
         <span className="tabular ml-auto text-[11px] font-bold text-[#5f6e67]">{item.count}</span>
@@ -88,7 +91,8 @@ function NavRow({ item, active }: { item: NavItem; active: boolean }) {
 /**
  * Advisor workspace chrome — the "Ink" sidebar (v3 handoff, option 1b): a
  * 246px #181d1b rail carrying the logo lockup, pill-shaped nav (the active
- * route filled brand green), and the signed-in user pinned to the bottom.
+ * route on a subtle raised fill with a green spine and icon), and the
+ * signed-in user pinned to the bottom.
  * One component, so the black rail lands on every advisor screen at once.
  *
  * The rail is the one advisor surface that reverses out of the light theme,
@@ -117,14 +121,14 @@ export function AdvisorShell({
     <div className="advisor-theme flex min-h-screen bg-background">
       {/* Desktop rail */}
       <aside className="sticky top-0 hidden h-screen w-[246px] shrink-0 flex-col bg-[#181d1b] px-3 pb-4 pt-[18px] lg:flex">
-        <Link href="/advisor" aria-label="Overview" className="mx-1 mb-4 flex justify-center">
+        <Link href="/advisor" aria-label="Overview" className="mx-1 mb-[36px] mt-[18px] flex justify-center">
           {/* eslint-disable-next-line @next/next/no-img-element -- dynamic
               admin-uploaded asset, shown alone at its natural proportions —
               no tile, no wordmark */}
           <img
             src={logoUrl}
             alt=""
-            className="h-[42px] w-auto max-w-full object-contain"
+            className="h-12 w-auto max-w-full object-contain"
           />
         </Link>
 

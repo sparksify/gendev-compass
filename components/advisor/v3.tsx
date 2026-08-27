@@ -35,7 +35,7 @@ export function V3Page({
   return (
     <main
       className={cn(
-        "mx-auto flex w-full flex-col gap-3.5 px-5 pb-9 pt-6 lg:px-7",
+        "flex w-full flex-col gap-3.5 px-5 pb-9 pt-6 lg:pl-[50px] lg:pr-7",
         width === "wide" ? "max-w-[1400px]" : "max-w-[980px]",
         className,
       )}
