@@ -66,6 +66,7 @@ export function eventLabel(eventName: string): string {
     questionnaire_submitted: "Questionnaire submitted",
     lead_qualified: "Marked qualified by scoring",
     lead_sent_to_review: "Flagged for review by scoring",
+    qualification_overridden: "Qualification manually overridden by staff",
     calendar_opened: "Calendar opened",
     calendar_booking_completed: "Booking detected (calendar widget)",
     booking_claimed: "Client says they booked — needs verification",

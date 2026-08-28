@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { SIGNAL } from "@/lib/advisor/discoveryStages";
 import type { InvestorRow } from "@/lib/advisor/investors";
+import type { QualificationResultValue } from "@/types/lead";
 
 /**
  * Shared row helpers for both the List and Board views of the Questionnaires
@@ -33,11 +34,38 @@ export function verdictFor(row: InvestorRow): Verdict {
  */
 export type TriageStage = "needs_review" | "ready_to_schedule" | "scheduled" | "completed";
 
-export function triageStageFor(row: InvestorRow): TriageStage {
-  if (row.lead.qualification_result !== "qualified") return "needs_review";
+/**
+ * `qualificationOverride` lets the Board view compute a row's column
+ * against an in-flight drag before the server confirms it — everything
+ * else about the row (appointments) is unaffected by qualification.
+ */
+export function triageStageFor(
+  row: InvestorRow,
+  qualificationOverride?: QualificationResultValue,
+): TriageStage {
+  const qualification = qualificationOverride ?? row.lead.qualification_result;
+  if (qualification !== "qualified") return "needs_review";
   if (row.activeAppointment) return "scheduled";
   if (row.appointments.some((appointment) => appointment.status === "COMPLETED")) return "completed";
   return "ready_to_schedule";
+}
+
+/**
+ * Only the qualification split is a real, single-field toggle a drag can
+ * safely represent — "Scheduled" and "Completed" are facts about a real
+ * appointment, and a drag can't fabricate one of those. So only cards
+ * sitting in these two columns can be picked up, and only these two
+ * columns accept a drop.
+ */
+export const DRAGGABLE_STAGES: ReadonlySet<TriageStage> = new Set([
+  "needs_review",
+  "ready_to_schedule",
+]);
+
+export function qualificationResultForStage(
+  stage: "needs_review" | "ready_to_schedule",
+): QualificationResultValue {
+  return stage === "ready_to_schedule" ? "qualified" : "review_required";
 }
 
 /**
