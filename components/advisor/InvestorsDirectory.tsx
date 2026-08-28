@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowDown, ArrowUp, ArrowUpDown, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Kanban, List as ListIcon, Search } from "lucide-react";
 import { requireStaffUser } from "@/lib/advisor/auth";
 import { isAdmin } from "@/lib/advisor/access";
 import { filterInvestorRows, loadInvestorRows, type InvestorRow } from "@/lib/advisor/investors";
@@ -30,6 +30,8 @@ import {
   BulkSelectCheckbox,
   BulkSelectProvider,
 } from "@/components/advisor/BulkSelect";
+import { actionBubble } from "@/components/advisor/clients/shared";
+import { ClientsBoardView } from "@/components/advisor/clients/ClientsBoardView";
 
 export type InvestorsSearchParams = Record<string, string | string[] | undefined>;
 
@@ -85,31 +87,6 @@ const SORT_RANK: Record<SortKey, (row: InvestorRow) => number> = {
 };
 
 /**
- * Every next action wears its own color, so the table reads at a glance:
- * the hot reds/ambers are outreach owed, the cool hues are process moving
- * along. Unknown strings fall back to the neutral chip; "—" stays plain.
- */
-const ACTION_BUBBLES: Record<string, { color: string; tint: string }> = {
-  "Schedule follow-up": { color: SIGNAL.alert, tint: SIGNAL.alertTint },
-  "Rebook cancelled consultation": { color: "#be123c", tint: "#fff1f2" },
-  "Resolve FDD delivery error": { color: "#c2410c", tint: "#fff7ed" },
-  "Encourage questionnaire completion": { color: SIGNAL.warning, tint: SIGNAL.warningTint },
-  "Follow up on FDD": { color: "#6d28d9", tint: "#f5f3ff" },
-  "Prepare for consultation": { color: "#2463eb", tint: "#eff4ff" },
-  "Review outcome and update stage": { color: "#4f46e5", tint: "#eef2ff" },
-  "Begin due diligence discussion": { color: "#0e7490", tint: "#f0fafb" },
-  "Discuss the franchise agreement": { color: "#047857", tint: "#ecfdf5" },
-  "Await portal activity": { color: "#0e7490", tint: "#f0fafb" },
-  "Monitor engagement": { color: SIGNAL.success, tint: SIGNAL.successTint },
-};
-
-function actionBubble(row: InvestorRow): { color: string; tint: string } {
-  return (
-    ACTION_BUBBLES[row.nextAction] ?? { color: SIGNAL.neutral, tint: SIGNAL.neutralTint }
-  );
-}
-
-/**
  * The clients list (handoff mock 6b): stage filter chips over a flat grid
  * table — client, discovery stage, liquid capital, video watched, last
  * activity, next action. Every row links to the client detail page; search
@@ -128,6 +105,7 @@ export async function InvestorsDirectory({
   const admin = isAdmin(user);
   const allRows = await loadInvestorRows(user);
 
+  const view = param(params, "view") === "board" ? "board" : "list";
   const q = param(params, "q");
   const searched = q ? filterInvestorRows(allRows, { search: q }) : allRows;
 
@@ -163,6 +141,7 @@ export async function InvestorsDirectory({
     sort: { key: SortKey; dir: "asc" | "desc" } | null = sortKey
       ? { key: sortKey, dir: sortDir }
       : null,
+    nextView: "list" | "board" = view,
   ) => {
     const query = new URLSearchParams();
     if (q) query.set("q", q);
@@ -175,6 +154,7 @@ export async function InvestorsDirectory({
       if (sort.dir === "asc") query.set("dir", "asc");
     }
     if (pageNumber > 1) query.set("page", String(pageNumber));
+    if (nextView === "board") query.set("view", "board");
     const qs = query.toString();
     return qs ? `${basePath}?${qs}` : basePath;
   };
@@ -185,6 +165,9 @@ export async function InvestorsDirectory({
       key,
       dir: sortKey === key && sortDir === "desc" ? "asc" : "desc",
     });
+
+  const viewHref = (nextView: "list" | "board") =>
+    hrefFor(activeChip.key, 1, sortKey ? { key: sortKey, dir: sortDir } : null, nextView);
 
   const firstShown = filtered.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
   const lastShown = (currentPage - 1) * PAGE_SIZE + rows.length;
@@ -261,139 +244,192 @@ export async function InvestorsDirectory({
               );
             })}
           </div>
-          {admin && <BulkSelectBar />}
+          <div className="flex items-center gap-2.5">
+            <div
+              role="tablist"
+              aria-label="Clients view"
+              className="inline-flex items-center gap-0.5 rounded-control border border-border-strong bg-card p-0.5"
+            >
+              <ViewToggleLink href={viewHref("list")} active={view === "list"} icon={ListIcon}>
+                List
+              </ViewToggleLink>
+              <ViewToggleLink href={viewHref("board")} active={view === "board"} icon={Kanban}>
+                Board
+              </ViewToggleLink>
+            </div>
+            {admin && <BulkSelectBar />}
+          </div>
         </div>
+
+        {view === "board" && <ClientsBoardView rows={sorted} />}
 
         {/* Table */}
-        <Panel padded={false} className="overflow-x-auto px-[18px] pb-2.5 pt-1.5">
-          <div className="min-w-[900px]">
-            <GridHead columns={COLS}>
-              <span>Client</span>
-              <span>Stage</span>
-              <SortHeader
-                label="Liquid Capital"
-                href={sortHref("capital")}
-                active={sortKey === "capital"}
-                dir={sortDir}
-              />
-              <SortHeader
-                label="Video Watched"
-                href={sortHref("video")}
-                active={sortKey === "video"}
-                dir={sortDir}
-              />
-              <SortHeader
-                label="Activity"
-                href={sortHref("activity")}
-                active={sortKey === "activity"}
-                dir={sortDir}
-              />
-              <span>Next Action</span>
-            </GridHead>
-
-            {rows.length === 0 && (
-              <p className="py-10 text-center text-[13.5px] text-muted-foreground">
-                No clients match this filter.
-              </p>
-            )}
-
-            {rows.map((row, index) => {
-              const chip = stageChipFor(row.stage);
-              const capital = compactMoney(
-                labelForValue(row.questionnaire?.liquid_capital ?? row.lead.initial_liquid_capital),
-              );
-              const bubble = actionBubble(row);
-              return (
-                <div
-                  key={row.lead.id}
-                  className={cn(
-                    "grid items-center gap-x-3.5 py-[11px] transition-colors hover:bg-surface-raised",
-                    index < rows.length - 1 && "border-b border-border-soft",
-                  )}
-                  style={{ gridTemplateColumns: COLS }}
-                >
-                  <span className="flex min-w-0 items-center gap-[7px]">
-                    <BulkSelectCheckbox id={row.lead.id} />
-                    <NameCell
-                      href={`/advisor/investors/${row.lead.id}`}
-                      name={`${row.lead.first_name} ${row.lead.last_name}`}
-                      sub={row.lead.email}
-                    />
-                    {row.followUp.needed && (
-                      <span
-                        aria-label="Follow-up due"
-                        title={row.followUp.reasons[0]}
-                        className="size-1.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: SIGNAL.alert }}
-                      />
-                    )}
-                  </span>
-
-                  <span>
-                    <StagePill color={chip.color} tint={chip.tint} label={chip.label} />
-                  </span>
-
-                  <span className="tabular truncate text-[13px] font-bold text-foreground">
-                    {capital}
-                  </span>
-
-                  <VideoWatchedRing
-                    percent={row.video?.highest_percent_watched ?? null}
-                    completed={row.video?.completed ?? false}
+        {view === "list" && (
+          <>
+            <Panel padded={false} className="overflow-x-auto px-[18px] pb-2.5 pt-1.5">
+              <div className="min-w-[900px]">
+                <GridHead columns={COLS}>
+                  <span>Client</span>
+                  <span>Stage</span>
+                  <SortHeader
+                    label="Liquid Capital"
+                    href={sortHref("capital")}
+                    active={sortKey === "capital"}
+                    dir={sortDir}
                   />
-
-                  <StackCell
-                    value={formatRelative(row.lastActivityAt)}
-                    sub={`joined ${formatDate(row.lead.created_at)}`}
+                  <SortHeader
+                    label="Video Watched"
+                    href={sortHref("video")}
+                    active={sortKey === "video"}
+                    dir={sortDir}
                   />
+                  <SortHeader
+                    label="Activity"
+                    href={sortHref("activity")}
+                    active={sortKey === "activity"}
+                    dir={sortDir}
+                  />
+                  <span>Next Action</span>
+                </GridHead>
 
-                  {row.nextAction === "—" ? (
-                    <span className="text-[12.5px] text-ghost-foreground">—</span>
-                  ) : (
-                    <span className="min-w-0">
-                      <span
-                        className="inline-flex max-w-full items-center rounded-pill px-[11px] py-[3px] text-[11.5px] font-bold"
-                        style={{ color: bubble.color, backgroundColor: bubble.tint }}
-                      >
-                        <span className="truncate">{row.nextAction}</span>
+                {rows.length === 0 && (
+                  <p className="py-10 text-center text-[13.5px] text-muted-foreground">
+                    No clients match this filter.
+                  </p>
+                )}
+
+                {rows.map((row, index) => {
+                  const chip = stageChipFor(row.stage);
+                  const capital = compactMoney(
+                    labelForValue(
+                      row.questionnaire?.liquid_capital ?? row.lead.initial_liquid_capital,
+                    ),
+                  );
+                  const bubble = actionBubble(row);
+                  return (
+                    <div
+                      key={row.lead.id}
+                      className={cn(
+                        "grid items-center gap-x-3.5 py-[11px] transition-colors hover:bg-surface-raised",
+                        index < rows.length - 1 && "border-b border-border-soft",
+                      )}
+                      style={{ gridTemplateColumns: COLS }}
+                    >
+                      <span className="flex min-w-0 items-center gap-[7px]">
+                        <BulkSelectCheckbox id={row.lead.id} />
+                        <NameCell
+                          href={`/advisor/investors/${row.lead.id}`}
+                          name={`${row.lead.first_name} ${row.lead.last_name}`}
+                          sub={row.lead.email}
+                        />
+                        {row.followUp.needed && (
+                          <span
+                            aria-label="Follow-up due"
+                            title={row.followUp.reasons[0]}
+                            className="size-1.5 shrink-0 rounded-full"
+                            style={{ backgroundColor: SIGNAL.alert }}
+                          />
+                        )}
                       </span>
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </Panel>
 
-        <div className="flex items-center justify-between gap-4 text-[12.5px] font-semibold text-muted-foreground">
-          <span>
-            Showing {firstShown}–{lastShown} of {filtered.length} clients
-          </span>
-          {pageCount > 1 && (
-            <span className="flex items-center gap-1.5">
-              <PageLink
-                href={hrefFor(activeChip.key, currentPage - 1)}
-                disabled={currentPage === 1}
-                label="Previous"
-              />
-              {Array.from({ length: pageCount }, (_, index) => index + 1).map((number) => (
-                <PageLink
-                  key={number}
-                  href={hrefFor(activeChip.key, number)}
-                  label={String(number)}
-                  current={number === currentPage}
-                />
-              ))}
-              <PageLink
-                href={hrefFor(activeChip.key, currentPage + 1)}
-                disabled={currentPage === pageCount}
-                label="Next"
-              />
-            </span>
-          )}
-        </div>
+                      <span>
+                        <StagePill color={chip.color} tint={chip.tint} label={chip.label} />
+                      </span>
+
+                      <span className="tabular truncate text-[13px] font-bold text-foreground">
+                        {capital}
+                      </span>
+
+                      <VideoWatchedRing
+                        percent={row.video?.highest_percent_watched ?? null}
+                        completed={row.video?.completed ?? false}
+                      />
+
+                      <StackCell
+                        value={formatRelative(row.lastActivityAt)}
+                        sub={`joined ${formatDate(row.lead.created_at)}`}
+                      />
+
+                      {row.nextAction === "—" ? (
+                        <span className="text-[12.5px] text-ghost-foreground">—</span>
+                      ) : (
+                        <span className="min-w-0">
+                          <span
+                            className="inline-flex max-w-full items-center rounded-pill px-[11px] py-[3px] text-[11.5px] font-bold"
+                            style={{ color: bubble.color, backgroundColor: bubble.tint }}
+                          >
+                            <span className="truncate">{row.nextAction}</span>
+                          </span>
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </Panel>
+
+            <div className="flex items-center justify-between gap-4 text-[12.5px] font-semibold text-muted-foreground">
+              <span>
+                Showing {firstShown}–{lastShown} of {filtered.length} clients
+              </span>
+              {pageCount > 1 && (
+                <span className="flex items-center gap-1.5">
+                  <PageLink
+                    href={hrefFor(activeChip.key, currentPage - 1)}
+                    disabled={currentPage === 1}
+                    label="Previous"
+                  />
+                  {Array.from({ length: pageCount }, (_, index) => index + 1).map((number) => (
+                    <PageLink
+                      key={number}
+                      href={hrefFor(activeChip.key, number)}
+                      label={String(number)}
+                      current={number === currentPage}
+                    />
+                  ))}
+                  <PageLink
+                    href={hrefFor(activeChip.key, currentPage + 1)}
+                    disabled={currentPage === pageCount}
+                    label="Next"
+                  />
+                </span>
+              )}
+            </div>
+          </>
+        )}
       </BulkSelectProvider>
     </V3Page>
+  );
+}
+
+/** The List/Board toggle — a plain link pair, consistent with every other
+ * piece of state on this page living in the URL rather than client state. */
+function ViewToggleLink({
+  href,
+  active,
+  icon: Icon,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  icon: typeof ArrowUpDown;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      role="tab"
+      aria-selected={active}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-[7px] px-3 py-[7px] text-[12.5px] font-bold transition-colors",
+        active
+          ? "bg-primary-soft text-primary"
+          : "text-muted-foreground hover:bg-surface hover:text-secondary-foreground",
+      )}
+    >
+      <Icon className="size-3.5" strokeWidth={2.2} />
+      {children}
+    </Link>
   );
 }
 
