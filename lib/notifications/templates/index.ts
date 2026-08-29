@@ -25,6 +25,7 @@ import {
 } from "@/types/ownershipProfile";
 import type { LeadRecord } from "@/types/lead";
 import type { EmailTemplateKey } from "@/lib/notifications/rules";
+import { fetchGhlContactTags, ghlContactUrl } from "@/lib/ghl/contactTags";
 import {
   investorName,
   investorUrl,
@@ -77,7 +78,21 @@ function contactRows(lead: LeadRecord): DetailRow[] {
   ];
 }
 
-function cta(lead: LeadRecord): { href: string; label: string } | null {
+/**
+ * The email's one button. Points at the lead's HighLevel contact when one
+ * can be resolved (HighLevel is where the team actually works a lead day to
+ * day), falling back to the internal investor record when HighLevel isn't
+ * connected or this lead hasn't been synced there yet — the email should
+ * never lose its call to action over an external lookup.
+ */
+async function cta(lead: LeadRecord): Promise<{ href: string; label: string } | null> {
+  try {
+    const tags = await fetchGhlContactTags(lead);
+    const ghlUrl = tags.status === "ok" ? ghlContactUrl(tags.contactId) : null;
+    if (ghlUrl) return { href: ghlUrl, label: "View in HighLevel" };
+  } catch (error) {
+    console.error(`[notifications] HighLevel contact lookup failed for lead ${lead.id}:`, error);
+  }
   const href = investorUrl(lead);
   return href ? { href, label: "View Investor" } : null;
 }
@@ -210,7 +225,7 @@ async function questionnaireCompleted(context: TemplateContext): Promise<EmailBo
     headline: `${name} completed the ${brand.brandName} Investor Qualification.`,
     intro: "Their responses are below, attached as a PDF, and on the full record in Compass.",
     rows,
-    cta: cta(lead),
+    cta: await cta(lead),
     footnote: "You receive this because qualification completions are set to notify immediately.",
   });
 
@@ -277,7 +292,7 @@ async function bookingClaimed(context: TemplateContext): Promise<EmailBody> {
     intro:
       "They clicked the confirmation button on the scheduling page, but no booking event arrived from the calendar. Check your calendar; if nothing is there, reach out to get them scheduled — they intended to book.",
     rows,
-    cta: cta(lead),
+    cta: await cta(lead),
     footnote: "You receive this because unverified booking claims are set to notify immediately.",
   });
 
@@ -299,7 +314,7 @@ async function consultationScheduled(context: TemplateContext): Promise<EmailBod
     headline: `${name} scheduled a consultation.`,
     intro: "Review their qualification responses before the call.",
     rows: [...contactRows(lead), { label: "Scheduled for", value: startsAt }],
-    cta: cta(lead),
+    cta: await cta(lead),
   });
 
   return { subject: `Consultation Scheduled — ${name}`, html, text };
@@ -324,7 +339,7 @@ async function strategistReviewRequested(context: TemplateContext): Promise<Emai
     headline: `${name} requested a territory review.`,
     intro: "A strategist review was requested from the Territory Advisor.",
     rows: [...contactRows(lead), { label: "Their message", value: message, block: true }],
-    cta: cta(lead),
+    cta: await cta(lead),
   });
 
   return { subject: `Territory Review Requested — ${name}`, html, text };
@@ -363,7 +378,7 @@ async function ownershipProfileCompleted(context: TemplateContext): Promise<Emai
     headline: `${name} completed their Ownership Profile.`,
     intro: "What they say they want from ownership — useful context before the call.",
     rows,
-    cta: cta(lead),
+    cta: await cta(lead),
     footnote: "This is a self-assessment, not a qualification score.",
   });
 
@@ -385,7 +400,7 @@ async function videoCompleted(context: TemplateContext): Promise<EmailBody> {
     headline: `${name} finished the investor overview video.`,
     intro: "They have not necessarily completed qualification yet.",
     rows: [...contactRows(lead), { label: "Watched", value: percent ? `${percent}%` : null }],
-    cta: cta(lead),
+    cta: await cta(lead),
   });
 
   return { subject: `Overview Video Completed — ${name}`, html, text };
