@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Sparkles, User } from "lucide-react";
+import { ExternalLink, Sparkles, User } from "lucide-react";
 import { requireStaffUser } from "@/lib/advisor/auth";
 import { canAccessLead, isAdmin } from "@/lib/advisor/access";
 import { getStore } from "@/lib/store";
@@ -17,7 +17,7 @@ import {
 } from "@/lib/advisor/clientIntelligence";
 import { effectiveFddStatus, FDD_STATUS_LABELS } from "@/lib/fdd/status";
 import { getFddWaitingPeriodDays } from "@/lib/config/fdd";
-import { fetchGhlContactTags } from "@/lib/ghl/contactTags";
+import { fetchGhlContactTags, ghlContactUrl } from "@/lib/ghl/contactTags";
 import { resolveClientFromLead } from "@/lib/domain/clients";
 import { listOpportunitiesForClient } from "@/lib/domain/opportunities";
 import { getAppUrl } from "@/lib/config/env";
@@ -90,8 +90,10 @@ export default async function InvestorDetailPage({
     ]);
 
   // HighLevel owns the contact's tags; the lookup degrades to a rendered
-  // "unavailable" state rather than failing the page.
+  // "unavailable" state rather than failing the page. Reused for the
+  // top-right "Open in HighLevel" button, so there's only one lookup.
   const ghlTags = await fetchGhlContactTags(lead);
+  const ghlUrl = ghlTags.status === "ok" ? ghlContactUrl(ghlTags.contactId) : null;
 
   // Platform domain: the client record and ALL of their opportunities (a
   // client may pursue multiple brands). Failure falls back to lead-only view.
@@ -199,9 +201,17 @@ export default async function InvestorDetailPage({
           <span aria-hidden>›</span>
           <span className="font-bold text-foreground">{name}</span>
         </p>
-        <Link href="#notes" className={SECONDARY_BUTTON}>
-          ＋ Add Note
-        </Link>
+        <div className="flex items-center gap-2.5">
+          {ghlUrl && (
+            <a href={ghlUrl} target="_blank" rel="noreferrer" className={SECONDARY_BUTTON}>
+              <ExternalLink className="size-3.5" strokeWidth={2} />
+              Open in HighLevel
+            </a>
+          )}
+          <Link href="#notes" className={SECONDARY_BUTTON}>
+            ＋ Add Note
+          </Link>
+        </div>
       </div>
 
       <ClientHeaderBand
