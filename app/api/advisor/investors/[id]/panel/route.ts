@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { leadSourceLabel } from "@/lib/config/leadSources";
 import { requireStaffAndLead } from "@/lib/advisor/api";
 import { getStore } from "@/lib/store";
 import { deriveNextBestAction } from "@/lib/advisor/nextBestAction";
@@ -146,7 +147,7 @@ export async function GET(
         brokerNetwork: lead.broker_network ?? null,
         brokerEmail: lead.broker_email ?? null,
         brokerPhone: lead.broker_phone ?? null,
-        channel: lead.source ?? lead.first_utm_source,
+        channel: lead.source ? leadSourceLabel(lead.source) : lead.first_utm_source,
         campaign: lead.campaign ?? lead.first_utm_campaign,
         medium: lead.first_utm_medium,
         landingPage: lead.first_landing_page,

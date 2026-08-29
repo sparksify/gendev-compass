@@ -13,6 +13,7 @@ import {
   stageChipFor,
 } from "@/lib/advisor/discoveryStages";
 import { cn } from "@/lib/utils";
+import { leadSourceLabel } from "@/lib/config/leadSources";
 import { LIQUID_CAPITAL_RANGES } from "@/types/questionnaire";
 import {
   GridHead,
@@ -113,7 +114,22 @@ export async function InvestorsDirectory({
   // filters. Both land on the same chip row.
   const chipKey = param(params, "stage") ?? param(params, "chip") ?? "all";
   const activeChip = CHIPS.find((chip) => chip.key === chipKey) ?? CHIPS[0];
-  const filtered = searched.filter(activeChip.matches);
+
+  // Lead-source facet (?source=): which ad account / channel produced the
+  // lead. Composes with the stage chips; counts for each row are faceted
+  // against the other row's filter.
+  const activeSource = param(params, "source");
+  const sourceFiltered = activeSource
+    ? searched.filter((row) => (row.lead.source ?? "unknown") === activeSource)
+    : searched;
+  const filtered = sourceFiltered.filter(activeChip.matches);
+
+  const sourceCounts = new Map<string, number>();
+  for (const row of searched.filter(activeChip.matches)) {
+    const key = row.lead.source ?? "unknown";
+    sourceCounts.set(key, (sourceCounts.get(key) ?? 0) + 1);
+  }
+  const sourceChips = [...sourceCounts.entries()].sort((a, b) => b[1] - a[1]);
 
   // Column sorting: clicking Liquid capital or Video watched orders by that
   // column, highest first; clicking again flips it. Default is store order.
@@ -155,8 +171,20 @@ export async function InvestorsDirectory({
     }
     if (pageNumber > 1) query.set("page", String(pageNumber));
     if (nextView === "board") query.set("view", "board");
+    if (activeSource) query.set("source", activeSource);
     const qs = query.toString();
     return qs ? `${basePath}?${qs}` : basePath;
+  };
+
+  // Toggle a source chip on/off, resetting pagination but keeping the rest.
+  const sourceHref = (sourceKey: string | null) => {
+    const base = hrefFor(activeChip.key, 1);
+    const [path, qs] = base.split("?");
+    const query = new URLSearchParams(qs ?? "");
+    query.delete("source");
+    if (sourceKey) query.set("source", sourceKey);
+    const next = query.toString();
+    return next ? `${path}?${next}` : path;
   };
 
   // First click sorts highest-first; a second click flips to lowest-first.
@@ -219,7 +247,7 @@ export async function InvestorsDirectory({
           <div className="flex flex-wrap items-center gap-2">
             {CHIPS.map((chip) => {
               const active = chip.key === activeChip.key;
-              const count = searched.filter(chip.matches).length;
+              const count = sourceFiltered.filter(chip.matches).length;
               return (
                 <Link
                   key={chip.key}
@@ -260,6 +288,45 @@ export async function InvestorsDirectory({
             {admin && <BulkSelectBar />}
           </div>
         </div>
+
+        {/* Source facet: one chip per distinct lead source present */}
+        {sourceChips.length > 1 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-[0.05em] text-faint-foreground">
+              Source
+            </span>
+            <Link
+              href={sourceHref(null)}
+              aria-current={!activeSource ? "true" : undefined}
+              className={cn(
+                "inline-flex items-center gap-[7px] rounded-pill px-[13px] py-1.5 text-[12.5px] transition-colors",
+                !activeSource
+                  ? "bg-primary font-bold text-white"
+                  : "border border-border bg-card font-semibold text-secondary-foreground hover:bg-surface-raised",
+              )}
+            >
+              All · {searched.filter(activeChip.matches).length}
+            </Link>
+            {sourceChips.map(([sourceKey, count]) => {
+              const active = activeSource === sourceKey;
+              return (
+                <Link
+                  key={sourceKey}
+                  href={sourceHref(active ? null : sourceKey)}
+                  aria-current={active ? "true" : undefined}
+                  className={cn(
+                    "inline-flex items-center gap-[7px] rounded-pill px-[13px] py-1.5 text-[12.5px] transition-colors",
+                    active
+                      ? "bg-primary font-bold text-white"
+                      : "border border-border bg-card font-semibold text-secondary-foreground hover:bg-surface-raised",
+                  )}
+                >
+                  {sourceKey === "unknown" ? "No source" : leadSourceLabel(sourceKey)} · {count}
+                </Link>
+              );
+            })}
+          </div>
+        )}
 
         {view === "board" && <ClientsBoardView rows={sorted} />}
 
