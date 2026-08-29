@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { GripVertical } from "lucide-react";
+import { ExternalLink, GripVertical, Loader2 } from "lucide-react";
 import { Panel } from "@/components/advisor/v3";
+import { SECONDARY_BUTTON_SM } from "@/components/advisor/controls";
 import { VideoWatchedRing } from "@/components/advisor/VideoWatchedBar";
 import { BulkSelectCheckbox } from "@/components/advisor/BulkSelect";
 import { SIGNAL } from "@/lib/advisor/discoveryStages";
@@ -179,6 +180,33 @@ function ClientCard({
     labelForValue(row.questionnaire?.liquid_capital ?? row.lead.initial_liquid_capital),
   );
   const bubble = actionBubble(row);
+  const [ghlLoading, setGhlLoading] = useState(false);
+  const [ghlError, setGhlError] = useState<string | null>(null);
+
+  async function openInGhl() {
+    // Opened synchronously, in direct response to the click, so the popup
+    // blocker allows it — the lookup that decides where it points to is
+    // async and would otherwise arrive too late to open a tab itself.
+    const tab = window.open("", "_blank");
+    setGhlLoading(true);
+    setGhlError(null);
+    try {
+      const response = await fetch(`/api/advisor/investors/${row.lead.id}/ghl-url`);
+      const data = (await response.json()) as { success: boolean; url: string | null; reason?: string };
+      if (data.url) {
+        if (tab) tab.location.href = data.url;
+        else window.open(data.url, "_blank");
+      } else {
+        tab?.close();
+        setGhlError(data.reason ?? "Could not find this contact in HighLevel.");
+      }
+    } catch {
+      tab?.close();
+      setGhlError("Could not reach HighLevel.");
+    } finally {
+      setGhlLoading(false);
+    }
+  }
 
   return (
     <Panel
@@ -237,9 +265,29 @@ function ClientCard({
         </span>
       )}
 
-      <span className="text-[11px] font-medium text-faint-foreground">
-        {formatRelative(row.lastActivityAt)}
-      </span>
+      <div className="flex items-center justify-between gap-2 pt-0.5">
+        <span className="text-[11px] font-medium text-faint-foreground">
+          {formatRelative(row.lastActivityAt)}
+        </span>
+        <button
+          type="button"
+          onClick={openInGhl}
+          disabled={ghlLoading}
+          className={cn(SECONDARY_BUTTON_SM, "shrink-0")}
+        >
+          {ghlLoading ? (
+            <Loader2 className="size-[11px] animate-spin" strokeWidth={2} />
+          ) : (
+            <ExternalLink className="size-[11px]" strokeWidth={2} />
+          )}
+          HighLevel
+        </button>
+      </div>
+      {ghlError && (
+        <p role="alert" className="text-[11px] font-medium text-destructive">
+          {ghlError}
+        </p>
+      )}
     </Panel>
   );
 }
