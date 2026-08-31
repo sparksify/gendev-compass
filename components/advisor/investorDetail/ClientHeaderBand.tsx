@@ -12,7 +12,8 @@ import { cn } from "@/lib/utils";
  * for tokens meant for the light ground.
  */
 
-const CHIP = "inline-flex size-6 items-center justify-center rounded-full bg-white/[.16] text-white transition-colors hover:bg-white/25";
+const CONTACT_LINK =
+  "inline-flex items-center gap-1.5 text-white/95 transition-colors hover:text-white hover:underline";
 
 export interface ClientHeaderTab {
   /** In-page anchor — every section lives on this one page. */
@@ -73,15 +74,21 @@ export function ClientHeaderBand({
                   Follow-up Due
                 </span>
               )}
+            </div>
 
+            {/* Email and phone, spelled out (not just icon buttons) so
+                they're readable at a glance right under the name. */}
+            <div className="flex flex-wrap items-center gap-x-[15px] gap-y-1 text-[13px] font-semibold">
+              <a href={`mailto:${email}`} className={CONTACT_LINK} aria-label={`Email ${name}`}>
+                <Mail className="size-3 shrink-0" strokeWidth={2} />
+                {email}
+              </a>
               {phone && (
-                <a href={`tel:${phone}`} className={CHIP} title={phone} aria-label={`Call ${name}`}>
-                  <Phone className="size-[11px]" strokeWidth={2} />
+                <a href={`tel:${phone}`} className={CONTACT_LINK} aria-label={`Call ${name}`}>
+                  <Phone className="size-3 shrink-0" strokeWidth={2} />
+                  {phone}
                 </a>
               )}
-              <a href={`mailto:${email}`} className={CHIP} title={email} aria-label={`Email ${name}`}>
-                <Mail className="size-[11px]" strokeWidth={2} />
-              </a>
             </div>
 
             <div className="flex flex-wrap items-center gap-x-[15px] gap-y-1 text-[12.5px] font-semibold text-white/95">
