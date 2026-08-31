@@ -1,5 +1,20 @@
 /** Display formatting shared by the advisor pages (server components). */
 
+/**
+ * Formats a US/Canada phone number as "555-555-1212" for display. Leads are
+ * stored E.164-ish (e.g. "+15555555555") for `tel:` links; this only
+ * affects what's shown on screen. A number that isn't a recognizable
+ * 10-digit NANP number (extension, international, malformed) is returned
+ * unchanged rather than mangled.
+ */
+export function formatUsPhone(phone: string | null | undefined): string {
+  if (!phone) return "—";
+  const digits = phone.replace(/\D/g, "");
+  const tenDigits = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  if (tenDigits.length !== 10) return phone;
+  return `${tenDigits.slice(0, 3)}-${tenDigits.slice(3, 6)}-${tenDigits.slice(6)}`;
+}
+
 export function formatDateTime(iso: string | null | undefined, timeZone?: string | null): string {
   if (!iso) return "—";
   try {
