@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Calendar, Globe, Mail, MapPin, Phone, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatUsPhone } from "@/lib/advisor/format";
 
 /**
  * The deep-green identity band that opens the client detail page: who they
@@ -86,7 +87,7 @@ export function ClientHeaderBand({
               {phone && (
                 <a href={`tel:${phone}`} className={CONTACT_LINK} aria-label={`Call ${name}`}>
                   <Phone className="size-3 shrink-0" strokeWidth={2} />
-                  {phone}
+                  {formatUsPhone(phone)}
                 </a>
               )}
             </div>
