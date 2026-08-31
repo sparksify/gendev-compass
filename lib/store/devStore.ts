@@ -720,6 +720,7 @@ export function createDevStore(): PortalStore {
         const user: StaffUserRecord = {
           id: randomUUID(),
           ...input,
+          lead_scope: input.lead_scope ?? "gendev",
           active: true,
           created_at: nowIso(),
           updated_at: nowIso(),

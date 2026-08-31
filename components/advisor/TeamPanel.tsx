@@ -10,13 +10,66 @@ interface StaffUserSummary {
   last_name: string;
   email: string;
   role: "ADMIN" | "ADVISOR";
+  lead_scope?: "all" | "gendev";
   active: boolean;
   last_login_at: string | null;
   created_at: string;
 }
 
-/** name · email · role · last login */
-const COLS = "1fr 1.4fr .7fr 1fr";
+/** name · email · role · access · last login */
+const COLS = "1fr 1.3fr .6fr .9fr .9fr";
+
+const SCOPE_LABELS: Record<string, string> = {
+  all: "All (Sparks + GenDev)",
+  gendev: "GenDev only",
+};
+
+/**
+ * Inline brand-scope selector: which side's leads this member can see.
+ * Applies everywhere server-side; changing it takes effect on their next
+ * page load.
+ */
+function ScopeSelect({
+  user,
+  onChanged,
+}: {
+  user: StaffUserSummary;
+  onChanged: (user: StaffUserSummary) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const value = user.lead_scope ?? "all";
+
+  async function change(next: string) {
+    if (next === value) return;
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/advisor/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadScope: next }),
+      });
+      const data = await response.json();
+      if (data.success) onChanged(data.user);
+    } catch {
+      // Selector snaps back to the stored value on failure.
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <select
+      aria-label={`Lead access for ${user.first_name} ${user.last_name}`}
+      value={value}
+      disabled={busy}
+      onChange={(e) => change(e.target.value)}
+      className={`${FIELD} !mt-0 !py-1 text-[12px] font-semibold`}
+    >
+      <option value="all">{SCOPE_LABELS.all}</option>
+      <option value="gendev">{SCOPE_LABELS.gendev}</option>
+    </select>
+  );
+}
 
 function formatWhen(iso: string | null): string {
   if (!iso) return "never";
@@ -74,6 +127,7 @@ function CreateUserForm({ onCreated }: { onCreated: (user: StaffUserSummary) => 
     email: "",
     password: "",
     role: "ADVISOR",
+    leadScope: "gendev",
   });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -91,7 +145,7 @@ function CreateUserForm({ onCreated }: { onCreated: (user: StaffUserSummary) => 
       const data = await response.json();
       if (data.success) {
         onCreated(data.user);
-        setForm({ firstName: "", lastName: "", email: "", password: "", role: "ADVISOR" });
+        setForm({ firstName: "", lastName: "", email: "", password: "", role: "ADVISOR", leadScope: "gendev" });
         setMessage({ ok: true, text: `Created ${data.user.email}.` });
       } else {
         const detail = data.details ? Object.values(data.details).flat().join(" ") : "";
@@ -138,6 +192,20 @@ function CreateUserForm({ onCreated }: { onCreated: (user: StaffUserSummary) => 
           >
             <option value="ADVISOR">Advisor</option>
             <option value="ADMIN">Admin</option>
+          </select>
+        </div>
+        <div>
+          <label className={FIELD_LABEL} htmlFor="new-member-scope">
+            Lead access
+          </label>
+          <select
+            id="new-member-scope"
+            value={form.leadScope}
+            onChange={(e) => setForm((f) => ({ ...f, leadScope: e.target.value }))}
+            className={`${FIELD} font-semibold`}
+          >
+            <option value="gendev">GenDev only</option>
+            <option value="all">All (Sparks + GenDev)</option>
           </select>
         </div>
         <Field
@@ -282,6 +350,7 @@ export function TeamPanel({ isAdminUser }: { isAdminUser: boolean }) {
                   <span>Name</span>
                   <span>Email</span>
                   <span>Role</span>
+                  <span>Lead Access</span>
                   <span>Last Login</span>
                 </GridHead>
 
@@ -323,6 +392,16 @@ export function TeamPanel({ isAdminUser }: { isAdminUser: boolean }) {
                       >
                         {user.role}
                       </Pill>
+                    </span>
+                    <span className="pr-2">
+                      <ScopeSelect
+                        user={user}
+                        onChanged={(updated) =>
+                          setUsers((prev) =>
+                            prev ? prev.map((u) => (u.id === updated.id ? { ...u, ...updated } : u)) : prev,
+                          )
+                        }
+                      />
                     </span>
                     <span className="truncate text-[12.5px] font-semibold text-muted-foreground">
                       {formatWhen(user.last_login_at)}

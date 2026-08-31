@@ -36,6 +36,9 @@ const createUserSchema = z.object({
   email: z.string().trim().email().max(320),
   password: z.string().min(12, "Password must be at least 12 characters").max(200),
   role: z.enum(["ADMIN", "ADVISOR"]),
+  // Restricted by default: new staff only see GenDev-side leads unless
+  // explicitly granted full visibility.
+  leadScope: z.enum(["all", "gendev"]).default("gendev"),
 });
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -72,6 +75,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       email: parsed.data.email,
       password_hash: hashPassword(parsed.data.password),
       role: parsed.data.role,
+      lead_scope: parsed.data.leadScope,
     });
     return NextResponse.json({ success: true, user: withoutPasswordHash(user) });
   } catch (error) {

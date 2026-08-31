@@ -14,6 +14,7 @@ import type {
   AppointmentRecord,
   AppointmentStatus,
   QuestionnaireSubmissionWithAnswers,
+  LeadScope,
   StaffRole,
   StaffSessionRecord,
   StaffUserRecord,
@@ -274,10 +275,12 @@ export interface CreateStaffUserInput {
   email: string;
   password_hash: string;
   role: StaffRole;
+  /** Defaults to 'gendev' (restricted) when omitted. */
+  lead_scope?: LeadScope;
 }
 
 export type StaffUserPatch = Partial<
-  Pick<StaffUserRecord, "first_name" | "last_name" | "password_hash" | "role" | "active" | "last_login_at">
+  Pick<StaffUserRecord, "first_name" | "last_name" | "password_hash" | "role" | "lead_scope" | "active" | "last_login_at">
 >;
 
 export interface CreateSubmissionInput {

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpDown, Kanban, List as ListIcon, Search } from "lucide-react";
 import { requireStaffUser } from "@/lib/advisor/auth";
+import { getStore } from "@/lib/store";
 import { isAdmin } from "@/lib/advisor/access";
 import { filterInvestorRows, loadInvestorRows, type InvestorRow } from "@/lib/advisor/investors";
 import { labelForValue } from "@/lib/advisor/questionnaireCatalog";
@@ -122,10 +123,24 @@ export async function InvestorsDirectory({
   const sourceFiltered = activeSource
     ? searched.filter((row) => (row.lead.source ?? "unknown") === activeSource)
     : searched;
-  const filtered = sourceFiltered.filter(activeChip.matches);
+
+  // Advisor facet (?advisor=): admins can narrow the list to one team
+  // member's assigned clients ("none" = unassigned).
+  const activeAdvisor = admin ? param(params, "advisor") : undefined;
+  const byAdvisor = (rowsIn: InvestorRow[]) =>
+    activeAdvisor
+      ? rowsIn.filter((row) =>
+          activeAdvisor === "none"
+            ? row.lead.assigned_advisor_id === null
+            : row.lead.assigned_advisor_id === activeAdvisor,
+        )
+      : rowsIn;
+  const staff = admin ? await getStore().listStaffUsers() : [];
+
+  const filtered = byAdvisor(sourceFiltered.filter(activeChip.matches));
 
   const sourceCounts = new Map<string, number>();
-  for (const row of searched.filter(activeChip.matches)) {
+  for (const row of byAdvisor(searched.filter(activeChip.matches))) {
     const key = row.lead.source ?? "unknown";
     sourceCounts.set(key, (sourceCounts.get(key) ?? 0) + 1);
   }
@@ -172,6 +187,7 @@ export async function InvestorsDirectory({
     if (pageNumber > 1) query.set("page", String(pageNumber));
     if (nextView === "board") query.set("view", "board");
     if (activeSource) query.set("source", activeSource);
+    if (activeAdvisor) query.set("advisor", activeAdvisor);
     const qs = query.toString();
     return qs ? `${basePath}?${qs}` : basePath;
   };
@@ -186,6 +202,35 @@ export async function InvestorsDirectory({
     const next = query.toString();
     return next ? `${path}?${next}` : path;
   };
+
+  const advisorHref = (advisorKey: string | null) => {
+    const base = hrefFor(activeChip.key, 1);
+    const [path, qs] = base.split("?");
+    const query = new URLSearchParams(qs ?? "");
+    query.delete("advisor");
+    if (advisorKey) query.set("advisor", advisorKey);
+    const next = query.toString();
+    return next ? `${path}?${next}` : path;
+  };
+
+  // Advisor chips: every team member with at least one visible client,
+  // plus Unassigned. Counts are faceted against the stage + source filters.
+  const advisorCounted = sourceFiltered.filter(activeChip.matches);
+  const advisorCounts = new Map<string, number>();
+  for (const row of advisorCounted) {
+    const key = row.lead.assigned_advisor_id ?? "none";
+    advisorCounts.set(key, (advisorCounts.get(key) ?? 0) + 1);
+  }
+  const advisorChips = staff
+    .filter((member) => advisorCounts.has(member.id))
+    .map((member) => ({
+      key: member.id,
+      label: `${member.first_name} ${member.last_name}`,
+      count: advisorCounts.get(member.id) ?? 0,
+    }));
+  if (advisorCounts.has("none")) {
+    advisorChips.push({ key: "none", label: "Unassigned", count: advisorCounts.get("none") ?? 0 });
+  }
 
   // First click sorts highest-first; a second click flips to lowest-first.
   const sortHref = (key: SortKey) =>
@@ -247,7 +292,7 @@ export async function InvestorsDirectory({
           <div className="flex flex-wrap items-center gap-2">
             {CHIPS.map((chip) => {
               const active = chip.key === activeChip.key;
-              const count = sourceFiltered.filter(chip.matches).length;
+              const count = byAdvisor(sourceFiltered.filter(chip.matches)).length;
               return (
                 <Link
                   key={chip.key}
@@ -322,6 +367,45 @@ export async function InvestorsDirectory({
                   )}
                 >
                   {sourceKey === "unknown" ? "No source" : leadSourceLabel(sourceKey)} · {count}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Advisor facet (admins): filter to one team member's clients */}
+        {admin && advisorChips.length > 1 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-[0.05em] text-faint-foreground">
+              Advisor
+            </span>
+            <Link
+              href={advisorHref(null)}
+              aria-current={!activeAdvisor ? "true" : undefined}
+              className={cn(
+                "inline-flex items-center gap-[7px] rounded-pill px-[13px] py-1.5 text-[12.5px] transition-colors",
+                !activeAdvisor
+                  ? "bg-primary font-bold text-white"
+                  : "border border-border bg-card font-semibold text-secondary-foreground hover:bg-surface-raised",
+              )}
+            >
+              All · {advisorCounted.length}
+            </Link>
+            {advisorChips.map((chip) => {
+              const active = activeAdvisor === chip.key;
+              return (
+                <Link
+                  key={chip.key}
+                  href={advisorHref(active ? null : chip.key)}
+                  aria-current={active ? "true" : undefined}
+                  className={cn(
+                    "inline-flex items-center gap-[7px] rounded-pill px-[13px] py-1.5 text-[12.5px] transition-colors",
+                    active
+                      ? "bg-primary font-bold text-white"
+                      : "border border-border bg-card font-semibold text-secondary-foreground hover:bg-surface-raised",
+                  )}
+                >
+                  {chip.label} · {chip.count}
                 </Link>
               );
             })}

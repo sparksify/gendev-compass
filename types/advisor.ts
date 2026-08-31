@@ -6,6 +6,12 @@
 
 export type StaffRole = "ADMIN" | "ADVISOR";
 
+/**
+ * Which side of the business a staff member may see.
+ * 'all' = Sparks super-admin visibility; 'gendev' = GenDev-side leads only.
+ */
+export type LeadScope = "all" | "gendev";
+
 export interface StaffUserRecord {
   id: string;
   first_name: string;
@@ -13,6 +19,7 @@ export interface StaffUserRecord {
   email: string;
   password_hash: string;
   role: StaffRole;
+  lead_scope: LeadScope;
   active: boolean;
   created_at: string;
   updated_at: string;
