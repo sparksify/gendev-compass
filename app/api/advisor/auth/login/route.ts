@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 const loginSchema = z.object({
   email: z.string().trim().email().max(320),
   password: z.string().min(1).max(200),
+  rememberMe: z.boolean().optional().default(false),
 });
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -30,7 +31,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ success: false, error: "Invalid credentials" }, { status: 400 });
   }
 
-  const { email, password } = parsed.data;
+  const { email, password, rememberMe } = parsed.data;
   if (!rateLimit(`staff-login-email:${email.toLowerCase()}`, 10, 60_000)) {
     return NextResponse.json(
       { success: false, error: "Too many attempts. Please wait a minute." },
@@ -48,7 +49,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   const { token, expiresAt } = await createSession(user.id);
   await store.updateStaffUser(user.id, { last_login_at: new Date().toISOString() });
 
+  // "Remember me" keeps the persistent cookie; otherwise the cookie is
+  // session-scoped and clears when the browser closes (the server-side
+  // session still expires on its own schedule either way).
+  const { expires: _expires, ...sessionScoped } = sessionCookieOptions(expiresAt);
   const response = NextResponse.json({ success: true });
-  response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(expiresAt));
+  response.cookies.set(SESSION_COOKIE, token, rememberMe ? sessionCookieOptions(expiresAt) : sessionScoped);
   return response;
 }

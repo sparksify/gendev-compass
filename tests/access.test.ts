@@ -57,7 +57,7 @@ describe("brand lead scope", () => {
   });
 
   it("users without a stored scope default to full visibility", () => {
-    const legacyUser = { id: "u1", role: "ADVISOR" as const };
+    const legacyUser = { id: "u1", role: "ADVISOR" as const, lead_scope: undefined };
     expect(leadInScope(legacyUser, sparksLead)).toBe(true);
   });
 });
