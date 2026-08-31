@@ -3,7 +3,14 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Kanban, List as ListIcon, Search } fro
 import { requireStaffUser } from "@/lib/advisor/auth";
 import { getStore } from "@/lib/store";
 import { isAdmin } from "@/lib/advisor/access";
-import { filterInvestorRows, loadInvestorRows, type InvestorRow } from "@/lib/advisor/investors";
+import {
+  filterInvestorRows,
+  isInvestorSortKey,
+  loadInvestorRows,
+  sortInvestorRows,
+  type InvestorRow,
+  type InvestorSortKey,
+} from "@/lib/advisor/investors";
 import { labelForValue } from "@/lib/advisor/questionnaireCatalog";
 import { formatDate, formatRelative } from "@/lib/advisor/format";
 import { compactMoney } from "@/lib/advisor/money";
@@ -15,7 +22,6 @@ import {
 } from "@/lib/advisor/discoveryStages";
 import { cn } from "@/lib/utils";
 import { leadSourceLabel, leadSourceMeta } from "@/lib/config/leadSources";
-import { LIQUID_CAPITAL_RANGES } from "@/types/questionnaire";
 import {
   GridHead,
   NameCell,
@@ -70,22 +76,23 @@ const CHIPS: Chip[] = [
   })),
 ];
 
-/** Ordered capital values — the array index is the sort rank. */
-const CAPITAL_ORDER: readonly string[] = LIQUID_CAPITAL_RANGES.map((range) => range.value);
+/** First-click direction per column: text columns A→Z, metrics highest-first. */
+const DEFAULT_DIR: Record<InvestorSortKey, "asc" | "desc"> = {
+  client: "asc",
+  stage: "asc",
+  advisor: "asc",
+  source: "asc",
+  liquidCapital: "desc",
+  netWorth: "desc",
+  video: "desc",
+  lastActivity: "desc",
+  newest: "desc",
+};
 
-type SortKey = "capital" | "video" | "activity";
-
-/** Unknowns rank below every real value so they sink on "highest first". */
-const SORT_RANK: Record<SortKey, (row: InvestorRow) => number> = {
-  capital: (row) =>
-    CAPITAL_ORDER.indexOf(
-      (row.questionnaire?.liquid_capital ?? row.lead.initial_liquid_capital ?? "") as string,
-    ),
-  video: (row) => (row.video ? row.video.highest_percent_watched : -1),
-  activity: (row) => {
-    const at = new Date(row.lastActivityAt).getTime();
-    return Number.isFinite(at) ? at : -1;
-  },
+/** Sort values from the previous URL scheme, so old links keep working. */
+const LEGACY_SORT: Record<string, InvestorSortKey> = {
+  capital: "liquidCapital",
+  activity: "lastActivity",
 };
 
 /**
@@ -146,20 +153,18 @@ export async function InvestorsDirectory({
   }
   const sourceChips = [...sourceCounts.entries()].sort((a, b) => b[1] - a[1]);
 
-  // Column sorting: clicking Liquid capital or Video watched orders by that
-  // column, highest first; clicking again flips it. Default is store order.
-  const sortParam = param(params, "sort");
-  const sortKey: SortKey | null =
-    sortParam === "capital" || sortParam === "video" || sortParam === "activity"
-      ? sortParam
-      : null;
-  const sortDir = param(params, "dir") === "asc" ? "asc" : "desc";
-  const sorted = sortKey
-    ? [...filtered].sort((a, b) => {
-        const rank = SORT_RANK[sortKey];
-        return sortDir === "asc" ? rank(a) - rank(b) : rank(b) - rank(a);
-      })
-    : filtered;
+  // Column sorting: every header can order the list; clicking flips the
+  // direction, and a third click clears it. Without an explicit sort the
+  // list always shows the newest clients first.
+  const requestedSort = param(params, "sort");
+  const mappedSort = requestedSort ? (LEGACY_SORT[requestedSort] ?? requestedSort) : undefined;
+  const explicitSort: InvestorSortKey | null =
+    mappedSort && isInvestorSortKey(mappedSort) ? mappedSort : null;
+  const sortKey: InvestorSortKey = explicitSort ?? "newest";
+  const dirParam = param(params, "dir");
+  const sortDir: "asc" | "desc" =
+    dirParam === "asc" || dirParam === "desc" ? dirParam : DEFAULT_DIR[sortKey];
+  const sorted = sortInvestorRows(filtered, sortKey, sortDir);
 
   const page = Math.max(1, Number.parseInt(param(params, "page") ?? "1", 10) || 1);
   const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
@@ -169,8 +174,8 @@ export async function InvestorsDirectory({
   const hrefFor = (
     chipKey: string,
     pageNumber = 1,
-    sort: { key: SortKey; dir: "asc" | "desc" } | null = sortKey
-      ? { key: sortKey, dir: sortDir }
+    sort: { key: InvestorSortKey; dir: "asc" | "desc" } | null = explicitSort
+      ? { key: explicitSort, dir: sortDir }
       : null,
     nextView: "list" | "board" = view,
   ) => {
@@ -182,7 +187,7 @@ export async function InvestorsDirectory({
     }
     if (sort) {
       query.set("sort", sort.key);
-      if (sort.dir === "asc") query.set("dir", "asc");
+      query.set("dir", sort.dir);
     }
     if (pageNumber > 1) query.set("page", String(pageNumber));
     if (nextView === "board") query.set("view", "board");
@@ -232,15 +237,17 @@ export async function InvestorsDirectory({
     advisorChips.push({ key: "none", label: "Unassigned", count: advisorCounts.get("none") ?? 0 });
   }
 
-  // First click sorts highest-first; a second click flips to lowest-first.
-  const sortHref = (key: SortKey) =>
-    hrefFor(activeChip.key, 1, {
-      key,
-      dir: sortKey === key && sortDir === "desc" ? "asc" : "desc",
-    });
+  // First click orders by the column (its natural direction), a second
+  // flips it, a third returns to the newest-first default.
+  const sortHref = (key: InvestorSortKey) => {
+    if (explicitSort !== key) return hrefFor(activeChip.key, 1, { key, dir: DEFAULT_DIR[key] });
+    if (sortDir === DEFAULT_DIR[key])
+      return hrefFor(activeChip.key, 1, { key, dir: sortDir === "asc" ? "desc" : "asc" });
+    return hrefFor(activeChip.key, 1, null);
+  };
 
   const viewHref = (nextView: "list" | "board") =>
-    hrefFor(activeChip.key, 1, sortKey ? { key: sortKey, dir: sortDir } : null, nextView);
+    hrefFor(activeChip.key, 1, explicitSort ? { key: explicitSort, dir: sortDir } : null, nextView);
 
   const firstShown = filtered.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
   const lastShown = (currentPage - 1) * PAGE_SIZE + rows.length;
@@ -420,25 +427,40 @@ export async function InvestorsDirectory({
             <Panel padded={false} className="overflow-x-auto px-[18px] pb-2.5 pt-1.5">
               <div className="min-w-[900px]">
                 <GridHead columns={COLS}>
-                  <span>Client</span>
-                  <span>Src</span>
-                  <span>Stage</span>
+                  <SortHeader
+                    label="Client"
+                    href={sortHref("client")}
+                    active={explicitSort === "client"}
+                    dir={sortDir}
+                  />
+                  <SortHeader
+                    label="Src"
+                    href={sortHref("source")}
+                    active={explicitSort === "source"}
+                    dir={sortDir}
+                  />
+                  <SortHeader
+                    label="Stage"
+                    href={sortHref("stage")}
+                    active={explicitSort === "stage"}
+                    dir={sortDir}
+                  />
                   <SortHeader
                     label="Liquid Capital"
-                    href={sortHref("capital")}
-                    active={sortKey === "capital"}
+                    href={sortHref("liquidCapital")}
+                    active={explicitSort === "liquidCapital"}
                     dir={sortDir}
                   />
                   <SortHeader
                     label="Video Watched"
                     href={sortHref("video")}
-                    active={sortKey === "video"}
+                    active={explicitSort === "video"}
                     dir={sortDir}
                   />
                   <SortHeader
                     label="Activity"
-                    href={sortHref("activity")}
-                    active={sortKey === "activity"}
+                    href={sortHref("lastActivity")}
+                    active={explicitSort === "lastActivity"}
                     dir={sortDir}
                   />
                   <span>Next Action</span>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterInvestorRows, type InvestorRow } from "@/lib/advisor/investors";
+import { filterInvestorRows, sortInvestorRows, type InvestorRow } from "@/lib/advisor/investors";
 import { hoursAgo, makeAppointment, makeLead } from "./helpers";
 import type { LeadRecord } from "@/types/lead";
 
@@ -98,5 +98,28 @@ describe("investor search and filtering", () => {
       filterInvestorRows(rows, { search: "chen", stage: "QUESTIONNAIRE_COMPLETED", state: "Texas" }),
     ).toEqual([maria]);
     expect(filterInvestorRows(rows, { search: "chen", stage: "CONSULTATION_SCHEDULED" })).toEqual([]);
+  });
+});
+
+describe("investor sorting", () => {
+  const oldest = makeRow(
+    makeLead({ first_name: "Ada", last_name: "First", created_at: hoursAgo(72), source: "facebook-sparks" }),
+  );
+  const middle = makeRow(
+    makeLead({ first_name: "Zoe", last_name: "Middle", created_at: hoursAgo(24), source: null }),
+  );
+  const newest = makeRow(
+    makeLead({ first_name: "Mia", last_name: "Newest", created_at: hoursAgo(1), source: "facebook-gendev" }),
+  );
+  const unsorted = [oldest, newest, middle];
+
+  it("newest desc puts the most recently created lead first", () => {
+    expect(sortInvestorRows(unsorted, "newest", "desc")).toEqual([newest, middle, oldest]);
+    expect(sortInvestorRows(unsorted, "newest", "asc")).toEqual([oldest, middle, newest]);
+  });
+
+  it("source sorts alphabetically with untagged leads last in either direction", () => {
+    expect(sortInvestorRows(unsorted, "source", "asc")).toEqual([newest, oldest, middle]);
+    expect(sortInvestorRows(unsorted, "source", "desc")).toEqual([oldest, newest, middle]);
   });
 });

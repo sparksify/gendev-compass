@@ -224,10 +224,12 @@ export const INVESTOR_SORT_KEYS = [
   "client",
   "stage",
   "advisor",
+  "source",
   "liquidCapital",
   "netWorth",
   "video",
   "lastActivity",
+  "newest",
 ] as const;
 export type InvestorSortKey = (typeof INVESTOR_SORT_KEYS)[number];
 
@@ -282,8 +284,18 @@ function compareRows(a: InvestorRow, b: InvestorRow, key: InvestorSortKey, dir: 
       );
     case "video":
       return compareOrdinal(a.video?.highest_percent_watched, b.video?.highest_percent_watched, dir);
+    case "source": {
+      const as = a.lead.source ?? null;
+      const bs = b.lead.source ?? null;
+      if (as === null && bs === null) return 0;
+      if (as === null) return 1;
+      if (bs === null) return -1;
+      return as.localeCompare(bs) * dir;
+    }
     case "lastActivity":
       return a.lastActivityAt.localeCompare(b.lastActivityAt) * dir;
+    case "newest":
+      return a.lead.created_at.localeCompare(b.lead.created_at) * dir;
     default:
       return 0;
   }
