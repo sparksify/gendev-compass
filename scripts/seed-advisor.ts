@@ -609,7 +609,7 @@ async function main() {
   }
 
   console.log("");
-  console.log("Advisor backend seeded. Sign in at /advisor/login:");
+  console.log("Advisor backend seeded. Sign in at /login:");
   console.log("(Development-only credentials — never use in production.)");
   console.log(`  Admin:   ${adminEmail} / ${adminPassword}`);
   console.log(`  Advisor: ${advisorEmail} / ${advisorPassword}`);

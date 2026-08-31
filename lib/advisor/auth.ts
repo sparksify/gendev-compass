@@ -62,7 +62,7 @@ export async function getCurrentStaffUser(): Promise<StaffUserRecord | null> {
 /** Page guard: redirects to the login screen when unauthenticated. */
 export async function requireStaffUser(): Promise<StaffUserRecord> {
   const user = await getCurrentStaffUser();
-  if (!user) redirect("/advisor/login");
+  if (!user) redirect("/login");
   return user;
 }
 

@@ -10,7 +10,7 @@ export function LogoutButton({ className, variant = "ghost", ...props }: Partial
 
   async function onLogout() {
     await fetch("/api/advisor/auth/logout", { method: "POST" });
-    router.push("/advisor/login");
+    router.push("/login");
     router.refresh();
   }
 
@@ -37,7 +37,7 @@ export function LogoutIconButton({ className }: { className?: string }) {
 
   async function onLogout() {
     await fetch("/api/advisor/auth/logout", { method: "POST" });
-    router.push("/advisor/login");
+    router.push("/login");
     router.refresh();
   }
 
