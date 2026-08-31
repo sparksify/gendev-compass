@@ -9,6 +9,8 @@
 
 export interface LeadSourceMeta {
   label: string;
+  /** Two-to-four letter code for at-a-glance table columns. */
+  shortCode: string;
   /** Pill styling in the advisor theme (border + tint + text). */
   badgeClass: string;
 }
@@ -20,38 +22,51 @@ const KNOWN_SOURCES: Record<string, LeadSourceMeta> = {
   // must send the matching `source` value with every lead.
   "facebook-sparks": {
     label: "Sparks FB",
+    shortCode: "SS",
     badgeClass: "border-[#b9cffc] bg-[#eff6ff] text-[#2463eb]",
   },
   "facebook-gendev": {
     label: "GenDev FB",
+    shortCode: "GEN",
     badgeClass: "border-[#b3e2c3] bg-[#f0fdf4] text-[#15803d]",
   },
   // Legacy value sent before per-account attribution was configured.
   facebook: {
     label: "Facebook (unattributed)",
+    shortCode: "FB",
     badgeClass: "border-[#d7dee9] bg-[#f5f7fb] text-[#64748b]",
   },
   "facebook-lead-ad": {
     label: "Facebook (unattributed)",
+    shortCode: "FB",
     badgeClass: "border-[#d7dee9] bg-[#f5f7fb] text-[#64748b]",
   },
   "internal-test": {
     label: "Internal Test",
+    shortCode: "INT",
     badgeClass: "border-[#f0d9a8] bg-[#fef9ec] text-[#92600e]",
   },
   "demo-seed": {
     label: "Demo",
+    shortCode: "DEMO",
     badgeClass: "border-[#f0d9a8] bg-[#fef9ec] text-[#92600e]",
   },
   "live-smoke-test": {
     label: "Smoke Test",
+    shortCode: "TEST",
     badgeClass: "border-[#f0d9a8] bg-[#fef9ec] text-[#92600e]",
   },
 };
 
 export function leadSourceMeta(source: string | null | undefined): LeadSourceMeta | null {
   if (!source) return null;
-  return KNOWN_SOURCES[source] ?? { label: source, badgeClass: NEUTRAL_BADGE };
+  return (
+    KNOWN_SOURCES[source] ?? {
+      label: source,
+      shortCode: source.replace(/[^a-zA-Z0-9]/g, "").slice(0, 3).toUpperCase() || "?",
+      badgeClass: NEUTRAL_BADGE,
+    }
+  );
 }
 
 export function leadSourceLabel(source: string | null | undefined): string {

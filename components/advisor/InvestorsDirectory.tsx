@@ -13,7 +13,7 @@ import {
   stageChipFor,
 } from "@/lib/advisor/discoveryStages";
 import { cn } from "@/lib/utils";
-import { leadSourceLabel } from "@/lib/config/leadSources";
+import { leadSourceLabel, leadSourceMeta } from "@/lib/config/leadSources";
 import { LIQUID_CAPITAL_RANGES } from "@/types/questionnaire";
 import {
   GridHead,
@@ -39,7 +39,7 @@ export type InvestorsSearchParams = Record<string, string | string[] | undefined
 const PAGE_SIZE = 15;
 
 /** Table columns, per the handoff's grid ratios. */
-const COLS = "1.6fr .8fr .8fr .8fr .9fr 1.25fr";
+const COLS = "1.6fr 48px .8fr .8fr .8fr .9fr 1.25fr";
 
 function param(params: InvestorsSearchParams, key: string): string | undefined {
   const value = params[key];
@@ -337,6 +337,7 @@ export async function InvestorsDirectory({
               <div className="min-w-[900px]">
                 <GridHead columns={COLS}>
                   <span>Client</span>
+                  <span>Src</span>
                   <span>Stage</span>
                   <SortHeader
                     label="Liquid Capital"
@@ -397,6 +398,25 @@ export async function InvestorsDirectory({
                             style={{ backgroundColor: SIGNAL.alert }}
                           />
                         )}
+                      </span>
+
+                      <span>
+                        {(() => {
+                          const sourceMeta = leadSourceMeta(row.lead.source);
+                          return sourceMeta ? (
+                            <span
+                              title={sourceMeta.label}
+                              className={cn(
+                                "inline-flex rounded-[6px] border px-1.5 py-0.5 text-[10.5px] font-bold tracking-[0.03em]",
+                                sourceMeta.badgeClass,
+                              )}
+                            >
+                              {sourceMeta.shortCode}
+                            </span>
+                          ) : (
+                            <span className="text-[12px] text-faint-foreground">—</span>
+                          );
+                        })()}
                       </span>
 
                       <span>
