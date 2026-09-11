@@ -8,7 +8,7 @@ import { US_STATES } from "@/lib/geocoding/states";
 import { pushToDataLayer } from "@/lib/tracking/client";
 import { cn } from "@/lib/utils";
 import {
-  BRIDGE_STEPS,
+  bridgeStepsFor,
   contactStepSchema,
   locationStepSchema,
   type ChoiceKey,
@@ -22,7 +22,16 @@ import { useBridgeVideo } from "./BridgeVideoContext";
  * a choice, with typed steps (location, contact) validated inline against
  * the same schema the API enforces. On submit the section swaps to the
  * completion screen — two ways forward, ordered by the fit call.
+ *
+ * With a known lead (/watch/[token]) there is no contact step: the last
+ * question carries the optional note and the submit button, and the
+ * answers attach to the existing lead.
  */
+
+export interface KnownBridgeLead {
+  token: string;
+  firstName: string;
+}
 
 type FieldKey =
   | ChoiceKey
@@ -44,7 +53,6 @@ interface Completion {
   fit: FitLevel;
 }
 
-const TOTAL = BRIDGE_STEPS.length;
 /** Long enough to see the selection land, short enough to feel instant. */
 const ADVANCE_DELAY_MS = 220;
 
@@ -62,7 +70,9 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-export function FitAssessment() {
+export function FitAssessment({ known }: { known?: KnownBridgeLead }) {
+  const steps = bridgeStepsFor(Boolean(known));
+  const total = steps.length;
   const [stepIndex, setStepIndex] = useState(0);
   const [draft, setDraft] = useState<Draft>({});
   const [errors, setErrors] = useState<Errors>({});
@@ -77,7 +87,9 @@ export function FitAssessment() {
   const promptRef = useRef<HTMLHeadingElement>(null);
   const video = useBridgeVideo();
 
-  const step = BRIDGE_STEPS[stepIndex];
+  const step = steps[stepIndex];
+  /** With a known lead the final question doubles as the submit screen. */
+  const finalKnownStep = Boolean(known) && stepIndex === total - 1;
 
   // On every screen change: keep the card in view and move focus to the
   // question so keyboard and screen-reader users land on it.
@@ -120,11 +132,13 @@ export function FitAssessment() {
     setSubmitError(null);
     setStepIndex((i) => Math.max(0, i - 1));
   };
-  const goNext = () => setStepIndex((i) => Math.min(TOTAL - 1, i + 1));
+  const goNext = () => setStepIndex((i) => Math.min(total - 1, i + 1));
 
   const choose = (key: ChoiceKey, value: string) => {
     if (advanceTimer.current) return;
+    setSubmitError(null);
     setField(key, value);
+    if (finalKnownStep) return;
     advanceTimer.current = window.setTimeout(() => {
       advanceTimer.current = null;
       goNext();
@@ -170,34 +184,39 @@ export function FitAssessment() {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!validateContact()) return;
+    if (!known && !validateContact()) return;
 
     // A choice screen skipped somehow (e.g. history navigation) — send them
     // back to it rather than surfacing a server validation error.
-    const missing = BRIDGE_STEPS.findIndex((s) => s.kind === "choice" && !draft[s.key]);
+    const missing = steps.findIndex((s) => s.kind === "choice" && !draft[s.key]);
     if (missing >= 0) {
-      setSubmitError("One answer was skipped — pick it up where you left off.");
+      setSubmitError(
+        missing === stepIndex
+          ? "Choose the answer that fits best to continue."
+          : "One answer was skipped — pick it up where you left off.",
+      );
       setStepIndex(missing);
       return;
     }
 
     setSubmitting(true);
     setSubmitError(null);
-    try {
-      const response = await fetch("/api/bridge/assessment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          goal: draft.goal,
-          role: draft.role,
-          timeline: draft.timeline,
-          city: draft.city,
-          state: draft.state,
-          zip: draft.zip,
-          investmentLevel: draft.investmentLevel,
-          liquidCapital: draft.liquidCapital,
-          priority: draft.priority,
-          notes: draft.notes?.trim() || undefined,
+    const answers = {
+      goal: draft.goal,
+      role: draft.role,
+      timeline: draft.timeline,
+      city: draft.city,
+      state: draft.state,
+      zip: draft.zip,
+      investmentLevel: draft.investmentLevel,
+      liquidCapital: draft.liquidCapital,
+      priority: draft.priority,
+      notes: draft.notes?.trim() || undefined,
+    };
+    const payload = known
+      ? answers
+      : {
+          ...answers,
           firstName: draft.firstName,
           lastName: draft.lastName,
           email: draft.email,
@@ -210,17 +229,28 @@ export function FitAssessment() {
             fbc: readCookie("_fbc"),
           },
           website: honeypot,
-        }),
-      });
+        };
+    try {
+      const response = await fetch(
+        known ? `/api/bridge/${known.token}/assessment` : "/api/bridge/assessment",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
       const data = (await response.json().catch(() => ({}))) as Partial<Completion> & {
         success?: boolean;
         error?: string;
+        token?: string;
       };
       if (!response.ok || !data.success || !data.portalUrl || !data.firstName) {
         setSubmitError(data.error ?? "Something went wrong. Please try again.");
         return;
       }
       pushToDataLayer({ event: "bridge_assessment_submitted", fit: data.fit ?? "standard" });
+      // The lead exists now — the player reports to its history from here on.
+      if (data.token) video.report({ token: data.token });
       setCompletion({
         firstName: data.firstName,
         portalUrl: data.portalUrl,
@@ -265,13 +295,13 @@ export function FitAssessment() {
       >
         <div className="px-5 pt-5 sm:px-8 sm:pt-6">
           <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-            Step {stepIndex + 1} of {TOTAL}
+            Step {stepIndex + 1} of {total}
           </p>
           <Progress
-            value={(stepIndex / TOTAL) * 100}
+            value={(stepIndex / total) * 100}
             className="mt-2.5 h-[5px] bg-border"
             indicatorClassName="bg-accent-gold"
-            aria-label={`Step ${stepIndex + 1} of ${TOTAL}`}
+            aria-label={`Step ${stepIndex + 1} of ${total}`}
           />
         </div>
 
@@ -288,8 +318,50 @@ export function FitAssessment() {
           )}
 
           <div className="mt-6">
-            {step.kind === "choice" && (
+            {step.kind === "choice" && !finalKnownStep && (
               <ChoiceList step={step} value={draft[step.key]} onChoose={choose} />
+            )}
+
+            {step.kind === "choice" && finalKnownStep && (
+              <form onSubmit={submit} noValidate className="space-y-5">
+                <ChoiceList step={step} value={draft[step.key]} onChoose={choose} />
+                <div>
+                  <Label htmlFor="bridge-notes">
+                    Anything else you’d like us to know?{" "}
+                    <span className="font-normal text-muted-foreground">(optional)</span>
+                  </Label>
+                  <Textarea
+                    id="bridge-notes"
+                    className="mt-1.5 min-h-20"
+                    maxLength={2000}
+                    value={draft.notes ?? ""}
+                    onChange={(e) => setField("notes", e.target.value)}
+                  />
+                  <FieldError message={errors.notes} />
+                </div>
+                {submitError && (
+                  <p role="alert" className="text-sm text-destructive">
+                    {submitError}
+                  </p>
+                )}
+                <div className="pt-1">
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className={cn(PRIMARY_BUTTON, "w-full sm:w-auto")}
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin" /> Saving your answers
+                      </>
+                    ) : (
+                      <>
+                        Show Me My Next Step <ArrowRight className="size-4" strokeWidth={2} />
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             )}
 
             {step.kind === "location" && (
@@ -464,7 +536,7 @@ export function FitAssessment() {
             )}
           </div>
 
-          {submitError && step.kind !== "contact" && (
+          {submitError && step.kind !== "contact" && !finalKnownStep && (
             <p role="alert" className="mt-4 text-sm text-destructive">
               {submitError}
             </p>

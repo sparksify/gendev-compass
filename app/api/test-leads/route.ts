@@ -70,6 +70,9 @@ export async function POST(request: Request): Promise<NextResponse> {
       success: true,
       leadId: lead.id,
       portalUrl: `${requestOrigin(request) ?? getAppUrl()}/p/${lead.portal_token}`,
+      // The bridge page (video + fit assessment) for the same token — the
+      // right first stop for a lead's welcome email or SMS.
+      bridgeUrl: `${requestOrigin(request) ?? getAppUrl()}/watch/${lead.portal_token}`,
     });
   } catch (error) {
     console.error("[test-leads] creation failed:", error);

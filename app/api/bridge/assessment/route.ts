@@ -2,31 +2,27 @@ import { NextResponse } from "next/server";
 import { getStore } from "@/lib/store";
 import { generatePortalToken } from "@/lib/portal/tokens";
 import { trackEvent } from "@/lib/portal/events";
-import { recordLeadEvent } from "@/lib/domain/activities";
 import { ensureLeadDomainChain } from "@/lib/domain/chain";
 import { getAppUrl, getCalendarEmbedUrl } from "@/lib/config/env";
 import { clientIpFrom, rateLimit } from "@/lib/rateLimit";
 import { buildFirstTouchFields, parseAttributionFromUrl } from "@/lib/tracking/attribution";
 import { LIQUID_CAPITAL_RANGES } from "@/types/questionnaire";
-import {
-  BRIDGE_ASSESSMENT_VERSION,
-  answerSnapshot,
-  assessFit,
-  bridgeAssessmentSchema,
-} from "@/lib/bridge/assessment";
+import { bridgeAssessmentSchema } from "@/lib/bridge/assessment";
+import { applyAssessmentToLead } from "@/lib/bridge/lead";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Public submit endpoint for the bridge page's fit assessment (/watch).
- * Unlike POST /api/leads (internal automation, API key) this is reachable
- * by the prospect's browser, so it is rate limited per IP, carries a
- * honeypot, and accepts only the assessment's own fixed shape.
+ * Public submit endpoint for the anonymous bridge page (/watch — cold
+ * traffic with no lead on file). Unlike POST /api/leads (internal
+ * automation, API key) this is reachable by the prospect's browser, so it
+ * is rate limited per IP, carries a honeypot, and accepts only the
+ * assessment's own fixed shape.
  *
- * A submission creates the lead (source "bridge"), stores every answer on
- * the lead's event history, seeds the portal questionnaire draft with the
- * location so the prospect never types it twice, and returns the personal
- * portal link plus the fit call that orders the completion screen.
+ * Creates the lead (source "bridge") with first-touch attribution, then
+ * attaches the assessment exactly as the tokenized route does
+ * (lib/bridge/lead.ts). Prospects who arrive through their own link use
+ * POST /api/bridge/[token]/assessment instead — no second lead.
  */
 
 function requestOrigin(request: Request): string | null {
@@ -75,7 +71,6 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     const store = getStore();
     const nowIso = new Date().toISOString();
-    const fit = assessFit(input);
 
     const existing = await store.getLeadByEmail(input.email);
     if (existing) {
@@ -109,26 +104,8 @@ export async function POST(request: Request): Promise<NextResponse> {
       ...buildFirstTouchFields(signal, nowIso),
     });
 
-    // Location → portal questionnaire draft, so the prospect never retypes
-    // it. Only keys the draft schema knows; liquid capital only when it is
-    // one of the questionnaire's own ranges.
     try {
-      lead = await store.updateLead(lead.id, {
-        questionnaire_draft: {
-          city: input.city,
-          state: input.state,
-          postalCode: input.zip,
-          ...(isPortalCapitalRange ? { liquidCapital: input.liquidCapital } : {}),
-        },
-        questionnaire_draft_saved_at: nowIso,
-      });
-    } catch (draftError) {
-      console.error(`[bridge] draft seed failed for lead ${lead.id}:`, draftError);
-    }
-
-    try {
-      const chain = await ensureLeadDomainChain(lead);
-      lead = chain.lead;
+      lead = (await ensureLeadDomainChain(lead)).lead;
     } catch (chainError) {
       console.error(
         `[bridge] domain chain creation failed for lead ${lead.id} (will self-repair on portal load):`,
@@ -136,34 +113,24 @@ export async function POST(request: Request): Promise<NextResponse> {
       );
     }
 
-    // Full answers stay first-party (Supabase only) — the same rule the
-    // portal questionnaire follows, so recordLeadEvent rather than
-    // trackEvent, which forwards event data to analytics/advertising.
-    try {
-      await recordLeadEvent(lead, "bridge_assessment_submitted", {
-        version: BRIDGE_ASSESSMENT_VERSION,
-        fit,
-        videoPercent: input.videoPercent ?? null,
-        answers: answerSnapshot(input),
-      });
-    } catch (eventError) {
-      console.error(`[bridge] failed to store assessment answers for lead ${lead.id}:`, eventError);
-    }
-
     // Coarse conversion signal only — no financial answers leave the portal.
     await trackEvent(lead, "lead_created", {
       source: "bridge",
-      fit,
-      videoPercent: input.videoPercent ?? null,
       ...(existing ? { duplicateEmailOfLeadId: existing.id } : {}),
     });
+
+    const applied = await applyAssessmentToLead(lead, input, {
+      videoPercent: input.videoPercent ?? null,
+    });
+    lead = applied.lead;
 
     return NextResponse.json({
       success: true,
       firstName: lead.first_name,
+      token: lead.portal_token,
       portalUrl: `${requestOrigin(request) ?? getAppUrl()}/p/${lead.portal_token}`,
       scheduleUrl,
-      fit,
+      fit: applied.fit,
     });
   } catch (error) {
     console.error("[bridge] assessment submission failed:", error);

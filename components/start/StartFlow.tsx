@@ -83,9 +83,14 @@ export function StartFlow({ supportEmail }: { supportEmail: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ candidateId: candidate.candidateId }),
       });
-      const data = (await response.json()) as { success?: boolean; portalUrl?: string };
-      if (data.success && data.portalUrl) {
-        openPortal(data.portalUrl);
+      const data = (await response.json()) as {
+        success?: boolean;
+        nextUrl?: string;
+        portalUrl?: string;
+      };
+      const destination = data.nextUrl ?? data.portalUrl;
+      if (data.success && destination) {
+        openPortal(destination);
         return;
       }
       // Claim race lost or candidate expired — fall back to the email lookup.
@@ -111,11 +116,13 @@ export function StartFlow({ supportEmail }: { supportEmail: string }) {
         });
         const data = (await response.json()) as {
           success?: boolean;
+          nextUrl?: string;
           portalUrl?: string;
           error?: string;
         };
-        if (data.success && data.portalUrl) {
-          openPortal(data.portalUrl);
+        const destination = data.nextUrl ?? data.portalUrl;
+        if (data.success && destination) {
+          openPortal(destination);
           return;
         }
         setEmailError(data.error ?? "Something went wrong. Please try again.");

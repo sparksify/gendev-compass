@@ -114,23 +114,44 @@ brand-specific opportunities. See `docs/architecture/`:
 - `multi-tenant-security.md` — RLS and tenancy model
 - `legacy-deprecation-roadmap.md` — what may be retired later (nothing yet)
 
-## Bridge page (`/watch`)
+## Bridge page (`/watch`, `/watch/[token]`)
 
 The public stop before the portal — no logos, no login. The page is:
 headline → 3-minute Wistia video → "See if CMDT fits me" → four proof points
 → 2-minute one-question-per-screen fit assessment → completion screen with
-"Open My CMDT Research Center" (the prospect's new portal link) and
-"Schedule a Conversation" (the calendar URL). A strong fit — liquid capital at
-or above the qualifying floor and a timeline that isn't "just researching" —
-leads with the conversation; everyone else leads with research.
+"Open My CMDT Research Center" (the portal) and "Schedule a Conversation"
+(the calendar URL). A strong fit — liquid capital at or above the qualifying
+floor and a timeline that isn't "just researching" — leads with the
+conversation; everyone else leads with research.
 
-- The bridge cut's Wistia media ID defaults in `lib/config/bridge.ts`;
-  override with `NEXT_PUBLIC_BRIDGE_WISTIA_MEDIA_ID` if it changes.
-- Submissions go to `POST /api/bridge/assessment` (public, rate limited, with
-  a honeypot). Each creates a lead with `source: "bridge"`, records every
-  answer on the lead's event history as `bridge_assessment_submitted`, sets
-  `initial_liquid_capital` / `state`, and seeds the portal questionnaire draft
-  with the location so it is never typed twice.
+Two entrances, one identity:
+
+- **`/watch/[token]`** — the same portal token every lead already has. The
+  Facebook lead ad's `/start` handoff now lands here (its API returns
+  `nextUrl`), and `POST /api/leads` returns a `bridgeUrl` alongside
+  `portalUrl` for welcome emails/SMS. The page greets the prospect by name,
+  captures attribution like the portal, reports the video to the lead's
+  tracked history (`POST /api/bridge/[token]/video-progress`), and the
+  assessment skips the contact step (`POST /api/bridge/[token]/assessment`).
+- **`/watch`** — cold traffic with no lead on file. Submitting the assessment
+  creates the lead (`source: "bridge"`, `POST /api/bridge/assessment`,
+  public, rate limited, honeypot) and the player switches to tracked
+  reporting from then on.
+
+Tracking is the portal's own event pipeline, never a parallel one. The
+bridge cut is a different video from the Investor Overview, and
+`video_progress` holds one record per lead that drives every overview stat,
+so the bridge video is recorded as its own events — `bridge_video_started`,
+`bridge_video_progress_25/50/75`, `bridge_video_stopped` (playhead on every
+pause/end), `bridge_video_completed` — and summarized on the investor detail
+page as a "Bridge Video" card beside the overview card. Answers are stored
+first-party on `bridge_assessment_submitted` (a coarse
+`bridge_assessment_completed` goes to GTM/Meta/PostHog), `state` and
+`initial_liquid_capital` are filled when empty, and the portal questionnaire
+draft is seeded with the location so nothing is typed twice.
+
+- Wistia media ID defaults in `lib/config/bridge.ts`; override with
+  `NEXT_PUBLIC_BRIDGE_WISTIA_MEDIA_ID`.
 - Questions, options, and the fit rule live in `lib/bridge/assessment.ts`.
   The investment-level ranges there are placeholders until the brand's real
   Item 7 ranges are confirmed.
