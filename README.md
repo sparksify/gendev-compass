@@ -124,8 +124,8 @@ headline → 3-minute Wistia video → "See if CMDT fits me" → four proof poin
 or above the qualifying floor and a timeline that isn't "just researching" —
 leads with the conversation; everyone else leads with research.
 
-- Set `NEXT_PUBLIC_BRIDGE_WISTIA_MEDIA_ID` for the bridge cut (falls back to
-  `NEXT_PUBLIC_WISTIA_MEDIA_ID`).
+- The bridge cut's Wistia media ID defaults in `lib/config/bridge.ts`;
+  override with `NEXT_PUBLIC_BRIDGE_WISTIA_MEDIA_ID` if it changes.
 - Submissions go to `POST /api/bridge/assessment` (public, rate limited, with
   a honeypot). Each creates a lead with `source: "bridge"`, records every
   answer on the lead's event history as `bridge_assessment_submitted`, sets
