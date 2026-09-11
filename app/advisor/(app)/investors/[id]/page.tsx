@@ -34,8 +34,6 @@ import { ACCENT_BUTTON, SECONDARY_BUTTON, TERTIARY_BUTTON } from "@/components/a
 import { ClientHeaderBand } from "@/components/advisor/investorDetail/ClientHeaderBand";
 import { PipelineStepper } from "@/components/advisor/investorDetail/PipelineStepper";
 import { VideoEngagementCard } from "@/components/advisor/investorDetail/VideoEngagementCard";
-import { BridgeVideoCard } from "@/components/advisor/investorDetail/BridgeVideoCard";
-import { bridgeVideoSummary } from "@/lib/bridge/videoSummary";
 import { ClientIntelligenceCard } from "@/components/advisor/investorDetail/ClientIntelligenceCard";
 import { ActivityRail } from "@/components/advisor/investorDetail/ActivityRail";
 import {
@@ -255,7 +253,6 @@ export default async function InvestorDetailPage({
         {/* Left column: what they did, and what has to happen next. */}
         <div className="flex flex-col gap-3.5">
           <VideoEngagementCard video={video} />
-          <BridgeVideoCard summary={bridgeVideoSummary(events)} />
 
           <ProcessMilestonesCard
             investorId={lead.id}

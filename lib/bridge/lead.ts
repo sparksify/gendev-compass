@@ -58,7 +58,6 @@ export async function resolveBridgeLead(token: string): Promise<LeadRecord | nul
 export async function applyAssessmentToLead(
   lead: LeadRecord,
   input: KnownLeadAssessmentInput,
-  options: { videoPercent?: number | null } = {},
 ): Promise<{ lead: LeadRecord; fit: FitLevel }> {
   const store = getStore();
   const nowIso = new Date().toISOString();
@@ -98,7 +97,6 @@ export async function applyAssessmentToLead(
       {
         version: BRIDGE_ASSESSMENT_VERSION,
         fit,
-        videoPercent: options.videoPercent ?? null,
         answers: answerSnapshot(input),
       },
       "/watch",

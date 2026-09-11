@@ -14,11 +14,22 @@ import { createContext, useCallback, useContext, useMemo, useState } from "react
  *   lead, after which the player reports to that lead's history too.
  */
 
+export interface BridgeVideoSnapshot {
+  currentTime: number;
+  duration: number;
+  /** Playhead position, 0–100. */
+  percent: number;
+  /** Wistia's unique seconds watched. */
+  secondsWatched: number;
+}
+
 interface BridgeVideoState {
   /** Unique percent of the video watched so far, 0–100. */
   percent: number;
   started: boolean;
   token: string | null;
+  /** Latest playback report — applied to the lead once an anonymous assessment creates it. */
+  snapshot: BridgeVideoSnapshot | null;
 }
 
 interface BridgeVideoContextValue extends BridgeVideoState {
@@ -29,6 +40,7 @@ const BridgeVideoContext = createContext<BridgeVideoContextValue>({
   percent: 0,
   started: false,
   token: null,
+  snapshot: null,
   report: () => undefined,
 });
 
@@ -43,6 +55,7 @@ export function BridgeVideoProvider({
     percent: 0,
     started: false,
     token: initialToken,
+    snapshot: null,
   });
   const report = useCallback((patch: Partial<BridgeVideoState>) => {
     setState((prev) => {
@@ -51,10 +64,12 @@ export function BridgeVideoProvider({
         // Never lowers — a rewind is not "less watched".
         percent: Math.max(prev.percent, patch.percent ?? prev.percent),
         token: patch.token ?? prev.token,
+        snapshot: patch.snapshot ?? prev.snapshot,
       };
       return next.started === prev.started &&
         next.percent === prev.percent &&
-        next.token === prev.token
+        next.token === prev.token &&
+        next.snapshot === prev.snapshot
         ? prev
         : next;
     });

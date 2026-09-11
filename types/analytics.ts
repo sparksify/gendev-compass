@@ -1,15 +1,9 @@
 export type PortalEventName =
   | "lead_created"
-  // Bridge page (/watch, /watch/[token]). The video events mirror the
-  // portal overview's (start, 25/50/75, completion) plus a stop marker; the
-  // bridge cut is a different video, so it never touches video_progress.
+  // Bridge page (/watch, /watch/[token]). Its video IS the Investor
+  // Overview step: playback goes through the portal's video_progress and
+  // fires the ordinary video_* events, so there are no bridge video events.
   | "bridge_opened"
-  | "bridge_video_started"
-  | "bridge_video_progress_25"
-  | "bridge_video_progress_50"
-  | "bridge_video_progress_75"
-  | "bridge_video_stopped"
-  | "bridge_video_completed"
   // Full answers in event_data (first-party only).
   | "bridge_assessment_submitted"
   // Coarse completion signal dispatched to tracking.
