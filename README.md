@@ -114,6 +114,27 @@ brand-specific opportunities. See `docs/architecture/`:
 - `multi-tenant-security.md` — RLS and tenancy model
 - `legacy-deprecation-roadmap.md` — what may be retired later (nothing yet)
 
+## Bridge page (`/watch`)
+
+The public stop before the portal — no logos, no login. The page is:
+headline → 3-minute Wistia video → "See if CMDT fits me" → four proof points
+→ 2-minute one-question-per-screen fit assessment → completion screen with
+"Open My CMDT Research Center" (the prospect's new portal link) and
+"Schedule a Conversation" (the calendar URL). A strong fit — liquid capital at
+or above the qualifying floor and a timeline that isn't "just researching" —
+leads with the conversation; everyone else leads with research.
+
+- The bridge cut's Wistia media ID defaults in `lib/config/bridge.ts`;
+  override with `NEXT_PUBLIC_BRIDGE_WISTIA_MEDIA_ID` if it changes.
+- Submissions go to `POST /api/bridge/assessment` (public, rate limited, with
+  a honeypot). Each creates a lead with `source: "bridge"`, records every
+  answer on the lead's event history as `bridge_assessment_submitted`, sets
+  `initial_liquid_capital` / `state`, and seeds the portal questionnaire draft
+  with the location so it is never typed twice.
+- Questions, options, and the fit rule live in `lib/bridge/assessment.ts`.
+  The investment-level ranges there are placeholders until the brand's real
+  Item 7 ranges are confirmed.
+
 ## Wistia configuration
 
 1. Upload the investor overview video to Wistia.

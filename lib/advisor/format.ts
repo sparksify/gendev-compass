@@ -68,6 +68,7 @@ export function formatWatchTime(totalSeconds: number): string {
 export function eventLabel(eventName: string): string {
   const labels: Record<string, string> = {
     lead_created: "Lead created",
+    bridge_assessment_submitted: "Fit assessment submitted (bridge page)",
     portal_opened: "Portal opened",
     overview_page_opened: "Overview page opened",
     opportunity_overview_opened: "Opportunity page opened",
