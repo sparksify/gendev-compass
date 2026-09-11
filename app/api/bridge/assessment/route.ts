@@ -9,6 +9,8 @@ import { buildFirstTouchFields, parseAttributionFromUrl } from "@/lib/tracking/a
 import { LIQUID_CAPITAL_RANGES } from "@/types/questionnaire";
 import { bridgeAssessmentSchema } from "@/lib/bridge/assessment";
 import { applyAssessmentToLead } from "@/lib/bridge/lead";
+import { applyVideoProgress } from "@/lib/portal/progress";
+import { getBridgeWistiaMediaId } from "@/lib/config/bridge";
 
 export const dynamic = "force-dynamic";
 
@@ -119,9 +121,21 @@ export async function POST(request: Request): Promise<NextResponse> {
       ...(existing ? { duplicateEmailOfLeadId: existing.id } : {}),
     });
 
-    const applied = await applyAssessmentToLead(lead, input, {
-      videoPercent: input.videoPercent ?? null,
-    });
+    // Whatever they watched before the lead existed counts as the Investor
+    // Overview, exactly as it would have on /watch/[token].
+    if (input.video && input.video.duration > 0) {
+      try {
+        await applyVideoProgress(lead, {
+          ...input.video,
+          eventType: "heartbeat",
+          mediaId: getBridgeWistiaMediaId(),
+        });
+      } catch (videoError) {
+        console.error(`[bridge] could not apply pre-submit video progress for lead ${lead.id}:`, videoError);
+      }
+    }
+
+    const applied = await applyAssessmentToLead(lead, input);
     lead = applied.lead;
 
     return NextResponse.json({

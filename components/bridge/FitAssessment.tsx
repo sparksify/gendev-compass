@@ -221,7 +221,7 @@ export function FitAssessment({ known }: { known?: KnownBridgeLead }) {
           lastName: draft.lastName,
           email: draft.email,
           phone: draft.phone,
-          videoPercent: video.percent,
+          video: video.snapshot ?? undefined,
           attribution: {
             url: window.location.href,
             referrer: document.referrer || null,

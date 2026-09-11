@@ -109,8 +109,18 @@ export const bridgeAssessmentSchema = z.object({
     .trim()
     .min(7, "Enter a phone number we can reach you at")
     .max(30, "Enter a valid phone number"),
-  /** Unique percent of the bridge video watched at submit time (0–100). */
-  videoPercent: z.number().min(0).max(100).optional(),
+  /**
+   * Latest playback report at submit time (anonymous page only — there was
+   * no lead to report to yet). Applied to the new lead's overview progress.
+   */
+  video: z
+    .object({
+      currentTime: z.number().min(0).max(60 * 60 * 24),
+      duration: z.number().min(0).max(60 * 60 * 24),
+      percent: z.number().min(0).max(100),
+      secondsWatched: z.number().min(0).max(60 * 60 * 24),
+    })
+    .optional(),
   /** First-touch attribution captured in the browser (UTMs, click IDs, Meta cookies). */
   attribution: z
     .object({
@@ -138,6 +148,7 @@ export const knownLeadAssessmentSchema = bridgeAssessmentSchema.omit({
   phone: true,
   website: true,
   attribution: true,
+  video: true,
 });
 
 export type KnownLeadAssessmentInput = z.infer<typeof knownLeadAssessmentSchema>;

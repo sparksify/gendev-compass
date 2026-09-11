@@ -130,21 +130,21 @@ Two entrances, one identity:
   Facebook lead ad's `/start` handoff now lands here (its API returns
   `nextUrl`), and `POST /api/leads` returns a `bridgeUrl` alongside
   `portalUrl` for welcome emails/SMS. The page greets the prospect by name,
-  captures attribution like the portal, reports the video to the lead's
-  tracked history (`POST /api/bridge/[token]/video-progress`), and the
-  assessment skips the contact step (`POST /api/bridge/[token]/assessment`).
+  captures attribution like the portal, reports the video as the Investor
+  Overview, and the assessment skips the contact step (`POST /api/bridge/[token]/assessment`).
 - **`/watch`** — cold traffic with no lead on file. Submitting the assessment
   creates the lead (`source: "bridge"`, `POST /api/bridge/assessment`,
   public, rate limited, honeypot) and the player switches to tracked
   reporting from then on.
 
-Tracking is the portal's own event pipeline, never a parallel one. The
-bridge cut is a different video from the Investor Overview, and
-`video_progress` holds one record per lead that drives every overview stat,
-so the bridge video is recorded as its own events — `bridge_video_started`,
-`bridge_video_progress_25/50/75`, `bridge_video_stopped` (playhead on every
-pause/end), `bridge_video_completed` — and summarized on the investor detail
-page as a "Bridge Video" card beside the overview card. Answers are stored
+**The bridge video is the Investor Overview step.** The player reports to
+the portal's own `POST /api/portal/[token]/video-progress`, so the lead's
+`video_progress` record, `video_started` / `video_progress_25/50/75` /
+`video_completion_threshold_reached` events, status, stage, the "Video
+Watched" column, the engagement card, and the questionnaire gate all move
+exactly as if they had watched in the portal — and the portal never asks
+them to watch again. On the anonymous page the latest playback snapshot is
+sent with the assessment and applied to the new lead. Answers are stored
 first-party on `bridge_assessment_submitted` (a coarse
 `bridge_assessment_completed` goes to GTM/Meta/PostHog), `state` and
 `initial_liquid_capital` are filled when empty, and the portal questionnaire

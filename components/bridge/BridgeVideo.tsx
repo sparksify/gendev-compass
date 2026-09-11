@@ -10,11 +10,13 @@ import { useBridgeVideo } from "./BridgeVideoContext";
  * intrinsic element) and the same reporting rhythm: play / pause / ended
  * plus a heartbeat every 10 seconds of playback.
  *
- * With a lead token (from the URL, or once an anonymous assessment creates
- * the lead) every report goes to /api/bridge/[token]/video-progress, where
- * the server records start, 25/50/75, stops, and completion on the lead's
- * tracked history. Without one, progress is kept in the browser and
- * attached to the assessment when it is submitted.
+ * The bridge video IS the Investor Overview step. With a lead token (from
+ * the URL, or once an anonymous assessment creates the lead) every report
+ * goes to the portal's own /api/portal/[token]/video-progress, so the
+ * lead's video_progress record, video_* events, status, and the
+ * questionnaire gate all move exactly as if they had watched in the
+ * portal. Without a token yet, the latest snapshot is kept in the browser
+ * and applied to the lead the moment the assessment creates it.
  */
 
 interface WistiaPlayerElement extends HTMLElement {
@@ -44,23 +46,24 @@ export function BridgeVideo({ mediaId }: { mediaId: string | null }) {
       const currentTime = Number(player.currentTime) || 0;
       const rawUnique = Number(player.percentWatched);
       const uniqueFraction = Number.isFinite(rawUnique) ? Math.min(Math.max(rawUnique, 0), 1) : 0;
-      if (uniqueFraction > 0) report({ percent: Math.round(uniqueFraction * 100) });
-      if (!currentToken || duration <= 0) return;
+      if (duration <= 0) return;
 
       const positionPercent = Math.min(100, (currentTime / duration) * 100);
       const secondsWatched = Number(player.secondsWatched) || uniqueFraction * duration;
+      const snapshot = {
+        currentTime,
+        duration,
+        percent: Math.round(positionPercent * 100) / 100,
+        secondsWatched: Math.round(secondsWatched),
+      };
+      report({ percent: Math.round(uniqueFraction * 100), snapshot });
+      if (!currentToken) return;
+
       try {
-        await fetch(`/api/bridge/${currentToken}/video-progress`, {
+        await fetch(`/api/portal/${currentToken}/video-progress`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            currentTime,
-            duration,
-            percent: Math.round(positionPercent * 100) / 100,
-            secondsWatched: Math.round(secondsWatched),
-            eventType,
-            mediaId: mediaId ?? undefined,
-          }),
+          body: JSON.stringify({ ...snapshot, eventType, mediaId: mediaId ?? undefined }),
           keepalive: eventType !== "heartbeat",
         });
       } catch {
