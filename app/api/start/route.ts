@@ -28,6 +28,15 @@ export const dynamic = "force-dynamic";
  * are rate limited per IP.
  */
 
+/**
+ * Where a confirmed visitor goes. nextUrl is the bridge page (video + fit
+ * assessment) for this lead's token; portalUrl is kept for any caller that
+ * still expects it. The bridge hands off to the portal itself.
+ */
+function handoffUrls(token: string): { nextUrl: string; portalUrl: string } {
+  return { nextUrl: `/watch/${token}`, portalUrl: `/p/${token}` };
+}
+
 const CANDIDATE_WINDOW_MS = 10 * 60_000;
 const EMAIL_LOOKUP_WINDOW_MS = 48 * 3_600_000;
 
@@ -120,7 +129,7 @@ async function claimCandidate(candidateId: string): Promise<NextResponse> {
   }
 
   await trackEvent(lead, "start_claimed", { via: "confirm" }, "/start");
-  return NextResponse.json({ success: true, portalUrl: `/p/${lead.portal_token}` });
+  return NextResponse.json({ success: true, ...handoffUrls(lead.portal_token) });
 }
 
 /** "That's not me" / timeout fallback: find the lead by its form email. */
@@ -151,5 +160,5 @@ async function lookupByEmail(rawEmail: string): Promise<NextResponse> {
   }
 
   await trackEvent(match, "start_claimed", { via: "email" }, "/start");
-  return NextResponse.json({ success: true, portalUrl: `/p/${match.portal_token}` });
+  return NextResponse.json({ success: true, ...handoffUrls(match.portal_token) });
 }

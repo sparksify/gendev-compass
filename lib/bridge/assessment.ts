@@ -126,6 +126,22 @@ export const bridgeAssessmentSchema = z.object({
 
 export type BridgeAssessmentInput = z.infer<typeof bridgeAssessmentSchema>;
 
+/**
+ * A prospect who arrived through their tokenized link (/watch/[token]) is
+ * already a lead — name, email, and phone are on file, so the contact
+ * step is dropped and the honeypot is unnecessary.
+ */
+export const knownLeadAssessmentSchema = bridgeAssessmentSchema.omit({
+  firstName: true,
+  lastName: true,
+  email: true,
+  phone: true,
+  website: true,
+  attribution: true,
+});
+
+export type KnownLeadAssessmentInput = z.infer<typeof knownLeadAssessmentSchema>;
+
 /** Client-side validation for the two typed steps. */
 export const locationStepSchema = bridgeAssessmentSchema.pick({ city: true, state: true, zip: true });
 export const contactStepSchema = bridgeAssessmentSchema.pick({
@@ -218,6 +234,15 @@ export const BRIDGE_STEPS: readonly BridgeStep[] = [
   },
 ];
 
+/** The screens for a prospect we already know: the seven questions, no contact step. */
+export const BRIDGE_STEPS_KNOWN: readonly BridgeStep[] = BRIDGE_STEPS.filter(
+  (step) => step.kind !== "contact",
+);
+
+export function bridgeStepsFor(known: boolean): readonly BridgeStep[] {
+  return known ? BRIDGE_STEPS_KNOWN : BRIDGE_STEPS;
+}
+
 export type FitLevel = "strong" | "standard";
 
 /**
@@ -252,7 +277,7 @@ export interface AnswerSnapshotEntry {
   label: string;
 }
 
-export function answerSnapshot(input: BridgeAssessmentInput): AnswerSnapshotEntry[] {
+export function answerSnapshot(input: KnownLeadAssessmentInput): AnswerSnapshotEntry[] {
   const choices = BRIDGE_STEPS.filter((s): s is ChoiceStep => s.kind === "choice");
   const snapshot: AnswerSnapshotEntry[] = choices.map((step) => ({
     key: step.key,
