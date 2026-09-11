@@ -1,5 +1,7 @@
 export type PortalEventName =
   | "lead_created"
+  // Bridge page (/watch) fit assessment — full answers in event_data.
+  | "bridge_assessment_submitted"
   | "start_claimed"
   | "portal_opened"
   | "overview_page_opened"

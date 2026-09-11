@@ -1,15 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { pushToDataLayer } from "@/lib/tracking/client";
+import { useBridgeVideo } from "./BridgeVideoContext";
 
 /**
- * Plain Wistia embed for the bridge page. Same <wistia-player> web
- * component the portal uses (see components/portal/WistiaPlayer.tsx, which
- * also declares the JSX intrinsic element), minus the server-tracked
- * progress: the bridge has no lead to attribute watch time to.
+ * Wistia embed for the bridge page. Same <wistia-player> web component the
+ * portal uses (components/portal/WistiaPlayer.tsx also declares the JSX
+ * intrinsic element). There is no lead yet, so watch progress is kept in
+ * the browser (BridgeVideoContext) and attached to the assessment when it
+ * is submitted; start/complete also go to the GTM dataLayer.
  */
+
+interface WistiaPlayerElement extends HTMLElement {
+  percentWatched: number;
+  ended: boolean;
+}
+
+const SAMPLE_INTERVAL_MS = 5_000;
+
 export function BridgeVideo({ mediaId }: { mediaId: string | null }) {
   const [loadError, setLoadError] = useState(false);
+  const playerRef = useRef<WistiaPlayerElement | null>(null);
+  const { report } = useBridgeVideo();
 
   useEffect(() => {
     if (!mediaId) return;
@@ -24,7 +37,40 @@ export function BridgeVideo({ mediaId }: { mediaId: string | null }) {
     };
     ensureScript("https://fast.wistia.com/player.js");
     ensureScript(`https://fast.wistia.com/embed/${mediaId}.js`, "module");
-  }, [mediaId]);
+
+    const player = playerRef.current;
+    if (!player) return;
+
+    const sample = () => {
+      const raw = Number(player.percentWatched);
+      if (Number.isFinite(raw) && raw > 0) report({ percent: Math.round(Math.min(raw, 1) * 100) });
+    };
+    let startedFired = false;
+    const onPlay = () => {
+      if (!startedFired) {
+        startedFired = true;
+        report({ started: true });
+        pushToDataLayer({ event: "bridge_video_started", media_id: mediaId });
+      }
+    };
+    const onPause = sample;
+    const onEnded = () => {
+      report({ percent: 100 });
+      pushToDataLayer({ event: "bridge_video_completed", media_id: mediaId });
+    };
+
+    player.addEventListener("play", onPlay);
+    player.addEventListener("pause", onPause);
+    player.addEventListener("ended", onEnded);
+    const interval = window.setInterval(sample, SAMPLE_INTERVAL_MS);
+
+    return () => {
+      player.removeEventListener("play", onPlay);
+      player.removeEventListener("pause", onPause);
+      player.removeEventListener("ended", onEnded);
+      window.clearInterval(interval);
+    };
+  }, [mediaId, report]);
 
   if (!mediaId) {
     return (
@@ -47,5 +93,12 @@ export function BridgeVideo({ mediaId }: { mediaId: string | null }) {
     );
   }
 
-  return <wistia-player media-id={mediaId} />;
+  return (
+    <wistia-player
+      media-id={mediaId}
+      ref={(el: HTMLElement | null) => {
+        playerRef.current = el as WistiaPlayerElement | null;
+      }}
+    />
+  );
 }
