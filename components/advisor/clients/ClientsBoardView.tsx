@@ -253,6 +253,7 @@ function ClientCard({
         <VideoWatchedRing
           percent={row.video?.highest_percent_watched ?? null}
           completed={row.video?.completed ?? false}
+          started={Boolean(row.video?.started || row.lead.video_started_at)}
         />
       </div>
 

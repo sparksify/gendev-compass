@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { pushToDataLayer } from "@/lib/tracking/client";
+import { fireBridgeBrowserEvent } from "@/lib/tracking/client";
 import { useBridgeVideo } from "./BridgeVideoContext";
 
 /**
@@ -95,14 +95,20 @@ export function BridgeVideo({ mediaId }: { mediaId: string | null }) {
       if (!startedFired) {
         startedFired = true;
         report({ started: true });
-        pushToDataLayer({ event: "bridge_video_started", media_id: mediaId });
+        fireBridgeBrowserEvent("bridge_video_started", "BridgeVideoStarted", {
+          media_id: mediaId,
+          identified_lead: Boolean(tokenRef.current),
+        });
       }
       void sendProgress("play");
     };
     const onPause = () => void sendProgress("pause");
     const onEnded = () => {
       report({ percent: 100 });
-      pushToDataLayer({ event: "bridge_video_completed", media_id: mediaId });
+      fireBridgeBrowserEvent("bridge_video_completed", "BridgeVideoCompleted", {
+        media_id: mediaId,
+        identified_lead: Boolean(tokenRef.current),
+      });
       void sendProgress("ended");
     };
 

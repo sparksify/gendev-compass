@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { fireBridgeBrowserEvent } from "@/lib/tracking/client";
 
 /**
  * Shared bridge-page state between the video and the assessment, which are
@@ -57,6 +58,14 @@ export function BridgeVideoProvider({
     token: initialToken,
     snapshot: null,
   });
+  const openedTracked = useRef(false);
+  useEffect(() => {
+    if (openedTracked.current) return;
+    openedTracked.current = true;
+    fireBridgeBrowserEvent("bridge_opened", "BridgeOpened", {
+      identified_lead: Boolean(initialToken),
+    });
+  }, [initialToken]);
   const report = useCallback((patch: Partial<BridgeVideoState>) => {
     setState((prev) => {
       const next = {

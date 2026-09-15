@@ -5,7 +5,7 @@ import { ArrowLeft, ArrowRight, CalendarDays, Compass, Loader2 } from "lucide-re
 import { Progress } from "@/components/ui/progress";
 import { FieldError, Input, Label, NativeSelect, Textarea } from "@/components/ui/form-fields";
 import { US_STATES } from "@/lib/geocoding/states";
-import { pushToDataLayer } from "@/lib/tracking/client";
+import { fireBridgeBrowserEvent } from "@/lib/tracking/client";
 import { cn } from "@/lib/utils";
 import {
   bridgeStepsFor,
@@ -124,7 +124,9 @@ export function FitAssessment({ known }: { known?: KnownBridgeLead }) {
     setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
     if (!startedRef.current) {
       startedRef.current = true;
-      pushToDataLayer({ event: "bridge_assessment_started" });
+      fireBridgeBrowserEvent("bridge_assessment_started", "BridgeAssessmentStarted", {
+        identified_lead: Boolean(known),
+      });
     }
   };
 
@@ -248,7 +250,10 @@ export function FitAssessment({ known }: { known?: KnownBridgeLead }) {
         setSubmitError(data.error ?? "Something went wrong. Please try again.");
         return;
       }
-      pushToDataLayer({ event: "bridge_assessment_submitted", fit: data.fit ?? "standard" });
+      fireBridgeBrowserEvent("bridge_assessment_submitted", "BridgeAssessmentSubmitted", {
+        fit: data.fit ?? "standard",
+        identified_lead: Boolean(known || data.token),
+      });
       // The lead exists now — the player reports to its history from here on.
       if (data.token) video.report({ token: data.token });
       setCompletion({

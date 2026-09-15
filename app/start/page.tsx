@@ -11,7 +11,7 @@ export const metadata: Metadata = {
  * Static landing target for the Facebook lead ad's thank-you button. The ad
  * cannot carry a per-lead URL, so this page matches the visitor to the lead
  * that just arrived via POST /api/leads (see app/api/start/route.ts) and
- * forwards them to their personal /p/[token] portal.
+ * forwards them to their personal /watch/[token] bridge page.
  */
 export default function StartPage() {
   return (

@@ -44,10 +44,13 @@ function Stat({ label, value, lead }: { label: string; value: string; lead?: boo
 export function VideoEngagementCard({
   video,
   runtimeLabel,
+  started = false,
 }: {
   video: VideoProgressRecord | null;
   /** "25 min", when the overview's length is known. */
   runtimeLabel?: string | null;
+  /** Lead/event fallback for a valid play that reported zero progress. */
+  started?: boolean;
 }) {
   const percent = video ? Math.min(100, Math.max(0, Math.round(video.highest_percent_watched))) : 0;
   const stoppedAt = video?.last_playhead_position ?? 0;
@@ -67,7 +70,9 @@ export function VideoEngagementCard({
 
       {!video || percent === 0 ? (
         <p className="py-2 text-[13px] text-muted-foreground">
-          No video activity yet — this client hasn&rsquo;t started the overview.
+          {started || video?.started
+            ? "Play was clicked, but no measurable watch progress was reported. They may have left immediately, or the next playback report did not arrive."
+            : "No video activity yet — this client hasn’t started the overview."}
         </p>
       ) : (
         <>

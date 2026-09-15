@@ -40,6 +40,8 @@ import {
 } from "@/components/advisor/BulkSelect";
 import { actionBubble } from "@/components/advisor/clients/shared";
 import { ClientsBoardView } from "@/components/advisor/clients/ClientsBoardView";
+import { RecentAcquisitionFunnel } from "@/components/advisor/RecentAcquisitionFunnel";
+import { buildRecentAcquisitionFunnel } from "@/lib/advisor/acquisitionFunnel";
 
 export type InvestorsSearchParams = Record<string, string | string[] | undefined>;
 
@@ -113,6 +115,17 @@ export async function InvestorsDirectory({
   const user = await requireStaffUser();
   const admin = isAdmin(user);
   const allRows = await loadInvestorRows(user);
+  const store = getStore();
+  const recentCutoff = Date.now() - 24 * 3_600_000;
+  const recentRows = allRows.filter(
+    (row) => new Date(row.lead.created_at).getTime() >= recentCutoff,
+  );
+  const recentEvents = await Promise.all(
+    recentRows.map(
+      async (row) => [row.lead.id, await store.getEventsForLead(row.lead.id)] as const,
+    ),
+  );
+  const recentFunnel = buildRecentAcquisitionFunnel(allRows, new Map(recentEvents));
 
   const view = param(params, "view") === "board" ? "board" : "list";
   const q = param(params, "q");
@@ -142,7 +155,7 @@ export async function InvestorsDirectory({
             : row.lead.assigned_advisor_id === activeAdvisor,
         )
       : rowsIn;
-  const staff = admin ? await getStore().listStaffUsers() : [];
+  const staff = admin ? await store.listStaffUsers() : [];
 
   const filtered = byAdvisor(sourceFiltered.filter(activeChip.matches));
 
@@ -288,6 +301,8 @@ export async function InvestorsDirectory({
           </>
         }
       />
+
+      <RecentAcquisitionFunnel funnel={recentFunnel} />
 
       <BulkSelectProvider
         endpoint="/api/advisor/investors/bulk-delete"
@@ -536,6 +551,7 @@ export async function InvestorsDirectory({
                       <VideoWatchedRing
                         percent={row.video?.highest_percent_watched ?? null}
                         completed={row.video?.completed ?? false}
+                        started={Boolean(row.video?.started || row.lead.video_started_at)}
                       />
 
                       <StackCell

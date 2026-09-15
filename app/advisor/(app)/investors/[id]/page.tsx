@@ -130,7 +130,7 @@ export default async function InvestorDetailPage({
     notes.length,
   );
   const latestSubmission = submissions[0] ?? null;
-  const portalUrl = `${getAppUrl()}/p/${lead.portal_token}`;
+  const bridgeUrl = `${getAppUrl()}/watch/${lead.portal_token}`;
   const fddStatus = effectiveFddStatus(lead);
 
   const name = `${lead.first_name} ${lead.last_name}`;
@@ -252,7 +252,14 @@ export default async function InvestorDetailPage({
       <div id="profile" className="grid items-start gap-3.5 scroll-mt-4 xl:grid-cols-[1.55fr_1fr] [&>*]:min-w-0">
         {/* Left column: what they did, and what has to happen next. */}
         <div className="flex flex-col gap-3.5">
-          <VideoEngagementCard video={video} />
+          <VideoEngagementCard
+            video={video}
+            started={Boolean(
+              video?.started ||
+                lead.video_started_at ||
+                events.some((event) => event.event_name === "video_started")
+            )}
+          />
 
           <ProcessMilestonesCard
             investorId={lead.id}
@@ -376,7 +383,7 @@ export default async function InvestorDetailPage({
                 }
               />
               <LeaderRow label="FDD" value={FDD_STATUS_LABELS[fddStatus]} />
-              <LeaderRow label="Portal link" value={<CopyPortalButton portalUrl={portalUrl} />} />
+              <LeaderRow label="Lead bridge link" value={<CopyPortalButton portalUrl={bridgeUrl} />} />
             </div>
           </Panel>
 

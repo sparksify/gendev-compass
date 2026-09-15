@@ -73,7 +73,7 @@ export async function GET(
       brandName,
       stage: lead.current_stage,
       isHot: Date.now() - new Date(lastActivityAt).getTime() <= 24 * 3_600_000,
-      portalUrl: `${getAppUrl()}/p/${lead.portal_token}`,
+      portalUrl: `${getAppUrl()}/watch/${lead.portal_token}`,
       video: video
         ? {
             percent: Math.min(100, Math.max(0, video.highest_percent_watched)),

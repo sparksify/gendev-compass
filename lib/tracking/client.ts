@@ -16,6 +16,7 @@ declare global {
   interface Window {
     dataLayer?: unknown[];
     fbq?: (...args: unknown[]) => void;
+    google_tag_manager?: Record<string, unknown>;
   }
 }
 
@@ -29,6 +30,22 @@ export function pushToDataLayer(payload: Record<string, unknown>): void {
   if (typeof window === "undefined") return;
   window.dataLayer = window.dataLayer || [];
   window.dataLayer.push(payload);
+}
+
+/**
+ * Bridge events do not always have a lead yet, so they cannot use the
+ * server-side lead event pipeline. Keep the GTM contract and also fire a
+ * direct-mode Meta custom event when GTM is not the Pixel owner.
+ */
+export function fireBridgeBrowserEvent(
+  event: string,
+  metaEventName: string,
+  properties: Record<string, unknown> = {},
+): void {
+  pushToDataLayer({ event, ...properties });
+  if (typeof window === "undefined" || typeof window.fbq !== "function") return;
+  if (window.google_tag_manager && Object.keys(window.google_tag_manager).length > 0) return;
+  window.fbq("trackCustom", metaEventName, properties);
 }
 
 /** Direct-mode Pixel fire only — never call this when GTM owns the Pixel tag (spec §2). */

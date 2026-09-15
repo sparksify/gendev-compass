@@ -21,15 +21,21 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 export function VideoWatchedRing({
   percent,
   completed,
+  started = false,
 }: {
   percent: number | null;
   completed: boolean;
+  started?: boolean;
 }) {
   if (percent === null || percent <= 0) {
     return (
-      <span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-[#8b968f]">
+      <span
+        className="flex items-center gap-1.5 text-[12.5px] font-semibold"
+        style={{ color: started ? SIGNAL.warning : "#8b968f" }}
+        title={started ? "Play was clicked, but no measurable progress was reported" : undefined}
+      >
         <Play aria-hidden className="size-3 shrink-0 fill-current" strokeWidth={0} />
-        Not started
+        {started ? "Play clicked" : "Not started"}
       </span>
     );
   }

@@ -29,8 +29,8 @@ approval gate between submission and the calendar.
 ## The flow
 
 ```
-Facebook Lead Form → POST /api/leads → personalized link /p/<token>
-  → Dashboard → Investor Overview (Wistia, optional educational path)
+Facebook Lead Form → POST /api/leads → personalized bridge /watch/<token>
+  → 3-minute overview + fit assessment → Research Center /p/<token>
   → Qualification Questionnaire
   → /p/<token>/schedule  (calendar embed + FDD request + next-steps timeline)
       → booked → confirmation state on the same page
@@ -128,8 +128,10 @@ Two entrances, one identity:
 
 - **`/watch/[token]`** — the same portal token every lead already has. The
   Facebook lead ad's `/start` handoff now lands here (its API returns
-  `nextUrl`), and `POST /api/leads` returns a `bridgeUrl` alongside
-  `portalUrl` for welcome emails/SMS. The page greets the prospect by name,
+  `nextUrl`), and `POST /api/leads` returns this URL in both `portalUrl`
+  (for existing automations) and `bridgeUrl`. `researchCenterUrl` is the
+  direct `/p/[token]` destination for callers that intentionally need it.
+  The page greets the prospect by name,
   captures attribution like the portal, reports the video as the Investor
   Overview, and the assessment skips the contact step (`POST /api/bridge/[token]/assessment`).
 - **`/watch`** — cold traffic with no lead on file. Submitting the assessment
@@ -257,7 +259,8 @@ curl -X POST https://your-domain.com/api/leads \
     "source": "facebook-lead-ad",
     "campaign": "campaign-name"
   }'
-# → { "success": true, "leadId": "…", "portalUrl": "https://…/p/<token>" }
+# → { "success": true, "leadId": "…", "portalUrl": "https://…/watch/<token>",
+#     "bridgeUrl": "https://…/watch/<token>", "researchCenterUrl": "https://…/p/<token>" }
 ```
 
 The endpoint is rate-limited (20/min/IP) and validated with Zod.
@@ -555,4 +558,3 @@ supabase/migrations/       SQL migrations
 tests/                     vitest suite
 types/                     shared domain types
 ```
-

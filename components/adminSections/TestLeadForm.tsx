@@ -166,13 +166,13 @@ export function TestLeadForm({ authHeaders }: { authHeaders: Record<string, stri
           disabled={submitting}
           className="w-full rounded-lg bg-gray-900 px-5 py-3 text-sm font-semibold text-white hover:bg-gray-700 disabled:opacity-60"
         >
-          {submitting ? "Creating…" : "Generate Portal Link"}
+          {submitting ? "Creating…" : "Generate Lead Bridge Link"}
         </button>
       </form>
 
       {portalUrl && (
         <div className="mt-6 rounded-lg border border-green-200 bg-green-50 p-4">
-          <p className="text-sm font-medium text-green-900">Portal link created</p>
+          <p className="text-sm font-medium text-green-900">Lead bridge link created</p>
           <p className="mt-2 break-all rounded bg-white p-2 font-mono text-xs text-gray-800">
             {portalUrl}
           </p>
@@ -190,7 +190,7 @@ export function TestLeadForm({ authHeaders }: { authHeaders: Record<string, stri
               rel="noreferrer"
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
-              Open portal
+              Open bridge
             </a>
           </div>
         </div>

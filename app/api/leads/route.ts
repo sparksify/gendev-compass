@@ -145,13 +145,16 @@ export async function POST(request: Request): Promise<NextResponse> {
       ...(existing ? { duplicateEmailOfLeadId: existing.id } : {}),
     });
 
+    const origin = requestOrigin(request) ?? getAppUrl();
+    const bridgeUrl = `${origin}/watch/${lead.portal_token}`;
     return NextResponse.json({
       success: true,
       leadId: lead.id,
-      portalUrl: `${requestOrigin(request) ?? getAppUrl()}/p/${lead.portal_token}`,
-      // The bridge page (video + fit assessment) for the same token — the
-      // right first stop for a lead's welcome email or SMS.
-      bridgeUrl: `${requestOrigin(request) ?? getAppUrl()}/watch/${lead.portal_token}`,
+      // Backward-compatible field used by existing email/SMS automations.
+      // It now points to the intended first stop instead of bypassing it.
+      portalUrl: bridgeUrl,
+      bridgeUrl,
+      researchCenterUrl: `${origin}/p/${lead.portal_token}`,
     });
   } catch (error) {
     console.error("[leads] creation failed:", error);

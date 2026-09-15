@@ -66,13 +66,14 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     await trackEvent(lead, "lead_created", { source: lead.source });
 
+    const origin = requestOrigin(request) ?? getAppUrl();
+    const bridgeUrl = `${origin}/watch/${lead.portal_token}`;
     return NextResponse.json({
       success: true,
       leadId: lead.id,
-      portalUrl: `${requestOrigin(request) ?? getAppUrl()}/p/${lead.portal_token}`,
-      // The bridge page (video + fit assessment) for the same token — the
-      // right first stop for a lead's welcome email or SMS.
-      bridgeUrl: `${requestOrigin(request) ?? getAppUrl()}/watch/${lead.portal_token}`,
+      portalUrl: bridgeUrl,
+      bridgeUrl,
+      researchCenterUrl: `${origin}/p/${lead.portal_token}`,
     });
   } catch (error) {
     console.error("[test-leads] creation failed:", error);
