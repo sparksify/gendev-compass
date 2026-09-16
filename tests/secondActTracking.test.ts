@@ -30,9 +30,12 @@ describe("static advertorial tracking", () => {
     const response = await GET();
     const script = await response.text();
     const inserted: { src: string }[] = [];
+    const tags: { src?: string; async?: boolean; dataset: Record<string, string> }[] = [];
     const sandbox: Record<string, unknown> = {
       document: {
-        createElement: () => ({}),
+        createElement: () => ({ dataset: {} }),
+        querySelector: () => tags.find((tag) => "gdcClosebot" in tag.dataset) ?? null,
+        head: { appendChild: (tag: { src: string; dataset: Record<string, string> }) => tags.push(tag) },
         getElementsByTagName: () => [{ parentNode: { insertBefore: (node: { src: string }) => inserted.push(node) } }],
       },
     };
@@ -46,13 +49,24 @@ describe("static advertorial tracking", () => {
       ["track", "ViewContent", { content_name: "The Second Act Report - CMDT advertorial", content_category: "advertorial" }],
     ]);
     expect(inserted.map((node) => node.src)).toEqual(["https://connect.facebook.net/en_US/fbevents.js"]);
+    expect(tags.map((tag) => tag.src)).toEqual(["https://api.closebot.com/scripts/cb.js?source=ZpC5XwuqOJVlUXWU"]);
+    expect(tags[0].async).toBe(true);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(response.headers.get("vary")).toBe("Cookie");
   });
 
-  it("does not load Meta when marketing consent is denied", async () => {
+  it("does not load Meta or CloseBot when marketing consent is denied", async () => {
     vi.mocked(readConsentCookie).mockResolvedValue({ necessary: true, analytics: false, marketing: false, version: "v1" });
-    expect(await (await GET()).text()).not.toContain("fbq");
+    const script = await (await GET()).text();
+    expect(script).not.toContain("fbq");
+    expect(script).not.toContain("closebot.com");
+  });
+
+  it("loads CloseBot when Meta is disabled but marketing is allowed", async () => {
+    vi.mocked(getEffectiveTrackingSettings).mockResolvedValue({ ...settings, metaEnabled: false });
+    const script = await (await GET()).text();
+    expect(script).toContain("https://api.closebot.com/scripts/cb.js?source=ZpC5XwuqOJVlUXWU");
+    expect(script).not.toContain("fbq");
   });
 
   it.each([
@@ -68,6 +82,8 @@ describe("static advertorial tracking", () => {
 
   it("fails closed if tracking settings cannot be read", async () => {
     vi.mocked(getEffectiveTrackingSettings).mockRejectedValue(new Error("unavailable"));
-    expect(await (await GET()).text()).not.toContain("fbq");
+    const script = await (await GET()).text();
+    expect(script).not.toContain("fbq");
+    expect(script).not.toContain("closebot.com");
   });
 });

@@ -5,6 +5,7 @@ import { BridgeBackdrop } from "@/components/bridge/BridgeBackdrop";
 import { BridgeFooter } from "@/components/bridge/BridgeFooter";
 import { BridgeVideo } from "@/components/bridge/BridgeVideo";
 import { BridgeVideoProvider } from "@/components/bridge/BridgeVideoContext";
+import { CloseBotTracking } from "@/components/bridge/CloseBotTracking";
 import { FitAssessment, type KnownBridgeLead } from "@/components/bridge/FitAssessment";
 import { ProofStrip } from "@/components/bridge/ProofStrip";
 import { ScrollToAssessment } from "@/components/bridge/ScrollToAssessment";
@@ -23,6 +24,7 @@ import { ScrollToAssessment } from "@/components/bridge/ScrollToAssessment";
 export function BridgePage({ mediaId, known }: { mediaId: string; known?: KnownBridgeLead }) {
   return (
     <BridgeVideoProvider initialToken={known?.token ?? null}>
+      <CloseBotTracking />
       {known && <AttributionCapture token={known.token} />}
       <main className="relative flex min-h-screen flex-col overflow-hidden">
         <section className="relative px-5 pb-12 pt-14 sm:px-8 sm:pb-16 sm:pt-20">

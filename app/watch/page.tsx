@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+// The bridge's marketing tag is resolved against each visitor's consent cookie.
+export const dynamic = "force-dynamic";
+
 /**
  * The anonymous bridge page: cold traffic with no lead on file. Submitting
  * the assessment creates the lead. Prospects who already exist (the
