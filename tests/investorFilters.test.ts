@@ -7,6 +7,7 @@ function makeRow(lead: LeadRecord, extra: Partial<InvestorRow> = {}): InvestorRo
   return {
     lead,
     questionnaire: null,
+    assessment: null,
     video: null,
     appointments: [],
     activeAppointment: null,

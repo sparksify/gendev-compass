@@ -33,6 +33,7 @@ import {
 } from "@/components/advisor/v3";
 import { ACCENT_BUTTON, SECONDARY_BUTTON } from "@/components/advisor/controls";
 import { VideoWatchedRing } from "@/components/advisor/VideoWatchedBar";
+import { AssessmentCell } from "@/components/advisor/AssessmentCell";
 import {
   BulkSelectBar,
   BulkSelectCheckbox,
@@ -48,7 +49,7 @@ export type InvestorsSearchParams = Record<string, string | string[] | undefined
 const PAGE_SIZE = 15;
 
 /** Table columns, per the handoff's grid ratios. */
-const COLS = "1.6fr 48px .8fr .8fr .8fr .9fr 1.25fr";
+const COLS = "1.6fr 48px .8fr 1fr .8fr .8fr .9fr 1.25fr";
 
 function param(params: InvestorsSearchParams, key: string): string | undefined {
   const value = params[key];
@@ -86,6 +87,7 @@ const DEFAULT_DIR: Record<InvestorSortKey, "asc" | "desc"> = {
   source: "asc",
   liquidCapital: "desc",
   netWorth: "desc",
+  assessment: "desc",
   video: "desc",
   lastActivity: "desc",
   newest: "desc",
@@ -126,11 +128,7 @@ export async function InvestorsDirectory({
     ),
   );
   const recentIso = new Date(recentCutoff).toISOString();
-  const [bridgeVisits, assessmentEvents] = await Promise.all([
-    store.countBridgeVisitsSince(recentIso).catch(() => null),
-    store.listEventsByName("bridge_assessment_submitted").catch(() => []),
-  ]);
-  const assessedLeadIds = new Set(assessmentEvents.map((event) => event.lead_id));
+  const bridgeVisits = await store.countBridgeVisitsSince(recentIso).catch(() => null);
   const recentFunnel = buildRecentAcquisitionFunnel(allRows, new Map(recentEvents), new Date(), 24, {
     bridgeVisits,
   });
@@ -448,7 +446,7 @@ export async function InvestorsDirectory({
         {view === "list" && (
           <>
             <Panel padded={false} className="overflow-x-auto px-[18px] pb-2.5 pt-1.5">
-              <div className="min-w-[900px]">
+              <div className="min-w-[1000px]">
                 <GridHead columns={COLS}>
                   <SortHeader
                     label="Client"
@@ -466,6 +464,12 @@ export async function InvestorsDirectory({
                     label="Stage"
                     href={sortHref("stage")}
                     active={explicitSort === "stage"}
+                    dir={sortDir}
+                  />
+                  <SortHeader
+                    label="Assessment"
+                    href={sortHref("assessment")}
+                    active={explicitSort === "assessment"}
                     dir={sortDir}
                   />
                   <SortHeader
@@ -546,19 +550,13 @@ export async function InvestorsDirectory({
                             <span className="text-[12px] text-faint-foreground">—</span>
                           );
                         })()}
-                        {assessedLeadIds.has(row.lead.id) && (
-                          <span
-                            title="Fit assessment submitted on the bridge page"
-                            className="ml-1 inline-flex rounded-[6px] border border-accent-soft-border bg-accent-soft px-1.5 py-0.5 text-[10px] font-bold tracking-[0.03em] text-accent-strong"
-                          >
-                            FIT
-                          </span>
-                        )}
                       </span>
 
                       <span>
                         <StagePill color={chip.color} tint={chip.tint} label={chip.label} />
                       </span>
+
+                      <AssessmentCell assessment={row.assessment} leadId={row.lead.id} />
 
                       <span className="tabular truncate text-[13px] font-bold text-foreground">
                         {capital}

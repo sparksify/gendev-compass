@@ -19,6 +19,7 @@ function makeRow(lead: LeadRecord, overrides: Partial<InvestorRow> = {}): Invest
   return {
     lead,
     questionnaire: null,
+    assessment: null,
     video,
     appointments: [],
     activeAppointment: null,

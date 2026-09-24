@@ -21,16 +21,6 @@ const COLS = "1.4fr .8fr .7fr 1.1fr .9fr .95fr 1fr";
 export function FitAssessmentsList({ rows }: { rows: FitAssessmentRow[] }) {
   return (
     <section className="flex flex-col gap-3.5">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <h2 className="text-[15px] font-bold text-foreground">Fit assessments · bridge page</h2>
-          <p className="mt-0.5 text-[12px] text-muted-foreground">
-            {rows.length} submitted · newest first · the 2-minute check before the portal, not the
-            qualification questionnaire
-          </p>
-        </div>
-      </div>
-
       <Panel padded={false} className="overflow-x-auto px-[18px] pb-2.5 pt-1.5">
         <div className="min-w-[980px]">
           <GridHead columns={COLS}>

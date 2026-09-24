@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ClipboardCheck,
+  ClipboardList,
   LayoutGrid,
   Map as MapIcon,
   PanelsTopLeft,
@@ -28,12 +29,20 @@ export interface AdvisorNavCounts {
   clients: number;
   /** Questionnaires submitted in the last week — the unread pile. */
   questionnaires: number;
+  /** Bridge-page fit assessments submitted in the last week. */
+  assessments: number;
 }
 
 function navItems(isAdmin: boolean, counts: AdvisorNavCounts): NavItem[][] {
   const main: NavItem[] = [
     { href: "/advisor", label: "Overview", icon: PanelsTopLeft, exact: true },
     { href: "/advisor/investors", label: "Clients", icon: Users, count: counts.clients },
+    {
+      href: "/advisor/assessments",
+      label: "Assessments",
+      icon: ClipboardList,
+      badge: counts.assessments,
+    },
     {
       href: "/advisor/questionnaires",
       label: "Questionnaires",

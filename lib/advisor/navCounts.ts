@@ -23,10 +23,13 @@ export async function loadNavCounts(
         const at = row.lead.questionnaire_completed_at;
         return Boolean(at) && new Date(at as string).getTime() >= cutoff;
       }).length,
+      assessments: rows.filter(
+        (row) => row.assessment && new Date(row.assessment.submittedAt).getTime() >= cutoff,
+      ).length,
     };
   } catch (error) {
     // The rail must never take the page down with it.
     console.error("[advisor] nav counts failed:", error);
-    return { clients: 0, questionnaires: 0 };
+    return { clients: 0, questionnaires: 0, assessments: 0 };
   }
 }

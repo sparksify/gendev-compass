@@ -1,4 +1,5 @@
 import { getStore } from "@/lib/store";
+import { assessmentFromEvent, type BridgeAssessmentRecord } from "@/lib/bridge/assessmentRecord";
 import { effectiveFddStatus, effectiveWorkflowStatus } from "@/lib/fdd/status";
 import { resolveDefaultOrganization } from "@/lib/domain/organizations";
 import { visibleLeads } from "./access";
@@ -31,6 +32,8 @@ import type {
 export interface InvestorRow {
   lead: LeadRecord;
   questionnaire: QuestionnaireRecord | null;
+  /** The bridge-page fit assessment (latest submission), or null if they never took it. */
+  assessment: BridgeAssessmentRecord | null;
   video: VideoProgressRecord | null;
   appointments: AppointmentRecord[];
   activeAppointment: AppointmentRecord | null;
@@ -54,12 +57,18 @@ export interface InvestorRow {
 
 export async function loadInvestorRows(user: StaffUserRecord): Promise<InvestorRow[]> {
   const store = getStore();
-  const [leads, questionnaires, videos, appointments, staff] = await Promise.all([
+  const [leads, questionnaires, videos, appointments, staff, assessmentEvents] = await Promise.all([
     store.listLeads(),
     store.listQuestionnaires(),
     store.listVideoProgress(),
     store.listAppointments(),
     store.listStaffUsers(),
+    // Fit assessments live on the event history; newest first, so the first
+    // event per lead is the one to keep.
+    store.listEventsByName("bridge_assessment_submitted").catch((error: unknown) => {
+      console.error("[advisor] failed to load fit assessments:", error);
+      return [];
+    }),
   ]);
 
   // Domain-model reads: tolerate environments whose backfill has not run —
@@ -81,6 +90,12 @@ export async function loadInvestorRows(user: StaffUserRecord): Promise<InvestorR
   }
 
   const questionnaireByLead = new Map(questionnaires.map((q) => [q.lead_id, q]));
+  const assessmentByLead = new Map<string, BridgeAssessmentRecord>();
+  for (const event of assessmentEvents) {
+    if (assessmentByLead.has(event.lead_id)) continue;
+    const record = assessmentFromEvent(event);
+    if (record) assessmentByLead.set(event.lead_id, record);
+  }
   const videoByLead = new Map(videos.map((v) => [v.lead_id, v]));
   const staffById = new Map(staff.map((s) => [s.id, s]));
   const clientById = new Map(clients.map((c) => [c.id, c]));
@@ -123,6 +138,7 @@ export async function loadInvestorRows(user: StaffUserRecord): Promise<InvestorR
     return {
       lead,
       questionnaire: questionnaireByLead.get(lead.id) ?? null,
+      assessment: assessmentByLead.get(lead.id) ?? null,
       video,
       appointments: leadAppointments,
       activeAppointment:
@@ -227,6 +243,7 @@ export const INVESTOR_SORT_KEYS = [
   "source",
   "liquidCapital",
   "netWorth",
+  "assessment",
   "video",
   "lastActivity",
   "newest",
@@ -284,6 +301,15 @@ function compareRows(a: InvestorRow, b: InvestorRow, key: InvestorSortKey, dir: 
       );
     case "video":
       return compareOrdinal(a.video?.highest_percent_watched, b.video?.highest_percent_watched, dir);
+    case "assessment": {
+      // Submitted rows first (newest first on desc); never-submitted always last.
+      const at = a.assessment?.submittedAt ?? null;
+      const bt = b.assessment?.submittedAt ?? null;
+      if (at === null && bt === null) return 0;
+      if (at === null) return 1;
+      if (bt === null) return -1;
+      return at.localeCompare(bt) * dir;
+    }
     case "source": {
       const as = a.lead.source ?? null;
       const bs = b.lead.source ?? null;
