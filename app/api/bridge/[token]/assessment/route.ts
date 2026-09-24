@@ -53,6 +53,7 @@ export async function POST(
       firstName: applied.lead.first_name,
       token: applied.lead.portal_token,
       portalUrl: `/p/${applied.lead.portal_token}`,
+      nextUrl: `/webinar/${applied.lead.portal_token}`,
       scheduleUrl: getCalendarEmbedUrl(),
       fit: applied.fit,
     });

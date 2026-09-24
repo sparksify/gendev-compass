@@ -65,6 +65,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       success: true,
       firstName: input.firstName,
       portalUrl: "/start",
+      nextUrl: "/start",
       scheduleUrl,
       fit: "standard",
     });
@@ -143,6 +144,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       firstName: lead.first_name,
       token: lead.portal_token,
       portalUrl: `${requestOrigin(request) ?? getAppUrl()}/p/${lead.portal_token}`,
+      nextUrl: `/webinar/${lead.portal_token}`,
       scheduleUrl,
       fit: applied.fit,
     });

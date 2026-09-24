@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowLeft, ArrowRight, CalendarDays, Compass, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { FieldError, Input, Label, NativeSelect, Textarea } from "@/components/ui/form-fields";
 import { US_STATES } from "@/lib/geocoding/states";
@@ -13,7 +13,6 @@ import {
   locationStepSchema,
   type ChoiceKey,
   type ChoiceStep,
-  type FitLevel,
 } from "@/lib/bridge/assessment";
 import { useBridgeVideo } from "./BridgeVideoContext";
 
@@ -21,7 +20,7 @@ import { useBridgeVideo } from "./BridgeVideoContext";
  * The 2-minute fit assessment: one question per screen, auto-advancing on
  * a choice, with typed steps (location, contact) validated inline against
  * the same schema the API enforces. On submit the section swaps to the
- * completion screen — two ways forward, ordered by the fit call.
+ * dedicated live overview registration page.
  *
  * With a known lead (/watch/[token]) there is no contact step: the last
  * question carries the optional note and the submit button, and the
@@ -46,21 +45,11 @@ type FieldKey =
 type Draft = Partial<Record<FieldKey, string>>;
 type Errors = Partial<Record<FieldKey, string>>;
 
-interface Completion {
-  firstName: string;
-  portalUrl: string;
-  scheduleUrl: string | null;
-  fit: FitLevel;
-}
-
 /** Long enough to see the selection land, short enough to feel instant. */
 const ADVANCE_DELAY_MS = 220;
 
 const PRIMARY_BUTTON =
   "inline-flex h-[48px] items-center justify-center gap-2.5 rounded-[7px] bg-sidebar px-6 text-[13px] font-semibold uppercase tracking-[0.08em] text-white shadow-[0_1px_2px_rgb(16_24_40/0.08)] transition-colors hover:bg-sidebar/90 disabled:pointer-events-none disabled:opacity-60";
-const OUTLINE_BUTTON =
-  "inline-flex h-[48px] items-center justify-center gap-2.5 rounded-[7px] border border-sidebar/40 bg-card px-6 text-[13px] font-semibold uppercase tracking-[0.08em] text-sidebar transition-colors hover:border-sidebar hover:bg-surface";
-
 function readCookie(name: string): string | null {
   const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
   return match ? decodeURIComponent(match[1]) : null;
@@ -79,7 +68,6 @@ export function FitAssessment({ known }: { known?: KnownBridgeLead }) {
   const [honeypot, setHoneypot] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [completion, setCompletion] = useState<Completion | null>(null);
   const startedRef = useRef(false);
   const mountedRef = useRef(false);
   const advanceTimer = useRef<number | null>(null);
@@ -99,18 +87,12 @@ export function FitAssessment({ known }: { known?: KnownBridgeLead }) {
       return;
     }
     const behavior = prefersReducedMotion() ? "auto" : "smooth";
-    if (completion) {
-      // The completion screen replaces a form the visitor had scrolled well
-      // into — bring its headline into view rather than its footer.
-      promptRef.current?.scrollIntoView({ behavior, block: "start" });
-    } else {
-      const card = cardRef.current;
-      if (card && card.getBoundingClientRect().top < 0) {
-        card.scrollIntoView({ behavior, block: "start" });
-      }
+    const card = cardRef.current;
+    if (card && card.getBoundingClientRect().top < 0) {
+      card.scrollIntoView({ behavior, block: "start" });
     }
     promptRef.current?.focus({ preventScroll: true });
-  }, [stepIndex, completion]);
+  }, [stepIndex]);
 
   useEffect(
     () => () => {
@@ -241,12 +223,14 @@ export function FitAssessment({ known }: { known?: KnownBridgeLead }) {
           body: JSON.stringify(payload),
         },
       );
-      const data = (await response.json().catch(() => ({}))) as Partial<Completion> & {
+      const data = (await response.json().catch(() => ({}))) as {
         success?: boolean;
         error?: string;
         token?: string;
+        nextUrl?: string;
+        fit?: string;
       };
-      if (!response.ok || !data.success || !data.portalUrl || !data.firstName) {
+      if (!response.ok || !data.success || !data.nextUrl) {
         setSubmitError(data.error ?? "Something went wrong. Please try again.");
         return;
       }
@@ -256,22 +240,13 @@ export function FitAssessment({ known }: { known?: KnownBridgeLead }) {
       });
       // The lead exists now — the player reports to its history from here on.
       if (data.token) video.report({ token: data.token });
-      setCompletion({
-        firstName: data.firstName,
-        portalUrl: data.portalUrl,
-        scheduleUrl: data.scheduleUrl ?? null,
-        fit: data.fit ?? "standard",
-      });
+      window.location.assign(data.nextUrl);
     } catch {
       setSubmitError("We couldn’t reach the server. Check your connection and try again.");
     } finally {
       setSubmitting(false);
     }
   };
-
-  if (completion) {
-    return <CompletionScreen completion={completion} headingRef={promptRef} />;
-  }
 
   return (
     <div>
@@ -612,101 +587,6 @@ function ChoiceList({
           </button>
         );
       })}
-    </div>
-  );
-}
-
-function CompletionScreen({
-  completion,
-  headingRef,
-}: {
-  completion: Completion;
-  headingRef: React.RefObject<HTMLHeadingElement | null>;
-}) {
-  const research = {
-    key: "research",
-    icon: Compass,
-    title: "Explore CMDT at Your Own Pace",
-    body: "Review the business model, owner responsibilities, investment information, training and support, territory considerations, FAQs, and next steps.",
-    cta: "Open My CMDT Research Center",
-    href: completion.portalUrl,
-    external: false,
-  };
-  const talk = {
-    key: "talk",
-    icon: CalendarDays,
-    title: "Ready to Talk It Through?",
-    body: "If you already have enough information to know you want a conversation, you can choose a time with the CMDT team now.",
-    cta: "Schedule a Conversation",
-    href: completion.scheduleUrl ?? "",
-    external: true,
-  };
-  // A strong fit leads with the conversation; everyone else leads with research.
-  const cards = (completion.fit === "strong" ? [talk, research] : [research, talk]).filter(
-    (card) => card.href,
-  );
-
-  return (
-    <div className="ownership-profile-step" role="status">
-      <header className="text-center">
-        <p className="text-[11.5px] font-semibold uppercase tracking-[0.12em] text-accent-gold">
-          Your Next Step
-        </p>
-        <h2
-          ref={headingRef}
-          tabIndex={-1}
-          className="mt-3 scroll-mt-16 font-serif text-[30px] font-medium leading-[1.12] tracking-[-0.01em] text-sidebar outline-none sm:text-[36px]"
-        >
-          Thanks, {completion.firstName}. Here’s What I’d Do Next.
-        </h2>
-        <p className="mx-auto mt-4 max-w-[560px] text-[15px] leading-[1.6] text-muted-foreground">
-          You’ve given us enough information to understand what you’re looking for.
-        </p>
-        <p className="mx-auto mt-2 max-w-[560px] text-[15px] leading-[1.6] text-muted-foreground">
-          From here, you have two ways to continue.
-        </p>
-      </header>
-
-      <div className={cn("mt-9 grid gap-4", cards.length > 1 && "sm:grid-cols-2")}>
-        {cards.map((card, index) => {
-          const primary = index === 0;
-          return (
-            <div
-              key={card.key}
-              className={cn(
-                "flex flex-col rounded-card border bg-card p-6 shadow-card sm:p-7",
-                primary ? "border-sidebar/50 ring-1 ring-sidebar/10" : "border-border",
-              )}
-            >
-              <span
-                aria-hidden
-                className={cn(
-                  "flex size-11 items-center justify-center rounded-full border",
-                  primary
-                    ? "border-accent-gold bg-[#fbf7ef] text-sidebar"
-                    : "border-border bg-surface text-muted-foreground",
-                )}
-              >
-                <card.icon className="size-5" strokeWidth={1.6} />
-              </span>
-              <h3 className="mt-4 font-serif text-[22px] font-medium leading-[1.2] text-sidebar">
-                {card.title}
-              </h3>
-              <p className="mt-2 flex-1 text-[14px] leading-[1.55] text-muted-foreground">
-                {card.body}
-              </p>
-              <a
-                href={card.href}
-                target={card.external ? "_blank" : undefined}
-                rel={card.external ? "noopener noreferrer" : undefined}
-                className={cn(primary ? PRIMARY_BUTTON : OUTLINE_BUTTON, "mt-6 w-full")}
-              >
-                {card.cta} <ArrowRight className="size-4" strokeWidth={2} />
-              </a>
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }
