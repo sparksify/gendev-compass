@@ -263,6 +263,20 @@ export interface UpsertOwnershipProfileInput {
   opportunity_id?: string | null;
 }
 
+/** One anonymous open of the bridge page (see migration 0018). */
+export interface BridgeVisitInput {
+  path: string;
+  referrer: string | null;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+}
+
+export interface BridgeVisitRecord extends BridgeVisitInput {
+  id: string;
+  created_at: string;
+}
+
 export interface InsertEventOptions {
   source?: string;
   staffUserId?: string | null;
@@ -537,6 +551,12 @@ export interface PortalStore {
   listAppointments(): Promise<AppointmentRecord[]>;
 
   getEventsForLead(leadId: string): Promise<PortalEventRecord[]>;
+  /** Every event with this name across all leads, newest first (optionally since an ISO time). */
+  listEventsByName(eventName: string, options?: { since?: string }): Promise<PortalEventRecord[]>;
+
+  /** Anonymous bridge page opens. Both are fire-safe: a missing table logs and degrades to a null count. */
+  recordBridgeVisit(input: BridgeVisitInput): Promise<void>;
+  countBridgeVisitsSince(sinceIso: string): Promise<number | null>;
 
   // -------------------------------------------------------------------------
   // Platform domain (organizations / clients / opportunities). Brands are

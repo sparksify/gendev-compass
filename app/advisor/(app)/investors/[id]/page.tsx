@@ -45,6 +45,8 @@ import { TerritoriesWantedControl } from "@/components/advisor/investorDetail/Te
 import { CopyPortalButton } from "@/components/advisor/investorDetail/CopyPortalButton";
 import { ProcessMilestonesCard } from "@/components/advisor/investorDetail/ProcessMilestonesCard";
 import { QuestionnaireResponsesCard } from "@/components/advisor/investorDetail/QuestionnaireResponsesCard";
+import { FitAssessmentCard } from "@/components/advisor/investorDetail/FitAssessmentCard";
+import { latestBridgeAssessment } from "@/lib/bridge/assessmentRecord";
 import { AttributionCard } from "@/components/advisor/investorDetail/AttributionCard";
 import { TagsCard } from "@/components/advisor/investorDetail/TagsCard";
 import { OwnershipProfileCard } from "@/components/advisor/OwnershipProfileCard";
@@ -260,6 +262,8 @@ export default async function InvestorDetailPage({
                 events.some((event) => event.event_name === "video_started")
             )}
           />
+
+          <FitAssessmentCard assessment={latestBridgeAssessment(events)} />
 
           <ProcessMilestonesCard
             investorId={lead.id}

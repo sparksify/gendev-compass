@@ -4,6 +4,9 @@ import { QuestionnairesViewSwitcher } from "@/components/advisor/questionnaires/
 import { requireStaffUser } from "@/lib/advisor/auth";
 import { isAdmin } from "@/lib/advisor/access";
 import { loadInvestorRows } from "@/lib/advisor/investors";
+import { getStore } from "@/lib/store";
+import { assessmentFromEvent } from "@/lib/bridge/assessmentRecord";
+import { FitAssessmentsList, type FitAssessmentRow } from "@/components/advisor/questionnaires/FitAssessmentsList";
 
 export const dynamic = "force-dynamic";
 
@@ -19,13 +22,31 @@ export const metadata = { title: "Completed Questionnaires" };
 export default async function QuestionnairesPage() {
   const user = await requireStaffUser();
   const admin = isAdmin(user);
-  const rows = (await loadInvestorRows(user))
+  const allRows = await loadInvestorRows(user);
+  const rows = allRows
     .filter((row) => row.questionnaire !== null)
     .sort((a, b) => {
       const aAt = a.lead.questionnaire_completed_at ?? a.questionnaire?.created_at ?? "";
       const bAt = b.lead.questionnaire_completed_at ?? b.questionnaire?.created_at ?? "";
       return bAt.localeCompare(aAt);
     });
+
+  // Bridge-page fit assessments: one row per lead (latest submission), only
+  // for leads this staff user is allowed to see.
+  const leadById = new Map(allRows.map((row) => [row.lead.id, row.lead]));
+  const assessmentEvents = await getStore()
+    .listEventsByName("bridge_assessment_submitted")
+    .catch(() => []);
+  const seen = new Set<string>();
+  const assessments: FitAssessmentRow[] = [];
+  for (const event of assessmentEvents) {
+    const lead = leadById.get(event.lead_id);
+    if (!lead || seen.has(lead.id)) continue;
+    const assessment = assessmentFromEvent(event);
+    if (!assessment) continue;
+    seen.add(lead.id);
+    assessments.push({ lead, assessment });
+  }
 
   return (
     <BulkSelectProvider
@@ -47,6 +68,8 @@ export default async function QuestionnairesPage() {
             Showing {rows.length} of {rows.length} questionnaires
           </p>
         )}
+
+        <FitAssessmentsList rows={assessments} />
       </V3Page>
     </BulkSelectProvider>
   );
