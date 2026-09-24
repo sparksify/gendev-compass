@@ -25,6 +25,7 @@ interface WistiaPlayerElement extends HTMLElement {
   /** Unique seconds of the media watched. */
   secondsWatched: number;
   ended: boolean;
+  paused: boolean;
 }
 
 declare module "react" {
@@ -75,7 +76,6 @@ export function WistiaPlayer({
 
       const rawUnique = Number(player.percentWatched);
       const uniqueFraction = Number.isFinite(rawUnique) ? Math.min(Math.max(rawUnique, 0), 1) : 0;
-      const positionPercent = Math.min(100, (currentTime / duration) * 100);
       const secondsWatched = Number(player.secondsWatched) || uniqueFraction * duration;
 
       try {
@@ -85,8 +85,8 @@ export function WistiaPlayer({
           body: JSON.stringify({
             currentTime,
             duration,
-            percent: Math.round(positionPercent * 100) / 100,
-            secondsWatched: Math.round(secondsWatched),
+            percent: Math.floor(uniqueFraction * 10000) / 100,
+            secondsWatched: Math.floor(secondsWatched),
             eventType,
             mediaId: mediaId ?? undefined,
           }),
@@ -149,7 +149,7 @@ export function WistiaPlayer({
       const p = playerRef.current;
       if (!p || completedRef.current) return;
       // Only report while actually advancing (i.e. playing).
-      if (Number(p.duration) > 0 && !p.ended) {
+      if (Number(p.duration) > 0 && !p.ended && !p.paused) {
         void report("heartbeat");
       }
     }, REPORT_INTERVAL_MS);

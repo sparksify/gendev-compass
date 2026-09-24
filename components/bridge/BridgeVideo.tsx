@@ -25,6 +25,7 @@ interface WistiaPlayerElement extends HTMLElement {
   percentWatched: number;
   secondsWatched: number;
   ended: boolean;
+  paused: boolean;
 }
 
 const REPORT_INTERVAL_MS = 10_000;
@@ -48,13 +49,12 @@ export function BridgeVideo({ mediaId }: { mediaId: string | null }) {
       const uniqueFraction = Number.isFinite(rawUnique) ? Math.min(Math.max(rawUnique, 0), 1) : 0;
       if (duration <= 0) return;
 
-      const positionPercent = Math.min(100, (currentTime / duration) * 100);
       const secondsWatched = Number(player.secondsWatched) || uniqueFraction * duration;
       const snapshot = {
         currentTime,
         duration,
-        percent: Math.round(positionPercent * 100) / 100,
-        secondsWatched: Math.round(secondsWatched),
+        percent: Math.floor(uniqueFraction * 10000) / 100,
+        secondsWatched: Math.floor(secondsWatched),
       };
       report({ percent: Math.round(uniqueFraction * 100), snapshot });
       if (!currentToken) return;
@@ -104,11 +104,13 @@ export function BridgeVideo({ mediaId }: { mediaId: string | null }) {
     };
     const onPause = () => void sendProgress("pause");
     const onEnded = () => {
-      report({ percent: 100 });
-      fireBridgeBrowserEvent("bridge_video_completed", "BridgeVideoCompleted", {
-        media_id: mediaId,
-        identified_lead: Boolean(tokenRef.current),
-      });
+      // Reaching the end is not proof of watching skipped content.
+      if (Number(player.percentWatched) >= 0.95) {
+        fireBridgeBrowserEvent("bridge_video_completed", "BridgeVideoCompleted", {
+          media_id: mediaId,
+          identified_lead: Boolean(tokenRef.current),
+        });
+      }
       void sendProgress("ended");
     };
 
@@ -119,7 +121,7 @@ export function BridgeVideo({ mediaId }: { mediaId: string | null }) {
     const interval = window.setInterval(() => {
       const p = playerRef.current;
       // Only report while actually advancing (i.e. playing).
-      if (p && Number(p.duration) > 0 && !p.ended) void sendProgress("heartbeat");
+      if (p && Number(p.duration) > 0 && !p.ended && !p.paused) void sendProgress("heartbeat");
     }, REPORT_INTERVAL_MS);
 
     return () => {

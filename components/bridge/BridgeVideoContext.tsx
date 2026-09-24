@@ -18,7 +18,7 @@ import { fireBridgeBrowserEvent } from "@/lib/tracking/client";
 export interface BridgeVideoSnapshot {
   currentTime: number;
   duration: number;
-  /** Playhead position, 0–100. */
+  /** Wistia unique watch percentage, 0–100. */
   percent: number;
   /** Wistia's unique seconds watched. */
   secondsWatched: number;

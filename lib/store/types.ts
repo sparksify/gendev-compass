@@ -1,3 +1,4 @@
+import type { IntelligenceState, IntelligenceExternal, IntelligenceCheckpoint } from "@/lib/ghl/intelligence/types";
 import type { LeadRecord, LeadStatus } from "@/types/lead";
 import type { QuestionnaireRecord } from "@/types/questionnaire";
 import type { VideoProgressRecord } from "@/types/portal";
@@ -77,6 +78,7 @@ import type {
 } from "@/types/territory";
 
 export interface CreateLeadRecordInput {
+  bridge_submission_key?: string;
   portal_token: string;
   first_name: string;
   last_name: string;
@@ -230,6 +232,7 @@ export type VideoProgressPatch = Partial<
     VideoProgressRecord,
     | "wistia_media_id"
     | "highest_percent_watched"
+    | "verified_watch"
     | "accumulated_seconds_watched"
     | "last_playhead_position"
     | "started"
@@ -278,6 +281,8 @@ export interface BridgeVisitRecord extends BridgeVisitInput {
 }
 
 export interface InsertEventOptions {
+  eventKey?: string;
+  strict?: boolean;
   source?: string;
   staffUserId?: string | null;
   occurredAt?: string | null;
@@ -447,6 +452,9 @@ export interface ListTrackingDeliveriesFilter {
 }
 
 export interface PortalStore {
+  claimIntelligence(): Promise<IntelligenceState | null>;
+  checkpointIntelligence(claim: IntelligenceCheckpoint, external: IntelligenceExternal): Promise<void>;
+  finishIntelligence(claim: IntelligenceState, error?: string): Promise<void>;
   createLead(input: CreateLeadRecordInput): Promise<LeadRecord>;
   getLeadByToken(token: string): Promise<LeadRecord | null>;
   getLeadById(id: string): Promise<LeadRecord | null>;

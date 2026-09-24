@@ -69,6 +69,7 @@ export function FitAssessment({ known }: { known?: KnownBridgeLead }) {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const startedRef = useRef(false);
+  const submissionId = useRef<string | null>(null);
   const mountedRef = useRef(false);
   const advanceTimer = useRef<number | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -197,10 +198,12 @@ export function FitAssessment({ known }: { known?: KnownBridgeLead }) {
       priority: draft.priority,
       notes: draft.notes?.trim() || undefined,
     };
+    submissionId.current ??= crypto.randomUUID();
     const payload = known
       ? answers
       : {
           ...answers,
+          submissionId: submissionId.current,
           firstName: draft.firstName,
           lastName: draft.lastName,
           email: draft.email,

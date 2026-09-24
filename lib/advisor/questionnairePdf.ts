@@ -1,4 +1,4 @@
-import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb, type RGB } from "pdf-lib";
+import { PDFDocument, PDFFont, StandardFonts, rgb, type RGB } from "pdf-lib";
 import { brand } from "@/lib/config/brand";
 import { labelIn, labelForValue } from "@/lib/advisor/questionnaireCatalog";
 import {
@@ -25,6 +25,7 @@ import type { LeadRecord } from "@/types/lead";
  */
 
 export interface QuestionnairePdfInput {
+  snapshot?: Array<{ question_text: string; answer_display_value: string }>;
   lead: LeadRecord;
   questionnaire: QuestionnaireRecord;
   submittedAt: string | null;
@@ -322,7 +323,8 @@ export async function renderQuestionnairePdf(input: QuestionnairePdfInput): Prom
   y -= 22;
 
   // ------------------------------------------------------------ sections
-  for (const section of buildSections(questionnaire)) {
+  const sections: Section[] = input.snapshot?.length ? [{ title: "Complete submitted answers", fields: input.snapshot.map(a => ({ label: a.question_text, value: a.answer_display_value, block: true })) }] : buildSections(questionnaire);
+  for (const section of sections) {
     ensure(46);
     draw(section.title, { size: 11.5, font: bold, color: ACCENT });
     y -= 18;

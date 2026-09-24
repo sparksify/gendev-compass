@@ -36,6 +36,7 @@ export interface MilestoneState {
 export type ProcessMilestones = Partial<Record<MilestoneKey, MilestoneState>>;
 
 export interface LeadRecord {
+  bridge_submission_key?: string | null;
   id: string;
   portal_token: string;
   first_name: string;

@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { getStore } from "@/lib/store";
 import { generatePortalToken } from "@/lib/portal/tokens";
@@ -90,6 +91,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
 
     let lead = await store.createLead({
+      bridge_submission_key: createHash("sha256").update(JSON.stringify([input.submissionId ?? randomUUID(), input.firstName, input.lastName, input.email, input.phone, input.goal, input.role, input.timeline, input.city, input.state, input.zip, input.investmentLevel, input.liquidCapital, input.priority, input.notes ?? ""])).digest("hex"),
       portal_token: generatePortalToken(),
       first_name: input.firstName,
       last_name: input.lastName,
@@ -117,7 +119,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
 
     // Coarse conversion signal only — no financial answers leave the portal.
-    await trackEvent(lead, "lead_created", {
+    if (!(await store.getEventsForLead(lead.id)).some(e => e.event_name === "lead_created")) await trackEvent(lead, "lead_created", {
       source: "bridge",
       ...(existing ? { duplicateEmailOfLeadId: existing.id } : {}),
     });

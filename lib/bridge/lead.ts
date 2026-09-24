@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { getStore } from "@/lib/store";
 import { trackEvent } from "@/lib/portal/events";
 import { recordLeadEvent } from "@/lib/domain/activities";
@@ -90,22 +91,16 @@ export async function applyAssessmentToLead(
     console.error(`[bridge] lead update failed for lead ${lead.id}:`, error);
   }
 
-  try {
-    await recordLeadEvent(
-      updated,
-      "bridge_assessment_submitted",
-      {
-        version: BRIDGE_ASSESSMENT_VERSION,
-        fit,
-        answers: answerSnapshot(input),
-      },
-      "/watch",
-    );
-  } catch (error) {
-    console.error(`[bridge] failed to store assessment answers for lead ${updated.id}:`, error);
-  }
+  // The answer event is a required durable write. Its database trigger queues
+  // CRM sync in the SAME transaction; a failure must return a retryable error.
+  const eventKey = createHash("sha256").update(JSON.stringify({
+    version: BRIDGE_ASSESSMENT_VERSION, answers: answerSnapshot(input),
+  })).digest("hex");
+  await recordLeadEvent(updated, "bridge_assessment_submitted", {
+    version: BRIDGE_ASSESSMENT_VERSION, fit, answers: answerSnapshot(input),
+  }, "/watch", { eventKey: `bridge:${eventKey}`, strict: true,
+    externalEventId: `bridge:${lead.id}:${eventKey}` });
 
   await trackEvent(updated, "bridge_assessment_completed", { fit }, "/watch");
-
   return { lead: updated, fit };
 }

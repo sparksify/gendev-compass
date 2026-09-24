@@ -1,3 +1,4 @@
+import { uploadQuestionnairePdfToGhl } from "@/lib/ghl/questionnaireUpload";
 import { NextResponse } from "next/server";
 import { requireLead } from "@/lib/portal/api";
 import { getStore } from "@/lib/store";
@@ -8,7 +9,6 @@ import { financingDetailsApply, questionnaireSchema } from "@/lib/validation/que
 import { autoAdvanceStage } from "@/lib/advisor/stages";
 import { buildAnswerSnapshot, QUESTIONNAIRE_VERSION } from "@/lib/advisor/questionnaireCatalog";
 import { ensureLeadDomainChain, type LeadDomainChain } from "@/lib/domain/chain";
-import { uploadQuestionnairePdfToGhl } from "@/lib/ghl/questionnaireUpload";
 import { syncPrimaryOpportunityQualification } from "@/lib/domain/opportunities";
 import type { QuestionnaireInput } from "@/types/questionnaire";
 
@@ -39,7 +39,8 @@ export async function POST(
   const videoCompleted = Boolean(videoProgress?.completed) || Boolean(lead.video_completed_at);
 
   const existing = await store.getQuestionnaire(lead.id);
-  if (existing) {
+  const savedSubmissions = await store.getSubmissionsForLead(lead.id);
+  if (existing && savedSubmissions.some(s => s.answers.length > 0) && lead.questionnaire_completed_at) {
     return NextResponse.json({
       success: true,
       qualified: lead.qualification_result === "qualified",
@@ -82,7 +83,25 @@ export async function POST(
     const fundingFollowupRequested =
       financingDetails && answers.fundingAssistanceRequested === "yes";
 
-    await store.createQuestionnaire({
+    // Immutable, versioned snapshot for the advisor backend: exactly what
+    // was asked and answered, preserved even if wording changes later.
+    const archived = savedSubmissions.find(s => s.questionnaire_version === QUESTIONNAIRE_VERSION && s.answers.length > 0) ?? await store.createSubmission({
+      lead_id: lead.id,
+      questionnaire_version: QUESTIONNAIRE_VERSION,
+      submitted_at: now,
+      answers: buildAnswerSnapshot(answers),
+      organization_id: chain?.organization.id ?? null,
+      client_id: chain?.client.id ?? null,
+      opportunity_id: chain?.opportunity.id ?? null,
+      brand_id: chain?.brand.id ?? null,
+    });
+
+    const expected = buildAnswerSnapshot(answers);
+    if (archived.answers.length !== expected.length || expected.some(a => !archived.answers.some(b => b.question_key === a.question_key && b.answer_value === a.answer_value))) {
+      throw new Error("Retry answers differ from the immutable saved submission");
+    }
+
+    if (!existing) await store.createQuestionnaire({
       lead_id: lead.id,
       investment_timeline: answers.investmentTimeline,
       liquid_capital: answers.liquidCapital,
@@ -135,29 +154,14 @@ export async function POST(
     });
     await syncPrimaryOpportunityQualification(updatedLead);
 
-    // Immutable, versioned snapshot for the advisor backend: exactly what
-    // was asked and answered, preserved even if wording changes later.
-    await store.createSubmission({
-      lead_id: lead.id,
-      questionnaire_version: QUESTIONNAIRE_VERSION,
-      submitted_at: now,
-      answers: buildAnswerSnapshot(answers),
-      organization_id: chain?.organization.id ?? null,
-      client_id: chain?.client.id ?? null,
-      opportunity_id: chain?.opportunity.id ?? null,
-      brand_id: chain?.brand.id ?? null,
-    });
-
     await autoAdvanceStage(lead, "QUESTIONNAIRE_COMPLETED", "portal");
 
-    // Push the completed-questionnaire PDF into the GoHighLevel contact's
-    // cq_upload file field. Fire-safe by contract — a CRM hiccup never
-    // blocks the prospect, and failures are logged inside the helper.
-    const ghlUpload = await uploadQuestionnairePdfToGhl(updatedLead);
-    if (ghlUpload.ok) {
-      await trackEvent(updatedLead, "crm_questionnaire_uploaded", {
-        contactId: ghlUpload.contactId,
-      });
+    // The source-table triggers durably queue PDF, notes, summary and tasks.
+    // The worker retries independently; no duplicate advisor email is added.
+
+    if (process.env.GHL_COMPASS_ENABLED !== "true") {
+      const upload = await uploadQuestionnairePdfToGhl(updatedLead);
+      if (upload.ok) await trackEvent(updatedLead, "crm_questionnaire_uploaded", { contactId: upload.contactId });
     }
 
     // `updatedLead` rather than `lead`: the advisor notification renders the

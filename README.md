@@ -567,3 +567,12 @@ supabase/migrations/       SQL migrations
 tests/                     vitest suite
 types/                     shared domain types
 ```
+
+### Compass Intelligence in HighLevel
+
+The native HighLevel contact integration, exact field inventory, task rules, live
+verification results and activation checklist are documented in
+[docs/compass-highlevel-intelligence.md](docs/compass-highlevel-intelligence.md).
+Apply the additive migration before deploying the updated forms/store. The
+operational worker is opt-in via `GHL_COMPASS_ENABLED=true` and retries from the
+existing Compass source records; it does not add another analytics system.

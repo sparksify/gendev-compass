@@ -1,0 +1,46 @@
+{
+  "verifiedAt": "2026-09-24",
+  "locationId": "4dwsLmHGWb6ElyIQlZOc",
+  "locationName": "Complete Mobile Drug Testing",
+  "darkoUserId": "jVf10AiOgjbh9AzMmB58",
+  "folders": {
+    "Compass Intelligence": "RFlIXLBGwR23o63IWOTp",
+    "Compass Answers": "JLVktm5MbKcyAJ6VfXz4"
+  },
+  "fields": {
+    "contact.compass_engagement_status": "IU10NcGxWpycKab6UFbD",
+    "contact.compass_why_this_lead_matters": "dBsmtnT6JjPqsXeWgpPh",
+    "contact.compass_next_action": "j7Xn49CynzTlLjFg5LMW",
+    "contact.compass_bridge_fit_assessment": "xWTZ5YVi3OWGZKrUHsWY",
+    "contact.compass_overview_video": "d5vQqjtwAeY7LfYfr65e",
+    "contact.compass_investor_questionnaire": "u5ndcrWNGC30yf7NaLmB",
+    "contact.compass_qualification_summary": "A7fg50v96iFqbHXJtLJQ",
+    "contact.compass_last_meaningful_activity": "h5IOMMaTQ3DO7Yd7epBF",
+    "contact.compass_bridge_answers": "14vtqBGFonBgPiBnBrVL",
+    "contact.cq_upload": "g0OyTj0N4KjwrkbHYE4n"
+  },
+  "verification": {
+    "nativeContactFoldersExpandAndCollapse": true,
+    "newFieldsCreated": true,
+    "cqUploadFieldType": "File upload, PDF only",
+    "existingCompletedQuestionnairePdf": "Absent on exact email-matched Randy Law contact; could not open",
+    "productionApiStatus": "Compass displayed GoHighLevel responded 401",
+    "migrationAppliedToProduction": false,
+    "syncEnabledInProduction": false,
+    "liveApiWritesVerified": false,
+    "configuredScopesVerifiedInUi": true
+  },
+  "relevantExistingScopes": [
+    "contacts.readonly",
+    "contacts.write",
+    "locations/customFields.readonly",
+    "locations/customFields.write",
+    "locations/tasks.readonly",
+    "locations/tasks.write",
+    "locations/tags.readonly",
+    "locations/tags.write",
+    "forms.readonly",
+    "forms.write",
+    "users.readonly"
+  ]
+}

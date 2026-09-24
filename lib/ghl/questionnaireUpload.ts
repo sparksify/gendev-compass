@@ -1,6 +1,7 @@
 import { getStore } from "@/lib/store";
 import { getGhlConfig } from "@/lib/config/fdd";
-import { listMappingsForEntity } from "@/lib/domain/mappings";
+import { createHash } from "crypto";
+import { GhlClient } from "./intelligence/client";
 import { renderQuestionnairePdf } from "@/lib/advisor/questionnairePdf";
 import type { LeadRecord } from "@/types/lead";
 
@@ -13,8 +14,7 @@ import type { LeadRecord } from "@/types/lead";
  * break the prospect's flow. Credentials never leave the server.
  *
  * The custom field is resolved by its key (not a hardcoded id) so the
- * integration survives the field being recreated in GoHighLevel; the id is
- * cached per server instance.
+ * integration survives the field being recreated in GoHighLevel.
  */
 
 const GHL_API_BASE = "https://services.leadconnectorhq.com";
@@ -35,73 +35,29 @@ function ghlHeaders(apiToken: string): Record<string, string> {
   };
 }
 
-/** Module-scope cache: locationId -> resolved custom field id. */
-const fieldIdCache = new Map<string, string>();
-
-async function resolveCqUploadFieldId(
-  apiToken: string,
-  locationId: string,
-): Promise<string | null> {
-  const cached = fieldIdCache.get(locationId);
-  if (cached) return cached;
-
-  const response = await fetch(`${GHL_API_BASE}/locations/${locationId}/customFields?model=contact`, {
-    headers: ghlHeaders(apiToken),
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  });
-  if (!response.ok) {
-    throw new Error(`GoHighLevel custom-fields lookup responded ${response.status}`);
+async function resolveCqUploadFieldId(client: GhlClient): Promise<string> {
+  const path = `/locations/${client.locationId}/customFields`;
+  const result = await client.request<{ customFields: Array<{ id: string; fieldKey: string; dataType: string }> }>(`${path}?model=contact`);
+  const fields = result.customFields.filter(f => f.fieldKey === CQ_UPLOAD_FIELD_KEY);
+  if (fields.length > 1) throw new Error("Duplicate contact.cq_upload fields require reconciliation");
+  if (fields[0]) {
+    if (fields[0].dataType !== "FILE_UPLOAD") throw new Error("contact.cq_upload must be FILE_UPLOAD; existing data was not changed");
+    return fields[0].id;
   }
-  const data = (await response.json().catch(() => null)) as {
-    customFields?: Array<{ id?: string; fieldKey?: string }>;
-  } | null;
-  const field = data?.customFields?.find((f) => f.fieldKey === CQ_UPLOAD_FIELD_KEY);
-  if (!field?.id) return null;
-  fieldIdCache.set(locationId, field.id);
-  return field.id;
+  // Only provision a missing field; never convert or delete an existing field.
+  const created = await client.request<{ customField: { id: string; fieldKey: string } }>(path, "POST", {
+    name: "CQ Upload", dataType: "FILE_UPLOAD", model: "contact", acceptedFormat: [".pdf"], isMultipleFile: false,
+  });
+  if (created.customField?.fieldKey !== CQ_UPLOAD_FIELD_KEY) throw new Error("Created PDF field key does not match contact.cq_upload");
+  return created.customField.id;
 }
-
-/** Mapping first (intake registered the contact), else upsert by email. */
-async function resolveGhlContactId(
-  lead: LeadRecord,
-  apiToken: string,
-  locationId: string,
-): Promise<string | null> {
-  if (lead.client_id) {
-    try {
-      const mappings = await listMappingsForEntity(lead.client_id);
-      const mapped = mappings.find(
-        (m) => m.provider === "gohighlevel" && m.entity_type === "client",
-      )?.external_id;
-      if (mapped) return mapped;
-    } catch {
-      // Fall through to the upsert path.
-    }
-  }
-
-  const response = await fetch(`${GHL_API_BASE}/contacts/upsert`, {
-    method: "POST",
-    headers: { ...ghlHeaders(apiToken), "Content-Type": "application/json" },
-    body: JSON.stringify({
-      locationId,
-      firstName: lead.first_name,
-      lastName: lead.last_name,
-      email: lead.email,
-      phone: lead.phone ?? undefined,
-    }),
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  });
-  if (!response.ok) {
-    throw new Error(`GoHighLevel contact upsert responded ${response.status}`);
-  }
-  const data = (await response.json().catch(() => null)) as {
-    contact?: { id?: string };
-  } | null;
-  return data?.contact?.id ?? null;
+function containsFilename(value: unknown, filename: string): boolean {
+  return JSON.stringify(value ?? "").includes(filename);
 }
 
 export async function uploadQuestionnairePdfToGhl(
   lead: LeadRecord,
+  resolvedContactId?: string,
 ): Promise<QuestionnaireUploadResult> {
   const fail = (error: string, extra: Partial<QuestionnaireUploadResult> = {}) => {
     console.error(`[ghl/cq-upload] ${error} (lead ${lead.id})`);
@@ -123,6 +79,7 @@ export async function uploadQuestionnairePdfToGhl(
       return fail("no completed questionnaire on record");
     }
     const latest = submissions[0] ?? null;
+    if (!latest?.answers.length) return fail("Versioned questionnaire snapshot is missing; CRM copy remains pending");
 
     const pdf = await renderQuestionnairePdf({
       lead,
@@ -130,31 +87,25 @@ export async function uploadQuestionnairePdfToGhl(
       submittedAt:
         latest?.submitted_at ?? lead.questionnaire_completed_at ?? questionnaire.created_at,
       questionnaireVersion: latest?.questionnaire_version ?? null,
+      snapshot: latest.answers,
     });
 
-    const [contactId, fieldId] = await Promise.all([
-      resolveGhlContactId(lead, config.apiToken, config.locationId),
-      resolveCqUploadFieldId(config.apiToken, config.locationId),
-    ]);
-    if (!contactId) return fail("could not resolve a GoHighLevel contact for the lead");
-    if (!fieldId) {
-      return fail(
-        `custom field ${CQ_UPLOAD_FIELD_KEY} not found in location ${config.locationId}`,
-        { contactId },
-      );
+    const client = new GhlClient();
+    const contact = resolvedContactId ? await client.contact(resolvedContactId) : await client.resolveContact(lead);
+    const contactId = contact.id;
+    const fieldId = await resolveCqUploadFieldId(client);
+    // Stable filename and file ID make retries reconcilable after a lost reply.
+    const fileId = createHash("sha256").update(latest.id).digest("hex").slice(0,32);
+    const filename = `compass-questionnaire-${latest.id}.pdf`;
+    if (containsFilename(contact.customFields?.find(f => f.id === fieldId)?.value, filename)) {
+      return { ok: true, contactId, fieldId, error: null };
     }
-
-    const safeName = `${lead.first_name}-${lead.last_name}`
-      .toLowerCase()
-      .replace(/[^a-z0-9-]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-    const filename = `investor-qualification-${safeName || lead.id}.pdf`;
 
     const form = new FormData();
     // ArrayBuffer-backed copy: pdf-lib returns a Uint8Array whose buffer
     // type Blob's constructor is stricter about.
     form.append(
-      fieldId,
+      `${fieldId}_${fileId}`,
       new Blob([new Uint8Array(pdf)], { type: "application/pdf" }),
       filename,
     );
@@ -169,13 +120,16 @@ export async function uploadQuestionnairePdfToGhl(
       },
     );
     if (!upload.ok) {
-      const detail = await upload.text().catch(() => "");
       return fail(
-        `GoHighLevel file upload responded ${upload.status}${detail ? `: ${detail.slice(0, 300)}` : ""}`,
+        `GoHighLevel file upload responded ${upload.status}`,
         { contactId, fieldId },
       );
     }
 
+    const confirmed = await client.contact(contactId);
+    if (!containsFilename(confirmed.customFields?.find(f => f.id === fieldId)?.value, filename)) {
+      return fail("Upload accepted but attachment not visible on contact; retry required", { contactId, fieldId });
+    }
     return { ok: true, contactId, fieldId, error: null };
   } catch (error) {
     return fail(error instanceof Error ? error.message : "unexpected upload failure");

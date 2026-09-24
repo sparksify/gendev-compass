@@ -87,6 +87,7 @@ const STATE_CODES = new Set(US_STATES.map((s) => s.code));
 const US_ZIP = /^\d{5}(-\d{4})?$/;
 
 export const bridgeAssessmentSchema = z.object({
+  submissionId: z.string().uuid().optional(),
   goal: enumOf(GOAL_OPTIONS),
   role: enumOf(ROLE_OPTIONS),
   timeline: enumOf(TIMELINE_OPTIONS),

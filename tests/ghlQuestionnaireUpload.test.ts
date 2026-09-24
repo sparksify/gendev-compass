@@ -1,6 +1,6 @@
 /**
  * uploadQuestionnairePdfToGhl against the dev store with a mocked
- * GoHighLevel API: resolves the contact (upsert fallback), resolves the
+ * GoHighLevel API: resolves the contact (exact location-scoped match), resolves the
  * cq_upload field id by key, and posts the PDF as multipart form data.
  */
 import { mkdtempSync, rmSync } from "fs";
@@ -16,6 +16,7 @@ const originalCwd = process.cwd();
 let store: PortalStore;
 let uploadQuestionnairePdfToGhl: typeof import("@/lib/ghl/questionnaireUpload").uploadQuestionnairePdfToGhl;
 let lead: LeadRecord;
+let submissionId: string;
 
 beforeAll(async () => {
   process.chdir(tmpDir);
@@ -70,6 +71,8 @@ beforeAll(async () => {
     existing_business_entity: "yes",
     prior_business_financing_experience: "no",
   });
+  const submission = await store.createSubmission({lead_id:lead.id,questionnaire_version:"1.1",submitted_at:new Date().toISOString(),answers:[{question_key:"primaryInterest",question_text:"Original interest question?",answer_value:"Freedom.",answer_display_value:"Freedom."}]});
+  submissionId = submission.id;
 });
 
 afterAll(() => {
@@ -96,14 +99,15 @@ describe("uploadQuestionnairePdfToGhl", () => {
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
         calls.push({ url, init });
-        if (url.includes("/contacts/upsert")) {
-          return jsonResponse({ contact: { id: "ghl-contact-1" } });
+        if (url.includes("/contacts/search")) {
+          return jsonResponse({ contacts: [{ id: "ghl-contact-1", email:lead.email, locationId:process.env.GHL_LOCATION_ID }] });
         }
+        if (url.includes("/contacts/ghl-contact-1")) return jsonResponse({contact:{id:"ghl-contact-1",locationId:process.env.GHL_LOCATION_ID,customFields:[{id:"field-cq",value:`compass-questionnaire-${submissionId}.pdf`}]}});
         if (url.includes("/customFields")) {
           return jsonResponse({
             customFields: [
               { id: "field-other", fieldKey: "contact.something_else" },
-              { id: "field-cq", fieldKey: "contact.cq_upload" },
+              { id: "field-cq", fieldKey: "contact.cq_upload", dataType:"FILE_UPLOAD" },
             ],
           });
         }
@@ -127,14 +131,16 @@ describe("uploadQuestionnairePdfToGhl", () => {
     expect(uploadCall?.url).toContain("contactId=ghl-contact-1");
     expect(uploadCall?.url).toContain("locationId=4dwsLmHGWb6ElyIQlZOc");
     const form = uploadCall?.init?.body as FormData;
-    const file = form.get("field-cq") as File;
+    const key = [...form.keys()][0];
+    expect(key).toMatch(/^field-cq_[a-f0-9]{32}$/);
+    const file = form.get(key) as File;
     expect(file).toBeInstanceOf(Blob);
     expect(file.type).toBe("application/pdf");
     expect(file.size).toBeGreaterThan(1000);
-    expect(file.name).toBe("investor-qualification-mark-anthony.pdf");
+    expect(file.name).toBe(`compass-questionnaire-${submissionId}.pdf`);
   });
 
-  it("reports failure without throwing when the cq_upload field is missing", async () => {
+  it("reports failure when a missing PDF field cannot be safely provisioned", async () => {
     // The field-id cache is per location — use a different location so the
     // previous test's cached id does not satisfy the lookup.
     process.env.GHL_LOCATION_ID = "other-location";
@@ -142,9 +148,10 @@ describe("uploadQuestionnairePdfToGhl", () => {
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
-        if (url.includes("/contacts/upsert")) {
-          return jsonResponse({ contact: { id: "ghl-contact-1" } });
+        if (url.includes("/contacts/search")) {
+          return jsonResponse({ contacts: [{ id: "ghl-contact-1", email:lead.email, locationId:process.env.GHL_LOCATION_ID }] });
         }
+        if (url.includes("/contacts/ghl-contact-1")) return jsonResponse({contact:{id:"ghl-contact-1",locationId:process.env.GHL_LOCATION_ID,customFields:[{id:"field-cq",value:`compass-questionnaire-${submissionId}.pdf`}]}});
         if (url.includes("/customFields")) {
           return jsonResponse({ customFields: [] });
         }
@@ -154,7 +161,7 @@ describe("uploadQuestionnairePdfToGhl", () => {
 
     const result = await uploadQuestionnairePdfToGhl(lead);
     expect(result.ok).toBe(false);
-    expect(result.error).toContain("cq_upload");
+    expect(result.error).toContain("contact.cq_upload");
     process.env.GHL_LOCATION_ID = "4dwsLmHGWb6ElyIQlZOc";
   });
 });

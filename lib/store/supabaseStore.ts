@@ -9,8 +9,6 @@ import type { FddAuditInsert, FddAuditRecord } from "@/types/fdd";
 import type {
   AdvisorNoteRecord,
   AppointmentRecord,
-  QuestionnaireAnswerRecord,
-  QuestionnaireSubmissionRecord,
   QuestionnaireSubmissionWithAnswers,
   StaffSessionRecord,
   StaffUserRecord,
@@ -84,12 +82,35 @@ export function createSupabaseStore(): PortalStore {
   const db = getSupabaseAdmin();
 
   return {
+    async claimIntelligence() {
+      const { data, error } = await db.rpc("compass_claim");
+      if (error) throw new Error(`CRM outbox claim failed: ${error.message}`);
+      return data?.[0] ?? null;
+    },
+    async checkpointIntelligence(claim, external) {
+      const { data, error } = await db.from("compass_intelligence_sync").update({ external })
+        .eq("lead_id", claim.lead_id).eq("lease_token", claim.lease_token).select("lead_id").single();
+      if (error || !data) throw new Error("CRM outbox lease lost during checkpoint");
+    },
+    async finishIntelligence(claim, failure) {
+      const { error } = await db.from("compass_intelligence_sync").update({
+        ...(failure ? {} : { synced_revision: claim.revision }),
+        retry_count: failure ? (claim.retry_count ?? 0) + 1 : 0,
+        last_error: failure ?? null, lease_token: null, lease_until: null,
+        next_attempt_at: new Date(Date.now() + (failure ? Math.min(86400, 60 * 2 ** Math.min(claim.retry_count ?? 0, 10)) * 1000 : 0)).toISOString(),
+      }).eq("lead_id", claim.lead_id).eq("lease_token", claim.lease_token);
+      if (error) throw new Error(`CRM outbox finish failed: ${error.message}`);
+    },
     async createLead(input: CreateLeadRecordInput): Promise<LeadRecord> {
       const { data, error } = await db
         .from("leads")
         .insert({ ...input, status: "created" })
         .select()
         .single();
+      if (error?.code === "23505" && input.bridge_submission_key) {
+        const { data: retry, error: lookup } = await db.from("leads").select().eq("bridge_submission_key", input.bridge_submission_key).single();
+        if (!lookup && retry) return retry as LeadRecord;
+      }
       if (error) throw new Error(`Failed to create lead: ${error.message}`);
       return data as LeadRecord;
     },
@@ -228,7 +249,8 @@ export function createSupabaseStore(): PortalStore {
     },
 
     async insertEvent(leadId, eventName, eventData, pageUrl, options?: InsertEventOptions): Promise<void> {
-      const { error } = await db.from("portal_events").insert({
+      const { error } = await db.from("portal_events").upsert({
+        event_key: options?.eventKey ?? null,
         lead_id: leadId,
         event_name: eventName,
         event_data: eventData,
@@ -236,9 +258,10 @@ export function createSupabaseStore(): PortalStore {
         event_source: options?.source ?? "portal",
         created_by_staff_user_id: options?.staffUserId ?? null,
         occurred_at: options?.occurredAt ?? null,
-      });
+      }, { onConflict: "lead_id,event_key", ignoreDuplicates: true });
       if (error) {
-        // Event logging must never break the user flow.
+        if (options?.strict) throw new Error(`Required event persistence failed: ${error.message}`);
+        // Optional analytics logging must never break the user flow.
         console.error(`Failed to insert portal event ${eventName}: ${error.message}`);
       }
     },
@@ -520,28 +543,9 @@ export function createSupabaseStore(): PortalStore {
     },
 
     async createSubmission(input: CreateSubmissionInput): Promise<QuestionnaireSubmissionWithAnswers> {
-      const { data, error } = await db
-        .from("questionnaire_submissions")
-        .insert({
-          lead_id: input.lead_id,
-          questionnaire_version: input.questionnaire_version,
-          submitted_at: input.submitted_at,
-          organization_id: input.organization_id ?? null,
-          client_id: input.client_id ?? null,
-          opportunity_id: input.opportunity_id ?? null,
-          brand_id: input.brand_id ?? null,
-        })
-        .select()
-        .single();
-      if (error) throw new Error(`Failed to create submission: ${error.message}`);
-      const submission = data as QuestionnaireSubmissionRecord;
-
-      const { data: answers, error: answersError } = await db
-        .from("questionnaire_answers")
-        .insert(input.answers.map((a) => ({ ...a, submission_id: submission.id })))
-        .select();
-      if (answersError) throw new Error(`Failed to store answers: ${answersError.message}`);
-      return { ...submission, answers: (answers as QuestionnaireAnswerRecord[]) ?? [] };
+      const { data, error } = await db.rpc("compass_save_submission", { p_input: input });
+      if (error) throw new Error(`Failed to store submission: ${error.message}`);
+      return data as QuestionnaireSubmissionWithAnswers;
     },
 
     async getSubmissionsForLead(leadId: string): Promise<QuestionnaireSubmissionWithAnswers[]> {

@@ -22,6 +22,8 @@ import type { ActivityEventRecord } from "@/types/domain";
  */
 
 export interface RecordLeadEventOptions {
+  eventKey?: string;
+  strict?: boolean;
   /** portal | staff | webhook_calendar | webhook_fdd | system … */
   source?: string;
   staffUserId?: string | null;
@@ -45,6 +47,8 @@ export async function recordLeadEvent(
   // Legacy table first — this is what the current dashboard reads and its
   // write path must never be broken by the new table.
   await store.insertEvent(lead.id, eventName, eventData, pageUrl, {
+    eventKey: options.eventKey,
+    strict: options.strict,
     source,
     staffUserId: options.staffUserId ?? null,
     occurredAt: options.occurredAt ?? null,

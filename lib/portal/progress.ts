@@ -1,3 +1,6 @@
+import { verifiedWatch } from "./verifiedWatch";
+import { getBridgeWistiaMediaId } from "@/lib/config/bridge";
+import { getWistiaMediaId } from "@/lib/config/env";
 import { getStore } from "@/lib/store";
 import { getVideoCompletionThreshold } from "@/lib/config/qualification";
 import { statusRank } from "@/lib/store/types";
@@ -85,7 +88,18 @@ export async function applyVideoProgress(
   const completed = alreadyCompleted || meetsThreshold;
   const completedNow = completed && !alreadyCompleted;
 
+  const evidence = { ...existing?.verified_watch };
+  const uniquePercent = verifiedWatch(update.secondsWatched, update.duration);
+  const mediaId = update.mediaId;
+  if (mediaId && [getBridgeWistiaMediaId(), getWistiaMediaId()].includes(mediaId) && uniquePercent !== null) {
+    const previous = evidence[mediaId];
+    if (!previous || uniquePercent > previous.percent) evidence[mediaId] = {
+      percent: uniquePercent, seconds: update.secondsWatched!, duration: update.duration, at: now.toISOString(),
+    };
+  }
+
   const progress = await store.upsertVideoProgress(lead.id, {
+    verified_watch: evidence,
     wistia_media_id: update.mediaId ?? existing?.wistia_media_id ?? null,
     highest_percent_watched: highestPercent,
     accumulated_seconds_watched: accumulated,

@@ -82,6 +82,7 @@ export type PortalEventName =
   | "lead_review_required";
 
 export interface PortalEventRecord {
+  event_key?: string;
   id: string;
   lead_id: string;
   event_name: string;

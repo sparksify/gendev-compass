@@ -3,6 +3,8 @@ export interface VideoProgressRecord {
   lead_id: string;
   wistia_media_id: string | null;
   highest_percent_watched: number;
+  /** New unique-watch evidence only; legacy rows stay unverified. Per media. */
+  verified_watch?: Record<string, { percent: number; seconds: number; duration: number; at: string }>;
   accumulated_seconds_watched: number;
   last_playhead_position: number;
   started: boolean;

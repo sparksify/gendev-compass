@@ -1,3 +1,5 @@
+import { refreshDevQueue, claimDevQueue } from "@/lib/ghl/intelligence/devQueue";
+import type { IntelligenceState } from "@/lib/ghl/intelligence/types";
 import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
@@ -87,6 +89,7 @@ import type {
  */
 
 interface DevData {
+  compass_intelligence_sync: IntelligenceState[];
   leads: LeadRecord[];
   video_progress: VideoProgressRecord[];
   questionnaire_responses: QuestionnaireRecord[];
@@ -130,6 +133,7 @@ const DATA_DIR = path.join(process.cwd(), ".dev-data");
 const DATA_FILE = path.join(DATA_DIR, "store.json");
 
 const EMPTY: DevData = {
+  compass_intelligence_sync: [],
   leads: [],
   video_progress: [],
   questionnaire_responses: [],
@@ -267,6 +271,8 @@ async function readData(): Promise<DevData> {
 }
 
 async function writeData(data: DevData): Promise<void> {
+  data.compass_intelligence_sync ??= [];
+  refreshDevQueue(data);
   await fs.mkdir(DATA_DIR, { recursive: true });
   await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2), "utf8");
 }
@@ -285,9 +291,40 @@ function nowIso(): string {
 
 export function createDevStore(): PortalStore {
   return {
+    async claimIntelligence() {
+      return withLock(async () => {
+        const data = await readData();
+        data.compass_intelligence_sync ??= [];
+        refreshDevQueue(data);
+        const result = claimDevQueue(data.compass_intelligence_sync);
+        await writeData(data); return result;
+      });
+    },
+    async checkpointIntelligence(claim, external) {
+      await withLock(async () => {
+        const data = await readData();
+        const row = data.compass_intelligence_sync.find(x => x.lead_id === claim.lead_id && x.lease_token === claim.lease_token);
+        if (!row) throw new Error("CRM outbox lease lost");
+        row.external = external; await writeData(data);
+      });
+    },
+    async finishIntelligence(claim, failure) {
+      await withLock(async () => {
+        const data = await readData();
+        const row = data.compass_intelligence_sync.find(x => x.lead_id === claim.lead_id && x.lease_token === claim.lease_token);
+        if (!row) throw new Error("CRM outbox lease lost");
+        if (!failure) row.synced_revision = claim.revision;
+        row.retry_count = failure ? (claim.retry_count ?? 0) + 1 : 0;
+        row.last_error = failure ?? null; row.lease_token = null; row.lease_until = null;
+        row.next_attempt_at = new Date(Date.now() + (failure ? Math.min(86400, 60 * 2 ** Math.min(claim.retry_count ?? 0, 10)) * 1000 : 0)).toISOString();
+        await writeData(data);
+      });
+    },
     async createLead(input: CreateLeadRecordInput): Promise<LeadRecord> {
       return withLock(async () => {
         const data = await readData();
+        const retry = input.bridge_submission_key && data.leads.find(l => l.bridge_submission_key === input.bridge_submission_key);
+        if (retry) return retry;
         const lead: LeadRecord = {
           id: randomUUID(),
           state: null,
@@ -405,6 +442,11 @@ export function createDevStore(): PortalStore {
           };
           data.video_progress.push(record);
         }
+        if (patch.verified_watch) {
+          for (const [key, value] of Object.entries(record.verified_watch ?? {})) {
+            if ((patch.verified_watch[key]?.percent ?? -1) < value.percent) patch.verified_watch[key] = value;
+          }
+        }
         Object.assign(record, patch, { updated_at: nowIso() });
         await writeData(data);
         return record;
@@ -489,7 +531,9 @@ export function createDevStore(): PortalStore {
     async insertEvent(leadId, eventName, eventData, pageUrl, options?: InsertEventOptions): Promise<void> {
       await withLock(async () => {
         const data = await readData();
+        if (options?.eventKey && data.portal_events.some(e => e.lead_id === leadId && e.event_key === options.eventKey)) return;
         data.portal_events.push({
+          event_key: options?.eventKey,
           id: randomUUID(),
           lead_id: leadId,
           event_name: eventName,
@@ -791,6 +835,8 @@ export function createDevStore(): PortalStore {
     async createSubmission(input: CreateSubmissionInput): Promise<QuestionnaireSubmissionWithAnswers> {
       return withLock(async () => {
         const data = await readData();
+        const existing = data.questionnaire_submissions.find(s => s.lead_id === input.lead_id && s.questionnaire_version === input.questionnaire_version);
+        if (existing) return { ...existing, answers: data.questionnaire_answers.filter(a => a.submission_id === existing.id) };
         const submission: QuestionnaireSubmissionRecord = {
           id: randomUUID(),
           lead_id: input.lead_id,
