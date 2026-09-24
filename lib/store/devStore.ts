@@ -7,6 +7,8 @@ import type { LeadRecord } from "@/types/lead";
 import type { QuestionnaireRecord } from "@/types/questionnaire";
 import type { VideoProgressRecord } from "@/types/portal";
 import type {
+  BridgeVisitInput,
+  BridgeVisitRecord,
   AppointmentPatch,
   CreateAppointmentInput,
   CreateFranchiseBrandInput,
@@ -90,6 +92,7 @@ interface DevData {
   questionnaire_responses: QuestionnaireRecord[];
   ownership_profiles: OwnershipProfileDbRecord[];
   portal_events: PortalEventRecord[];
+  bridge_visits: BridgeVisitRecord[];
   staff_users: StaffUserRecord[];
   staff_sessions: StaffSessionRecord[];
   questionnaire_submissions: QuestionnaireSubmissionRecord[];
@@ -132,6 +135,7 @@ const EMPTY: DevData = {
   questionnaire_responses: [],
   ownership_profiles: [],
   portal_events: [],
+  bridge_visits: [],
   staff_users: [],
   staff_sessions: [],
   questionnaire_submissions: [],
@@ -906,6 +910,24 @@ export function createDevStore(): PortalStore {
       return (await readData()).portal_events
         .filter((e) => e.lead_id === leadId)
         .sort((a, b) => b.created_at.localeCompare(a.created_at));
+    },
+
+    async listEventsByName(eventName: string, options?: { since?: string }): Promise<PortalEventRecord[]> {
+      return (await readData()).portal_events
+        .filter((e) => e.event_name === eventName && (!options?.since || e.created_at >= options.since))
+        .sort((a, b) => b.created_at.localeCompare(a.created_at));
+    },
+
+    async recordBridgeVisit(input: BridgeVisitInput): Promise<void> {
+      await withLock(async () => {
+        const data = await readData();
+        data.bridge_visits.push({ id: randomUUID(), ...input, created_at: nowIso() });
+        await writeData(data);
+      });
+    },
+
+    async countBridgeVisitsSince(sinceIso: string): Promise<number | null> {
+      return (await readData()).bridge_visits.filter((v) => v.created_at >= sinceIso).length;
     },
 
     // -----------------------------------------------------------------------

@@ -71,6 +71,27 @@ describe("recent acquisition funnel", () => {
     expect(funnel.portalWithoutBridge).toBe(1);
   });
 
+  it("counts an anonymous bridge signup as the bridge being opened, and the assessment", () => {
+    const converted = row({ source: "bridge", facebook_lead_id: null });
+    const funnel = buildRecentAcquisitionFunnel(
+      [converted],
+      new Map([["lead-1", [event("lead-1", "bridge_assessment_submitted")]]]),
+      new Date("2026-09-15T13:00:00.000Z"),
+      24,
+      { bridgeVisits: 43 },
+    );
+
+    expect(funnel.bridgeOpened).toBe(1);
+    expect(funnel.assessmentSubmitted).toBe(1);
+    expect(funnel.portalWithoutBridge).toBe(0);
+    expect(funnel.bridgeVisits).toBe(43);
+  });
+
+  it("reports bridge views as unavailable rather than zero when the table is missing", () => {
+    const funnel = buildRecentAcquisitionFunnel([], new Map(), new Date("2026-09-15T13:00:00.000Z"));
+    expect(funnel.bridgeVisits).toBeNull();
+  });
+
   it("recognizes Facebook attribution from provider IDs or source fields", () => {
     expect(isFacebookAttributed(row())).toBe(true);
     expect(isFacebookAttributed(row({ facebook_lead_id: null, source: "facebook-lead-ad" }))).toBe(

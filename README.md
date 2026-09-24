@@ -152,6 +152,15 @@ first-party on `bridge_assessment_submitted` (a coarse
 `initial_liquid_capital` are filled when empty, and the portal questionnaire
 draft is seeded with the location so nothing is typed twice.
 
+**Where advisors see it.** Anonymous opens of `/watch` are counted in
+`bridge_visits` (migration `0018_bridge_visits.sql` — apply it with
+`supabase db push`; until then the "Bridge views" metric reads "—"). The
+Clients page's follow-through panel shows bridge views, bridge opened
+(personal link or an anonymous signup), and assessments submitted; rows with
+an assessment carry a **FIT** tag next to the source. Each client's detail
+page has a "Fit Assessment" card with every answer, and the Questionnaires
+page lists all fit assessments below the qualification questionnaires.
+
 - Wistia media ID defaults in `lib/config/bridge.ts`; override with
   `NEXT_PUBLIC_BRIDGE_WISTIA_MEDIA_ID`.
 - Questions, options, and the fit rule live in `lib/bridge/assessment.ts`.

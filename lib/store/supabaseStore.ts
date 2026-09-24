@@ -16,6 +16,7 @@ import type {
   StaffUserRecord,
 } from "@/types/advisor";
 import type {
+  BridgeVisitInput,
   AppointmentPatch,
   CreateAppointmentInput,
   CreateFranchiseBrandInput,
@@ -636,6 +637,39 @@ export function createSupabaseStore(): PortalStore {
         .order("created_at", { ascending: false });
       if (error) throw new Error(`Failed to load events: ${error.message}`);
       return (data as PortalEventRecord[]) ?? [];
+    },
+
+    async listEventsByName(eventName: string, options?: { since?: string }): Promise<PortalEventRecord[]> {
+      let query = db
+        .from("portal_events")
+        .select()
+        .eq("event_name", eventName)
+        .order("created_at", { ascending: false });
+      if (options?.since) query = query.gte("created_at", options.since);
+      const { data, error } = await query;
+      if (error) throw new Error(`Failed to load ${eventName} events: ${error.message}`);
+      return (data as PortalEventRecord[]) ?? [];
+    },
+
+    async recordBridgeVisit(input: BridgeVisitInput): Promise<void> {
+      const { error } = await db.from("bridge_visits").insert(input);
+      if (error) {
+        // A page view must never break the page — and a missing table (migration
+        // 0018 not yet applied) is the likeliest error here.
+        console.error(`Failed to record bridge visit: ${error.message}`);
+      }
+    },
+
+    async countBridgeVisitsSince(sinceIso: string): Promise<number | null> {
+      const { count, error } = await db
+        .from("bridge_visits")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", sinceIso);
+      if (error) {
+        console.error(`Failed to count bridge visits: ${error.message}`);
+        return null;
+      }
+      return count ?? 0;
     },
 
     // -----------------------------------------------------------------------

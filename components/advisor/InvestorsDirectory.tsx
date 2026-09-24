@@ -125,7 +125,15 @@ export async function InvestorsDirectory({
       async (row) => [row.lead.id, await store.getEventsForLead(row.lead.id)] as const,
     ),
   );
-  const recentFunnel = buildRecentAcquisitionFunnel(allRows, new Map(recentEvents));
+  const recentIso = new Date(recentCutoff).toISOString();
+  const [bridgeVisits, assessmentEvents] = await Promise.all([
+    store.countBridgeVisitsSince(recentIso).catch(() => null),
+    store.listEventsByName("bridge_assessment_submitted").catch(() => []),
+  ]);
+  const assessedLeadIds = new Set(assessmentEvents.map((event) => event.lead_id));
+  const recentFunnel = buildRecentAcquisitionFunnel(allRows, new Map(recentEvents), new Date(), 24, {
+    bridgeVisits,
+  });
 
   const view = param(params, "view") === "board" ? "board" : "list";
   const q = param(params, "q");
@@ -538,6 +546,14 @@ export async function InvestorsDirectory({
                             <span className="text-[12px] text-faint-foreground">—</span>
                           );
                         })()}
+                        {assessedLeadIds.has(row.lead.id) && (
+                          <span
+                            title="Fit assessment submitted on the bridge page"
+                            className="ml-1 inline-flex rounded-[6px] border border-accent-soft-border bg-accent-soft px-1.5 py-0.5 text-[10px] font-bold tracking-[0.03em] text-accent-strong"
+                          >
+                            FIT
+                          </span>
+                        )}
                       </span>
 
                       <span>

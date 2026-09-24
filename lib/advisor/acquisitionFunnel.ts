@@ -5,7 +5,15 @@ export interface RecentAcquisitionFunnel {
   windowHours: number;
   newLeads: number;
   facebookAttributed: number;
+  /**
+   * Anonymous opens of /watch in the window (bridge_visits, not per lead).
+   * null when the table is unavailable — the migration has not been applied.
+   */
+  bridgeVisits: number | null;
+  /** Leads who reached the bridge: opened their personal link, or converted on the anonymous page. */
   bridgeOpened: number;
+  /** Leads who submitted the fit assessment (either page). */
+  assessmentSubmitted: number;
   portalOpened: number;
   portalWithoutBridge: number;
   videoStarted: number;
@@ -42,12 +50,14 @@ export function buildRecentAcquisitionFunnel(
   eventsByLead: ReadonlyMap<string, PortalEventRecord[]>,
   now: Date = new Date(),
   windowHours = 24,
+  extras: { bridgeVisits?: number | null } = {},
 ): RecentAcquisitionFunnel {
   const cutoff = now.getTime() - windowHours * 3_600_000;
   const recent = rows.filter((row) => new Date(row.lead.created_at).getTime() >= cutoff);
 
   let facebookAttributed = 0;
   let bridgeOpened = 0;
+  let assessmentSubmitted = 0;
   let portalOpened = 0;
   let portalWithoutBridge = 0;
   let videoStarted = 0;
@@ -57,7 +67,11 @@ export function buildRecentAcquisitionFunnel(
 
   for (const row of recent) {
     const events = eventsByLead.get(row.lead.id) ?? [];
-    const bridge = hasEvent(events, "bridge_opened");
+    const assessed = hasEvent(events, "bridge_assessment_submitted");
+    // An anonymous visitor only becomes a lead by finishing the assessment on
+    // the bridge, so a "bridge" source or a submitted assessment is proof the
+    // bridge was opened even though no personal link was involved.
+    const bridge = hasEvent(events, "bridge_opened") || assessed || row.lead.source === "bridge";
     const portal = Boolean(row.lead.portal_first_opened_at) || hasEvent(events, "portal_opened");
     const started =
       Boolean(row.lead.video_started_at) ||
@@ -70,6 +84,7 @@ export function buildRecentAcquisitionFunnel(
 
     if (isFacebookAttributed(row)) facebookAttributed += 1;
     if (bridge) bridgeOpened += 1;
+    if (assessed) assessmentSubmitted += 1;
     if (portal) portalOpened += 1;
     if (portal && !bridge) portalWithoutBridge += 1;
     if (started) videoStarted += 1;
@@ -82,7 +97,9 @@ export function buildRecentAcquisitionFunnel(
     windowHours,
     newLeads: recent.length,
     facebookAttributed,
+    bridgeVisits: extras.bridgeVisits ?? null,
     bridgeOpened,
+    assessmentSubmitted,
     portalOpened,
     portalWithoutBridge,
     videoStarted,

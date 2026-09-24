@@ -2,10 +2,12 @@ import { AlertTriangle } from "lucide-react";
 import { Panel } from "@/components/advisor/v3";
 import type { RecentAcquisitionFunnel as Funnel } from "@/lib/advisor/acquisitionFunnel";
 
-function Metric({ label, value, note }: { label: string; value: number; note: string }) {
+function Metric({ label, value, note }: { label: string; value: number | null; note: string }) {
   return (
     <div className="min-w-0 border-l border-border-soft pl-3 first:border-l-0 first:pl-0 sm:pl-4">
-      <p className="tabular text-[24px] font-extrabold leading-none text-foreground">{value}</p>
+      <p className="tabular text-[24px] font-extrabold leading-none text-foreground">
+        {value === null ? <span className="text-ghost-foreground">—</span> : value}
+      </p>
       <p className="mt-1 text-[12px] font-bold text-secondary-foreground">{label}</p>
       <p className="mt-0.5 text-[10.5px] leading-snug text-muted-foreground">{note}</p>
     </div>
@@ -27,9 +29,19 @@ export function RecentAcquisitionFunnel({ funnel }: { funnel: Funnel }) {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-y-4 sm:grid-cols-3 lg:grid-cols-7">
+      <div className="grid grid-cols-2 gap-y-4 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9">
+        <Metric
+          label="Bridge views"
+          value={funnel.bridgeVisits}
+          note={
+            funnel.bridgeVisits === null
+              ? "Needs migration 0018"
+              : "Anyone on /watch · not per lead"
+          }
+        />
         <Metric label="New leads" value={funnel.newLeads} note="Created in Compass" />
-        <Metric label="Bridge opened" value={funnel.bridgeOpened} note="Personal /watch link" />
+        <Metric label="Bridge opened" value={funnel.bridgeOpened} note="Personal link or bridge signup" />
+        <Metric label="Assessment done" value={funnel.assessmentSubmitted} note="Fit assessment submitted" />
         <Metric label="Portal opened" value={funnel.portalOpened} note="Research Center" />
         <Metric label="Video play" value={funnel.videoStarted} note="Play was clicked" />
         <Metric label="Watched 1%+" value={funnel.measurableVideo} note="Progress confirmed" />
