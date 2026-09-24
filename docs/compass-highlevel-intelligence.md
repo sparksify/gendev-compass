@@ -1,6 +1,6 @@
 # Compass Intelligence V1
 
-Implementation is complete locally; **production activation is pending**. On September 24, 2026, both folders and all nine new fields were created in the CMDT HighLevel location and expanded in the actual contact left panel. The production Compass contact view currently reports **HighLevel HTTP 401**. No production database migration or application deployment was performed.
+Production activation completed on September 24, 2026. The database migration is applied, the sync is enabled, deployment `dpl_3x5cuZV7fg7QdsrdedhTw5HHzpmf` is live, and Leslie Ceazer's selected activity-rich Compass record completed a manual backfill with no retry or error. The HighLevel contact now shows the Compass summary and answer fields, a bridge note, a namespaced tag, and one assigned follow-up task.
 
 ## Live observations
 
@@ -9,7 +9,7 @@ Implementation is complete locally; **production activation is pending**. On Sep
 - `Compass Intelligence` and `Compass Answers` are separate native, collapsible contact folders. Eight short summary fields occupy the first; one multiline full short-assessment field occupies the second.
 - Existing `contact.cq_upload`: `g0OyTj0N4KjwrkbHYE4n`, File Upload, PDF-only, in Contact. It was preserved.
 - The latest completed questionnaire inspected in Compass belonged to Randy Law. Searching the configured HighLevel location for the exact email returned one contact, `jEXDCVEK8ATooGS7dl1a`. Its CQ Upload field was empty. **The existing PDF did not pass the live availability/open check.** No prospect data was manually entered or copied during this inspection.
-- GenDev Compass private integration exists (`6a72957608a3278e62af82d2`). Its selected scopes include contact read/write, location custom-field/task/tag read/write, forms read/write and user read. These configured scopes were inspected without saving changes; runtime acceptance remains unverified. Credentials were not rotated or exposed. A production environment export was rejected by automatic approval review because it would copy all secrets locally.
+- GenDev Compass private integration exists (`6a72957608a3278e62af82d2`). Its prior credential was revoked by the August 26 token rotation; the failing request was `GET /contacts/?locationId=…&query=…&limit=1` and Compass displayed `GoHighLevel responded 401.` After the production token was replaced and redeployed, runtime contact, note, task, tag, field, user, and write calls succeeded. No token or secret value was logged or copied into documentation.
 
 The non-secret IDs are recorded in `compass-highlevel-live.json`. Runtime resolves fields by key, not these IDs.
 
@@ -50,7 +50,7 @@ A cancelled booking allows follow-up again. Completed advisor tasks remain compl
 
 Owner policy: `GHL_COMPASS_OWNER_POLICY=contact-owner` uses the existing contact owner, falling back to `GHL_COMPASS_DARKO_USER_ID`. `darko` always uses that configured ID. The worker validates membership in the configured HighLevel location and fails visibly rather than assigning an unowned task.
 
-Namespaced tags defined in code (applied through the dedicated add-tags API on successful activation, not yet applied live):
+Namespaced tags defined in code and applied through the dedicated add-tags API:
 
 - `Compass: Fit Assessment Complete`
 - `Compass: High Intent`
@@ -117,21 +117,20 @@ Task: CALL NOW — Bridge assessment + overview engagement
 
 After the longer questionnaire: status becomes Questionnaire Complete; its submitted time and full-note/PDF locations are shown; the same task becomes a review/call task unless booked. Bridge answers remain separate.
 
-## Short production activation checklist
+## Production activation record
 
-1. Restore valid **existing** server-side HighLevel credentials for the CMDT location. Confirm contact read/write (including notes/tasks/tags), location custom-field read/write, user read, and forms/file-upload access with the correct token type. Do not grant unrelated scopes. `npx tsx scripts/check-compass-ghl.ts` checks field keys/types and location users without logging credentials; write scopes still need the test below.
-2. Apply `20260924164118_compass_intelligence.sql` after existing migrations. Deploy this checkout's code. Preserve the pre-existing working-tree changes. Set `GHL_COMPASS_OWNER_POLICY`, `GHL_COMPASS_DARKO_USER_ID=jVf10AiOgjbh9AzMmB58`, and the existing `CRON_SECRET`; then enable `GHL_COMPASS_ENABLED=true`.
-3. On one controlled contact, submit assessment only, replay it, then watch >=30% without seeking. Verify one assigned task upgrades, all short answers are readable, and unrelated tags/fields/pipeline are unchanged. Submit the long questionnaire; verify every answer in notes and **open the CQ Upload PDF**. Book and verify task suppression. Simulate a transient rejection, run the cron, and verify recovery without duplicates.
-4. Review `compass_intelligence_sync.last_error` / `retry_count` until clear. For historical contacts, explicitly enqueue only the chosen lead IDs using `select compass_enqueue('<lead uuid>', 'manual-backfill:2026-09-24');`. There is no automatic bulk historical task creation or fabricated watch/visit backfill.
+1. `20260924164118_compass_intelligence.sql` was applied successfully to production.
+2. `GHL_COMPASS_OWNER_POLICY=contact-owner`, the verified Darko fallback ID, and `GHL_COMPASS_ENABLED=true` were set for production; the existing secret values were left unchanged.
+3. The tested release was deployed and aliased to `www.gendevcompass.com`.
+4. Compass lead `af5042d0-f56b-4b82-870e-59f1eb03b010` was explicitly queued. Revision 1 reached synced revision 1 with retry count 0 and `last_error` null. It resolved HighLevel contact `7eUZOUC42XBFF852Nysf` in the configured location and created one task and one bridge note.
 
 For an ambiguous create, inspect that contact for the exact marker. If found, leave it in place and retry; the worker adopts its ID. Only after confirming the prior request did not create anything should an operator clear that specific `external.pendingCreates` entry. Do not clear all external state or delete unrelated tasks/notes.
 
 ## Verification
 
-- Full Vitest suite: 295 tests passed across 30 files (including assessment-only/high-intent/questionnaire/booked/retry/matching/replay cases).
+- Full Vitest suite: 297 tests passed across 31 files (including assessment-only/high-intent/questionnaire/booked/retry/matching/replay cases).
 - Production Next.js build passed; TypeScript passed.
 - Temporary PostgreSQL migration harness passed: migration applies twice, source enqueue is atomic, duplicate events do not increment work, claims are exclusive, stale watch updates cannot regress, submissions replay without losing answers, anon/authenticated roles cannot access the outbox/RPCs.
-- Native HighLevel folder creation, field keys/types and expansion were verified in the browser; Darko identity and the missing live CQ PDF were checked.
-- **Still unverified:** corrected authenticated API writes, scopes actually accepted by the runtime token, PDF opens after repair, live cron recovery, production database migration/deployment. Production sync remains disabled pending those steps.
+- Native HighLevel folder creation, field keys/types, runtime writes, bridge note, tag, and Leslie follow-up task were verified in the browser. Leslie has no completed long investor questionnaire, so no CQ Upload PDF is expected for this backfill; a future completed-questionnaire contact remains the live PDF-open test case.
 
 References: [Wistia unique watch properties](https://docs.wistia.com/docs/player-attributes-and-properties), [HighLevel file-upload format](https://marketplace.gohighlevel.com/docs/ghl/forms/upload-to-custom-fields/), [HighLevel task API](https://marketplace.gohighlevel.com/docs/ghl/contacts/create-task/).

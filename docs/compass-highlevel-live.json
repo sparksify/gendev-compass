@@ -24,10 +24,10 @@
     "newFieldsCreated": true,
     "cqUploadFieldType": "File upload, PDF only",
     "existingCompletedQuestionnairePdf": "Absent on exact email-matched Randy Law contact; could not open",
-    "productionApiStatus": "Compass displayed GoHighLevel responded 401",
-    "migrationAppliedToProduction": false,
-    "syncEnabledInProduction": false,
-    "liveApiWritesVerified": false,
+    "productionApiStatus": "Authenticated runtime calls succeeded after the rotated token was replaced",
+    "migrationAppliedToProduction": true,
+    "syncEnabledInProduction": true,
+    "liveApiWritesVerified": true,
     "configuredScopesVerifiedInUi": true
   },
   "relevantExistingScopes": [
