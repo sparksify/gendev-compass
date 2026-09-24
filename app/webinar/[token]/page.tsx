@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { CalendarDays, ExternalLink } from "lucide-react";
 import { getStore } from "@/lib/store";
 import { getCalendarEmbedUrl } from "@/lib/config/env";
 import { CMDT_OVERVIEW_REGISTRATION_URL } from "@/lib/config/webinar";
 import { InvalidPortal } from "@/components/portal/InvalidPortal";
+import { ZoomRegistrationCard } from "@/components/webinar/ZoomRegistrationCard";
 
 export const metadata: Metadata = {
   title: "Reserve Your Spot | CMDT Live Overview",
@@ -48,28 +48,13 @@ export default async function WebinarRegistrationPage({
           </p>
         </header>
 
-        <section aria-label="Register for the live overview" className="mt-8 rounded-card border border-border bg-card p-3 shadow-card sm:p-6">
-          <div className="mb-4 flex items-center gap-3 border-b border-border pb-4 text-sidebar">
-            <CalendarDays className="size-5 shrink-0 text-accent-gold" aria-hidden="true" />
-            <h2 className="font-serif text-xl">Reserve your spot</h2>
-          </div>
-          <iframe
-            title="Zoom registration for the CMDT live franchise overview"
-            src={CMDT_OVERVIEW_REGISTRATION_URL}
-            className="h-[950px] w-full rounded-md border border-border sm:h-[830px]"
-            referrerPolicy="strict-origin-when-cross-origin"
+        <section aria-label="Register for the live overview" className="mt-8">
+          <ZoomRegistrationCard
+            token={token}
+            firstName={lead.first_name}
+            email={lead.email}
+            fallbackUrl={CMDT_OVERVIEW_REGISTRATION_URL}
           />
-          <p className="mt-3 text-sm text-muted-foreground">
-            If the form doesn’t load, {" "}
-            <a
-              href={CMDT_OVERVIEW_REGISTRATION_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 font-semibold text-primary underline underline-offset-2"
-            >
-              open registration on Zoom <ExternalLink className="size-3.5" aria-hidden="true" />
-            </a>.
-          </p>
         </section>
 
         {calendarUrl && (
