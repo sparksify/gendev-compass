@@ -248,6 +248,12 @@ function ClientCard({
         </span>
       </div>
 
+      {row.assessment && (
+        <span className="inline-flex items-center gap-1.5 self-start rounded-pill bg-success-soft px-[9px] py-[3px] text-[11px] font-bold text-success">
+          ✓ Assessment · {row.assessment.fit === "strong" ? "Strong fit" : "Standard fit"}
+        </span>
+      )}
+
       <div className="flex items-center justify-between gap-2">
         <span className="tabular text-[12.5px] font-bold text-foreground">{capital}</span>
         <VideoWatchedRing
