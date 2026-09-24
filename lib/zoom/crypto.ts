@@ -1,9 +1,14 @@
-import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
-import { getZoomTokenEncryptionKey } from "@/lib/config/zoom";
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
+import { getZoomClientSecret, getZoomTokenEncryptionKey } from "@/lib/config/zoom";
 
 function resolveKey(): Buffer | null {
   const raw = getZoomTokenEncryptionKey();
-  if (!raw) return null;
+  if (!raw) {
+    const clientSecret = getZoomClientSecret();
+    return clientSecret
+      ? createHash("sha256").update(`gendev-compass/zoom-token/v1\0${clientSecret}`).digest()
+      : null;
+  }
   try {
     const key = /^[0-9a-fA-F]{64}$/.test(raw) ? Buffer.from(raw, "hex") : Buffer.from(raw, "base64");
     return key.length === 32 ? key : null;

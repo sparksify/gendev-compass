@@ -27,5 +27,5 @@ export function getZoomTokenEncryptionKey(): string | null {
 }
 
 export function zoomOAuthConfigured(): boolean {
-  return Boolean(getZoomClientId() && getZoomClientSecret() && getZoomTokenEncryptionKey());
+  return Boolean(getZoomClientId() && getZoomClientSecret());
 }
