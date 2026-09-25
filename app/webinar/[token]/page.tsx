@@ -6,7 +6,7 @@ import { InvalidPortal } from "@/components/portal/InvalidPortal";
 import { ZoomRegistrationCard } from "@/components/webinar/ZoomRegistrationCard";
 
 export const metadata: Metadata = {
-  title: "Reserve Your Spot | CMDT Live Overview",
+  title: "Your Zoom Registration | CMDT Live Overview",
   robots: { index: false, follow: false },
 };
 
@@ -40,11 +40,11 @@ export default async function WebinarRegistrationPage({
             Your next step
           </p>
           <h1 className="mx-auto mt-3 max-w-[700px] font-serif text-3xl leading-tight text-sidebar sm:text-[42px]">
-            {lead.first_name}, join us live for the CMDT overview
+            {lead.first_name}, you’re on your way to the CMDT overview
           </h1>
           <p className="mx-auto mt-4 max-w-[640px] text-base leading-relaxed text-muted-foreground">
-            Choose an upcoming session below and register for the live franchise overview and Q&amp;A.
-            Zoom will email your personal link after you register.
+            We’re registering you for the live franchise overview and Q&amp;A using the information you already provided.
+            Zoom will email your personal link after registration.
           </p>
         </header>
 

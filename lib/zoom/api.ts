@@ -68,24 +68,28 @@ export async function registerCmdtZoomAttendee(input: {
   firstName: string;
   lastName: string;
   email: string;
-  occurrenceId?: string;
-}): Promise<{ registrantId: string; joinUrl: string }> {
-  const query = input.occurrenceId ? `?occurrence_ids=${encodeURIComponent(input.occurrenceId)}` : "";
-  const response = await zoomFetch(meetingPath(`/registrants${query}`), {
+}): Promise<{ registrantId: string; joinUrl: string | null; alreadyRegistered?: boolean }> {
+  // Register against the recurring meeting itself. The Zoom registrant endpoint
+  // does not document an occurrence_ids query parameter.
+  const response = await zoomFetch(meetingPath("/registrants"), {
     method: "POST",
     body: JSON.stringify({
       first_name: input.firstName,
       last_name: input.lastName,
       email: input.email,
-      auto_approve: true,
     }),
   });
   const body = await response.json().catch(() => null) as {
     id?: string;
     registrant_id?: string;
     join_url?: string;
+    code?: number;
     message?: string;
   } | null;
+  if (!response.ok && (body?.code === 3001 || /already registered/i.test(body?.message ?? ""))) {
+    console.warn("[zoom] prospect was already registered", input.email);
+    return { registrantId: body?.registrant_id ?? body?.id ?? "", joinUrl: null, alreadyRegistered: true };
+  }
   if (!response.ok || !body?.join_url) {
     console.error("[zoom] registrant creation failed", response.status, body?.message ?? "unknown response");
     throw new Error(body?.message || "Zoom registration could not be completed");
