@@ -1,8 +1,27 @@
 import { NextResponse } from "next/server";
 import { requireLead } from "@/lib/portal/api";
-import { registerCmdtZoomAttendee } from "@/lib/zoom/api";
+import { getCmdtZoomMeeting, registerCmdtZoomAttendee } from "@/lib/zoom/api";
 
 export const dynamic = "force-dynamic";
+
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ token: string }> },
+): Promise<NextResponse> {
+  const { token } = await params;
+  const resolved = await requireLead(token);
+  if ("response" in resolved) return resolved.response;
+  try {
+    const meeting = await getCmdtZoomMeeting();
+    return NextResponse.json({ success: true, meeting });
+  } catch (error) {
+    console.error("[zoom] schedule request failed", error);
+    return NextResponse.json(
+      { success: false, error: "The live overview schedule is temporarily unavailable." },
+      { status: 503 },
+    );
+  }
+}
 
 export async function POST(
   request: Request,

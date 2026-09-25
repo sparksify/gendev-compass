@@ -37,14 +37,13 @@ export default async function WebinarRegistrationPage({
       <div className="mx-auto max-w-[850px]">
         <header className="text-center">
           <p className="text-sm font-semibold uppercase tracking-[0.12em] text-accent-gold">
-            Your next step
+            Congratulations
           </p>
           <h1 className="mx-auto mt-3 max-w-[700px] font-serif text-3xl leading-tight text-sidebar sm:text-[42px]">
-            {lead.first_name}, you’re on your way to the CMDT overview
+            {lead.first_name}, you’re approved for the CMDT overview
           </h1>
           <p className="mx-auto mt-4 max-w-[640px] text-base leading-relaxed text-muted-foreground">
-            We’re registering you for the live franchise overview and Q&amp;A using the information you already provided.
-            Zoom will email your personal link after registration.
+            Choose the live Zoom session you’d like to attend. Your information is already filled in below.
           </p>
         </header>
 
@@ -52,6 +51,7 @@ export default async function WebinarRegistrationPage({
           <ZoomRegistrationCard
             token={token}
             firstName={lead.first_name}
+            lastName={lead.last_name}
             email={lead.email}
             fallbackUrl={CMDT_OVERVIEW_REGISTRATION_URL}
           />
