@@ -5,7 +5,7 @@ import { ArrowLeft, ArrowRight, CalendarDays, Compass, Loader2 } from "lucide-re
 import { Progress } from "@/components/ui/progress";
 import { FieldError, Input, Label, NativeSelect, Textarea } from "@/components/ui/form-fields";
 import { US_STATES } from "@/lib/geocoding/states";
-import { pushToDataLayer } from "@/lib/tracking/client";
+import { fireBridgeBrowserEvent } from "@/lib/tracking/client";
 import { cn } from "@/lib/utils";
 import {
   bridgeStepsFor,
@@ -51,6 +51,11 @@ interface Completion {
   portalUrl: string;
   scheduleUrl: string | null;
   fit: FitLevel;
+  zoomRegistration?: {
+    status: "registered" | "already_registered" | "failed" | "not_configured";
+    joinUrl?: string;
+    registrantId?: string;
+  };
 }
 
 /** Long enough to see the selection land, short enough to feel instant. */
@@ -81,6 +86,7 @@ export function FitAssessment({ known }: { known?: KnownBridgeLead }) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [completion, setCompletion] = useState<Completion | null>(null);
   const startedRef = useRef(false);
+  const submissionId = useRef<string | null>(null);
   const mountedRef = useRef(false);
   const advanceTimer = useRef<number | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -124,7 +130,9 @@ export function FitAssessment({ known }: { known?: KnownBridgeLead }) {
     setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
     if (!startedRef.current) {
       startedRef.current = true;
-      pushToDataLayer({ event: "bridge_assessment_started" });
+      fireBridgeBrowserEvent("bridge_assessment_started", "BridgeAssessmentStarted", {
+        identified_lead: Boolean(known),
+      });
     }
   };
 
@@ -213,10 +221,12 @@ export function FitAssessment({ known }: { known?: KnownBridgeLead }) {
       priority: draft.priority,
       notes: draft.notes?.trim() || undefined,
     };
+    submissionId.current ??= crypto.randomUUID();
     const payload = known
       ? answers
       : {
           ...answers,
+          submissionId: submissionId.current,
           firstName: draft.firstName,
           lastName: draft.lastName,
           email: draft.email,
@@ -248,7 +258,10 @@ export function FitAssessment({ known }: { known?: KnownBridgeLead }) {
         setSubmitError(data.error ?? "Something went wrong. Please try again.");
         return;
       }
-      pushToDataLayer({ event: "bridge_assessment_submitted", fit: data.fit ?? "standard" });
+      fireBridgeBrowserEvent("bridge_assessment_submitted", "BridgeAssessmentSubmitted", {
+        fit: data.fit ?? "standard",
+        identified_lead: Boolean(known || data.token),
+      });
       // The lead exists now — the player reports to its history from here on.
       if (data.token) video.report({ token: data.token });
       setCompletion({
@@ -256,6 +269,7 @@ export function FitAssessment({ known }: { known?: KnownBridgeLead }) {
         portalUrl: data.portalUrl,
         scheduleUrl: data.scheduleUrl ?? null,
         fit: data.fit ?? "standard",
+        zoomRegistration: data.zoomRegistration,
       });
     } catch {
       setSubmitError("We couldn’t reach the server. Check your connection and try again.");
@@ -618,6 +632,7 @@ function CompletionScreen({
   completion: Completion;
   headingRef: React.RefObject<HTMLHeadingElement | null>;
 }) {
+  const zoomSuccess = completion.zoomRegistration?.status === "registered" || completion.zoomRegistration?.status === "already_registered";
   const research = {
     key: "research",
     icon: Compass,
@@ -636,8 +651,17 @@ function CompletionScreen({
     href: completion.scheduleUrl ?? "",
     external: true,
   };
+  const zoom = {
+    key: "zoom",
+    icon: CalendarDays,
+    title: completion.zoomRegistration?.status === "already_registered" ? "You’re Already Registered" : "You’re Registered for the Zoom Session",
+    body: "Your registration is confirmed. We’ll use the email you provided to send the session details and reminders.",
+    cta: completion.zoomRegistration?.joinUrl ? "Join the Zoom Session" : "Open My CMDT Research Center",
+    href: completion.zoomRegistration?.joinUrl ?? completion.portalUrl,
+    external: Boolean(completion.zoomRegistration?.joinUrl),
+  };
   // A strong fit leads with the conversation; everyone else leads with research.
-  const cards = (completion.fit === "strong" ? [talk, research] : [research, talk]).filter(
+  const cards = (zoomSuccess ? [zoom, research] : completion.fit === "strong" ? [talk, research] : [research, talk]).filter(
     (card) => card.href,
   );
 

@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { getStore } from "@/lib/store";
 import { generatePortalToken } from "@/lib/portal/tokens";
@@ -11,6 +12,7 @@ import { bridgeAssessmentSchema } from "@/lib/bridge/assessment";
 import { applyAssessmentToLead } from "@/lib/bridge/lead";
 import { applyVideoProgress } from "@/lib/portal/progress";
 import { getBridgeWistiaMediaId } from "@/lib/config/bridge";
+import { registerZoomMeetingRegistrant } from "@/lib/zoom/registration";
 
 export const dynamic = "force-dynamic";
 
@@ -89,6 +91,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
 
     let lead = await store.createLead({
+      bridge_submission_key: createHash("sha256").update(JSON.stringify([input.submissionId ?? randomUUID(), input.firstName, input.lastName, input.email, input.phone, input.goal, input.role, input.timeline, input.city, input.state, input.zip, input.investmentLevel, input.liquidCapital, input.priority, input.notes ?? ""])).digest("hex"),
       portal_token: generatePortalToken(),
       first_name: input.firstName,
       last_name: input.lastName,
@@ -116,7 +119,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
 
     // Coarse conversion signal only — no financial answers leave the portal.
-    await trackEvent(lead, "lead_created", {
+    if (!(await store.getEventsForLead(lead.id)).some(e => e.event_name === "lead_created")) await trackEvent(lead, "lead_created", {
       source: "bridge",
       ...(existing ? { duplicateEmailOfLeadId: existing.id } : {}),
     });
@@ -137,6 +140,12 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     const applied = await applyAssessmentToLead(lead, input);
     lead = applied.lead;
+    const zoomRegistration = await registerZoomMeetingRegistrant({
+      leadId: lead.id,
+      firstName: lead.first_name,
+      lastName: lead.last_name,
+      email: lead.email,
+    });
 
     return NextResponse.json({
       success: true,
@@ -145,6 +154,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       portalUrl: `${requestOrigin(request) ?? getAppUrl()}/p/${lead.portal_token}`,
       scheduleUrl,
       fit: applied.fit,
+      zoomRegistration,
     });
   } catch (error) {
     console.error("[bridge] assessment submission failed:", error);

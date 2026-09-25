@@ -4,6 +4,7 @@ import { getCalendarEmbedUrl } from "@/lib/config/env";
 import { clientIpFrom, rateLimit } from "@/lib/rateLimit";
 import { knownLeadAssessmentSchema } from "@/lib/bridge/assessment";
 import { applyAssessmentToLead } from "@/lib/bridge/lead";
+import { registerZoomMeetingRegistrant } from "@/lib/zoom/registration";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,12 @@ export async function POST(
 
   try {
     const applied = await applyAssessmentToLead(lead, parsed.data);
+    const zoomRegistration = await registerZoomMeetingRegistrant({
+      leadId: applied.lead.id,
+      firstName: applied.lead.first_name,
+      lastName: applied.lead.last_name,
+      email: applied.lead.email,
+    });
     return NextResponse.json({
       success: true,
       firstName: applied.lead.first_name,
@@ -55,6 +62,7 @@ export async function POST(
       portalUrl: `/p/${applied.lead.portal_token}`,
       scheduleUrl: getCalendarEmbedUrl(),
       fit: applied.fit,
+      zoomRegistration,
     });
   } catch (error) {
     console.error(`[bridge] assessment failed for lead ${lead.id}:`, error);
