@@ -102,7 +102,8 @@ function harness(s = source()) {
     getQuestionnaire: vi.fn(async () => s.questionnaire), getSubmissionsForLead: vi.fn(async () => s.submissions), getAppointmentsForLead: vi.fn(async () => s.appointments),
     checkpointIntelligence: vi.fn(async (_: unknown, external: IntelligenceState["external"]) => { claim.external = structuredClone(external); }),
   });
-  const client = { locationId: "loc", resolveContact: vi.fn(async () => ({ id:"crm-1", locationId:"loc", assignedTo:"owner", customFields: claim.external.pdfSubmissionId ? [{id:"pdf",value:`compass-questionnaire-${claim.external.pdfSubmissionId}.pdf`}] : [] })),
+  const resolvedContact = () => ({ id:"crm-1", email:"prospect@example.test", locationId:"loc", assignedTo:"owner", customFields: claim.external.pdfSubmissionId ? [{id:"pdf",value:`compass-questionnaire-${claim.external.pdfSubmissionId}.pdf`}] : [] });
+  const client = { locationId: "loc", resolveContact: vi.fn(async () => resolvedContact()), contact: vi.fn(async () => resolvedContact()),
     request: vi.fn(async (path: string, method = "GET", body: Record<string, unknown> = {}) => {
       if (method !== "GET") writes.push({path, method, body});
       if (path.includes("customFields?")) return { customFields: [...INTELLIGENCE_FIELDS, ANSWERS_FIELD].map(f => ({id:f.key, fieldKey:f.key, dataType:f.type})) };
@@ -123,6 +124,20 @@ function harness(s = source()) {
 }
 beforeEach(() => { mocks.upload.mockReset(); mocks.upload.mockResolvedValue({ok:true,contactId:"crm-1",fieldId:"pdf"}); });
 describe("CRM worker replay and recovery", () => {
+  it("reuses the durable contact binding on retries instead of repeating an ambiguous search", async () => {
+    const h = harness();
+    await syncIntelligence(h.claim,h.client);
+    await syncIntelligence(h.claim,h.client);
+    expect(h.client.resolveContact).toHaveBeenCalledTimes(1);
+    expect(h.client.contact).toHaveBeenCalledWith("crm-1");
+  });
+  it("fails closed when a durable contact binding no longer matches the lead", async () => {
+    const h = harness();
+    h.claim.external = { contactId:"crm-1", locationId:"loc" };
+    vi.mocked(h.client.contact).mockResolvedValueOnce({ id:"crm-1", email:"someone-else@example.test", locationId:"loc" });
+    await expect(syncIntelligence(h.claim,h.client)).rejects.toThrow("email no longer matches");
+    expect(h.writes).toHaveLength(0);
+  });
   it("creates one assessment-only follow-up, upgrades it, and preserves other tags and fields", async () => {
     const h = harness(); await syncIntelligence(h.claim,h.client); await syncIntelligence(h.claim,h.client);
     expect(h.tasks).toHaveLength(1); expect(h.notes).toHaveLength(1);

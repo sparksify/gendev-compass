@@ -19,8 +19,14 @@ export async function syncIntelligence(claim: IntelligenceState, client = new Gh
   const external = { ...claim.external, noteIds: { ...claim.external.noteIds }, pendingCreates: { ...claim.external.pendingCreates } };
   const checkpoint = () => store.checkpointIntelligence(claim, external);
   const projection = projectIntelligence({ lead, events, video, questionnaire, submissions, appointments }, external.rank);
-  const contact = await client.resolveContact(lead);
-  if (external.contactId && (external.contactId !== contact.id || external.locationId !== client.locationId)) throw new Error("CRM target changed; reconcile stored IDs before syncing");
+  let contact;
+  if (external.contactId) {
+    if (external.locationId !== client.locationId) throw new Error("Stored CRM target belongs to a different HighLevel location; reconcile before syncing");
+    contact = await client.contact(external.contactId);
+    if (contact.email?.trim().toLowerCase() !== lead.email.trim().toLowerCase()) throw new Error("Stored CRM target email no longer matches the Compass lead; reconcile before syncing");
+  } else {
+    contact = await client.resolveContact(lead);
+  }
   external.contactId = contact.id; external.locationId = client.locationId;
   await checkpoint();
   const fields = await getIntelligenceFields(client);
