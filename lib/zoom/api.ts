@@ -68,6 +68,10 @@ export async function registerCmdtZoomAttendee(input: {
   firstName: string;
   lastName: string;
   email: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
   occurrenceId?: string;
 }): Promise<{ registrantId: string; joinUrl: string | null; alreadyRegistered?: boolean }> {
   const query = input.occurrenceId ? `?occurrence_ids=${encodeURIComponent(input.occurrenceId)}` : "";
@@ -77,6 +81,10 @@ export async function registerCmdtZoomAttendee(input: {
       first_name: input.firstName,
       last_name: input.lastName,
       email: input.email,
+      ...(input.city ? { city: input.city } : {}),
+      ...(input.state ? { state: input.state } : {}),
+      ...(input.zip ? { zip: input.zip } : {}),
+      ...(input.country ? { country: input.country } : {}),
     }),
   });
   const body = await response.json().catch(() => null) as {
