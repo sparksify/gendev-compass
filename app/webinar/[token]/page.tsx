@@ -49,10 +49,6 @@ export default async function WebinarRegistrationPage({
 
         <section aria-label="Register for the live overview" className="mt-8">
           <ZoomRegistrationCard
-            token={token}
-            firstName={lead.first_name}
-            lastName={lead.last_name}
-            email={lead.email}
             fallbackUrl={CMDT_OVERVIEW_REGISTRATION_URL}
           />
         </section>
