@@ -50,6 +50,7 @@ import { latestBridgeAssessment } from "@/lib/bridge/assessmentRecord";
 import { AttributionCard } from "@/components/advisor/investorDetail/AttributionCard";
 import { TagsCard } from "@/components/advisor/investorDetail/TagsCard";
 import { OwnershipProfileCard } from "@/components/advisor/OwnershipProfileCard";
+import { HighLevelSyncButton } from "@/components/advisor/investorDetail/HighLevelSyncButton";
 
 export const metadata: Metadata = { title: "Client" };
 export const dynamic = "force-dynamic";
@@ -204,6 +205,7 @@ export default async function InvestorDetailPage({
           <span className="font-bold text-foreground">{name}</span>
         </p>
         <div className="flex items-center gap-2.5">
+          {isAdminUser && <HighLevelSyncButton investorId={lead.id} />}
           {ghlUrl && (
             <a href={ghlUrl} target="_blank" rel="noreferrer" className={SECONDARY_BUTTON}>
               <ExternalLink className="size-3.5" strokeWidth={2} />
