@@ -68,10 +68,10 @@ export async function registerCmdtZoomAttendee(input: {
   firstName: string;
   lastName: string;
   email: string;
+  occurrenceId?: string;
 }): Promise<{ registrantId: string; joinUrl: string | null; alreadyRegistered?: boolean }> {
-  // Register against the recurring meeting itself. The Zoom registrant endpoint
-  // does not document an occurrence_ids query parameter.
-  const response = await zoomFetch(meetingPath("/registrants"), {
+  const query = input.occurrenceId ? `?occurrence_ids=${encodeURIComponent(input.occurrenceId)}` : "";
+  const response = await zoomFetch(meetingPath(`/registrants${query}`), {
     method: "POST",
     body: JSON.stringify({
       first_name: input.firstName,

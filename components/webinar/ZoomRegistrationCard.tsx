@@ -64,7 +64,7 @@ export function ZoomRegistrationCard({ token, firstName, lastName, email, fallba
       const response = await fetch(`/api/portal/${token}/zoom-registration`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ preferredOccurrenceId: selected }),
+        body: JSON.stringify({ occurrenceId: selected }),
       });
       const body = await response.json();
       if (!response.ok || !body.success) throw new Error(body.error || "Registration failed");
