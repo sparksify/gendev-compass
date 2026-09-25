@@ -68,6 +68,7 @@ export async function registerCmdtZoomAttendee(input: {
   firstName: string;
   lastName: string;
   email: string;
+  phone: string;
   city?: string;
   state?: string;
   zip?: string;
@@ -81,6 +82,7 @@ export async function registerCmdtZoomAttendee(input: {
       first_name: input.firstName,
       last_name: input.lastName,
       email: input.email,
+      phone: input.phone,
       ...(input.city ? { city: input.city } : {}),
       ...(input.state ? { state: input.state } : {}),
       ...(input.zip ? { zip: input.zip } : {}),

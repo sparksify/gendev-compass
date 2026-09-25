@@ -40,16 +40,18 @@ export async function POST(
     return NextResponse.json({ success: false, error: "Choose a valid Zoom session." }, { status: 400 });
   }
   const draft = resolved.lead.questionnaire_draft;
+  const phone = resolved.lead.phone?.trim() ?? "";
   const city = typeof draft?.city === "string" ? draft.city.trim() : "";
   const zip = typeof draft?.postalCode === "string" ? draft.postalCode.trim() : "";
-  if (!city) {
-    return NextResponse.json({ success: false, error: "We’re missing the city from your assessment. Please contact the CMDT team." }, { status: 400 });
+  if (!phone || !city) {
+    return NextResponse.json({ success: false, error: "We’re missing required contact information from your assessment. Please contact the CMDT team." }, { status: 400 });
   }
   try {
     const registration = await registerCmdtZoomAttendee({
       firstName: resolved.lead.first_name,
       lastName: resolved.lead.last_name,
       email: resolved.lead.email,
+      phone,
       city,
       state: resolved.lead.state ?? undefined,
       zip,
