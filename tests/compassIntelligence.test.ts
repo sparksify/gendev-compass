@@ -12,7 +12,7 @@ vi.mock("@/lib/ghl/questionnaireUpload", () => ({ uploadQuestionnairePdfToGhl: m
 import { syncIntelligence, runIntelligenceSync } from "@/lib/ghl/intelligence/sync";
 
 const time = "2026-09-24T12:00:00.000Z";
-const input = { goal: "replace-income", role: "lead-team", timeline: "within-3-months", city: "Austin", state: "TX", zip: "78701", investmentLevel: "125k-200k", liquidCapital: "250k-499k", priority: "territory", notes: "My actual optional note <script>" } as KnownLeadAssessmentInput;
+const input = { goal: "replace-income", role: "lead-team", timeline: "within-3-months", city: "Austin", state: "TX", zip: "78701", liquidCapital: "250k-499k", priority: "territory", notes: "My actual optional note <script>" } as KnownLeadAssessmentInput;
 function source(): IntelligenceSource {
   return { lead: { id: "lead-1", email: "prospect@example.test", created_at: time, qualification_result: null } as IntelligenceSource["lead"],
     video: null, questionnaire: null, submissions: [], appointments: [],

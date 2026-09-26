@@ -92,7 +92,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
 
     let lead = await store.createLead({
-      bridge_submission_key: createHash("sha256").update(JSON.stringify([input.submissionId ?? randomUUID(), input.firstName, input.lastName, input.email, input.phone, input.goal, input.role, input.timeline, input.city, input.state, input.zip, input.investmentLevel, input.liquidCapital, input.priority, input.notes ?? ""])).digest("hex"),
+      bridge_submission_key: createHash("sha256").update(JSON.stringify([input.submissionId ?? randomUUID(), input.firstName, input.lastName, input.email, input.phone, input.goal, input.role, input.timeline, input.city, input.state, input.zip, input.liquidCapital, input.priority, input.notes ?? ""])).digest("hex"),
       portal_token: generatePortalToken(),
       first_name: input.firstName,
       last_name: input.lastName,
@@ -141,9 +141,12 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     const applied = await applyAssessmentToLead(lead, input);
     lead = applied.lead;
-    const nextUrl = bridgeCapitalBand(input.liquidCapital) === "50k-plus"
-      ? `/p/${lead.portal_token}/questionnaire`
-      : `/webinar/${lead.portal_token}`;
+    const capitalBand = bridgeCapitalBand(input.liquidCapital);
+    const nextUrl = capitalBand === "50k-plus"
+      ? `/webinar/${lead.portal_token}`
+      : capitalBand === "25k-49k" || capitalBand === "unknown"
+        ? `/p/${lead.portal_token}/financial-clarification`
+        : `/webinar/${lead.portal_token}`;
 
     return NextResponse.json({
       success: true,

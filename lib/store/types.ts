@@ -159,6 +159,7 @@ export type LeadPatch = Partial<
     | "qualification_score"
     | "qualification_result"
     | "qualification_reasons"
+    | "initial_liquid_capital"
     | "portal_first_opened_at"
     | "video_started_at"
     | "video_completed_at"

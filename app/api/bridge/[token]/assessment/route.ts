@@ -49,9 +49,12 @@ export async function POST(
 
   try {
     const applied = await applyAssessmentToLead(lead, parsed.data);
-    const nextUrl = bridgeCapitalBand(parsed.data.liquidCapital) === "50k-plus"
-      ? `/p/${applied.lead.portal_token}/questionnaire`
-      : `/webinar/${applied.lead.portal_token}`;
+    const capitalBand = bridgeCapitalBand(parsed.data.liquidCapital);
+    const nextUrl = capitalBand === "50k-plus"
+      ? `/webinar/${applied.lead.portal_token}`
+      : capitalBand === "25k-49k" || capitalBand === "unknown"
+        ? `/p/${applied.lead.portal_token}/financial-clarification`
+        : `/webinar/${applied.lead.portal_token}`;
     return NextResponse.json({
       success: true,
       firstName: applied.lead.first_name,

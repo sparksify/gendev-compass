@@ -8,6 +8,7 @@ import { INVESTMENT_TIMELINES, LIQUID_CAPITAL_RANGES } from "@/types/questionnai
 import { getBridgeWistiaMediaId } from "@/lib/config/bridge";
 import { getWistiaMediaId } from "@/lib/config/env";
 import type { AnswerSnapshotEntry } from "@/lib/bridge/assessment";
+import { bridgeCapitalBand } from "@/lib/config/qualification";
 
 export interface IntelligenceSource {
   lead: LeadRecord; events: PortalEventRecord[]; video: VideoProgressRecord | null;
@@ -17,6 +18,8 @@ export interface IntelligenceSource {
 const statuses = ["New", "Engaged", "Fit Assessment Complete", "High Intent", "Questionnaire Complete"];
 export function projectIntelligence(source: IntelligenceSource, previousRank = 0, now = Date.now()) {
   const { lead, questionnaire, video } = source;
+  const capitalBand = bridgeCapitalBand(lead.initial_liquid_capital);
+  const fastTrack = ["100k-249k", "250k-499k", "500k-plus"].includes(lead.initial_liquid_capital ?? "");
   const assessments = source.events.filter(e => e.event_name === "bridge_assessment_submitted" && Array.isArray(e.event_data?.answers))
     .sort((a,b) => a.created_at.localeCompare(b.created_at));
   const assessment = assessments.at(-1);
@@ -53,7 +56,16 @@ export function projectIntelligence(source: IntelligenceSource, previousRank = 0
   const taskLevel = completedQuestionnaire ? 3 : highIntent ? 2 : assessment ? 1 : 0;
   return { rank, booked, taskLevel, submission: completedQuestionnaire ? submission : undefined, bridgeText,
     taskTitle: completedQuestionnaire ? "REVIEW / CALL — Investor questionnaire complete" : highIntent ? "CALL NOW — Bridge assessment + overview engagement" : "Follow up — Bridge fit assessment complete",
-    tags: [assessment && "Compass: Fit Assessment Complete", (highIntent || previousRank === 3) && "Compass: High Intent", completedQuestionnaire && "Compass: Questionnaire Complete"].filter((s): s is string => Boolean(s)),
+    tags: [
+      assessment && "Compass: Fit Assessment Complete",
+      (highIntent || previousRank === 3) && "Compass: High Intent",
+      completedQuestionnaire && "Compass: Questionnaire Complete",
+      fastTrack && "CMDT – Fast Track – $100K+",
+      capitalBand === "50k-plus" && !fastTrack && "CMDT – Qualified – $50K–$99K",
+      capitalBand === "25k-49k" && "CMDT – Financial Review – $25K–$49K",
+      capitalBand === "under-25k" && "CMDT – Nurture – <$25K",
+      capitalBand === "unknown" && "CMDT – Financial Clarification – Unsure",
+    ].filter((s): s is string => Boolean(s)),
     fields: {
       "contact.compass_engagement_status": statuses[rank],
       "contact.compass_why_this_lead_matters": reason,

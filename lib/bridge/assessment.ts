@@ -3,7 +3,7 @@ import { bridgeCapitalMeetsMinimum } from "@/lib/config/qualification";
 import { US_STATES } from "@/lib/geocoding/states";
 
 /**
- * The bridge page's fit assessment: the seven quick questions a prospect
+ * The bridge page's fit assessment: the six quick questions a prospect
  * answers before entering GenDev Compass, plus the contact step that turns
  * the answers into a lead. Shared by the client flow (rendering, inline
  * validation) and the API route (server validation, fit call), so the two
@@ -39,19 +39,6 @@ export const TIMELINE_OPTIONS = [
   { value: "6-12-months", label: "6–12 months" },
   { value: "12-plus-months", label: "More than 12 months from now" },
   { value: "researching", label: "I’m just researching right now" },
-] as const;
-
-/**
- * Comfortable total-investment ranges. PLACEHOLDER — these are illustrative
- * brackets and must be replaced with the ranges from the brand's current
- * offering (Item 7 of the FDD) before the page goes live.
- */
-export const INVESTMENT_LEVEL_OPTIONS = [
-  { value: "lt-75k", label: "Under $75,000" },
-  { value: "75k-125k", label: "$75,000–$125,000" },
-  { value: "125k-200k", label: "$125,000–$200,000" },
-  { value: "200k-300k-plus", label: "$200,000–$300,000+" },
-  { value: "not-sure", label: "I’m not sure yet" },
 ] as const;
 
 /**
@@ -102,7 +89,6 @@ export const bridgeAssessmentSchema = z.object({
     .toUpperCase()
     .refine((code) => STATE_CODES.has(code), "Choose a state"),
   zip: z.string().trim().regex(US_ZIP, "Enter a 5-digit ZIP code"),
-  investmentLevel: enumOf(INVESTMENT_LEVEL_OPTIONS),
   liquidCapital: enumOf(LIQUID_CAPITAL_OPTIONS),
   priority: enumOf(PRIORITY_OPTIONS),
   notes: z.string().trim().max(2000, "Please keep this under 2,000 characters").optional(),
@@ -172,7 +158,6 @@ export type ChoiceKey =
   | "goal"
   | "role"
   | "timeline"
-  | "investmentLevel"
   | "liquidCapital"
   | "priority";
 
@@ -226,14 +211,8 @@ export const BRIDGE_STEPS: readonly BridgeStep[] = [
   },
   {
     kind: "choice",
-    key: "investmentLevel",
-    prompt: "If CMDT looks like the right fit, what level of investment would you be comfortable exploring?",
-    options: INVESTMENT_LEVEL_OPTIONS,
-  },
-  {
-    kind: "choice",
     key: "liquidCapital",
-    prompt: "Approximately how much capital could you potentially make available toward a business investment?",
+    prompt: "Approximately how much liquid capital do you currently have available toward a business investment?",
     options: LIQUID_CAPITAL_OPTIONS,
   },
   {
@@ -250,7 +229,7 @@ export const BRIDGE_STEPS: readonly BridgeStep[] = [
   },
 ];
 
-/** The screens for a prospect we already know: the seven questions, no contact step. */
+/** The screens for a prospect we already know: the six questions, no contact step. */
 export const BRIDGE_STEPS_KNOWN: readonly BridgeStep[] = BRIDGE_STEPS.filter(
   (step) => step.kind !== "contact",
 );

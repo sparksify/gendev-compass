@@ -193,7 +193,6 @@ export function FitAssessment({ known }: { known?: KnownBridgeLead }) {
       city: draft.city,
       state: draft.state,
       zip: draft.zip,
-      investmentLevel: draft.investmentLevel,
       liquidCapital: draft.liquidCapital,
       priority: draft.priority,
       notes: draft.notes?.trim() || undefined,

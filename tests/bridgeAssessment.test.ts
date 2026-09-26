@@ -13,7 +13,6 @@ const valid = {
   city: "Austin",
   state: "tx",
   zip: "78701",
-  investmentLevel: "125k-200k",
   liquidCapital: "250k-499k",
   priority: "territory",
   firstName: "Jordan",
@@ -23,8 +22,8 @@ const valid = {
 };
 
 describe("bridge fit assessment", () => {
-  it("has eight screens: seven questions plus contact", () => {
-    expect(BRIDGE_STEPS).toHaveLength(8);
+  it("has seven screens: six questions plus contact", () => {
+    expect(BRIDGE_STEPS).toHaveLength(7);
     expect(BRIDGE_STEPS.at(-1)?.kind).toBe("contact");
   });
 
@@ -55,7 +54,6 @@ describe("bridge fit assessment", () => {
       "goal",
       "role",
       "timeline",
-      "investmentLevel",
       "liquidCapital",
       "priority",
       "location",
@@ -70,7 +68,7 @@ import { knownLeadAssessmentSchema, BRIDGE_STEPS_KNOWN } from "@/lib/bridge/asse
 
 describe("bridge page for a known lead", () => {
   it("drops the contact step and its fields", () => {
-    expect(BRIDGE_STEPS_KNOWN).toHaveLength(7);
+    expect(BRIDGE_STEPS_KNOWN).toHaveLength(6);
     expect(BRIDGE_STEPS_KNOWN.some((s) => s.kind === "contact")).toBe(false);
     const answersOnly = Object.fromEntries(
       Object.entries(valid).filter(([k]) => !["firstName", "lastName", "email", "phone"].includes(k)),

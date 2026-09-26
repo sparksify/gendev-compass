@@ -5,6 +5,7 @@ import { InvalidPortal } from "@/components/portal/InvalidPortal";
 import { ZoomRegistrationCard } from "@/components/webinar/ZoomRegistrationCard";
 import { hasZoomAccess } from "@/lib/portal/qualification";
 import { bridgeCapitalBand } from "@/lib/config/qualification";
+import { getCalendarEmbedUrl } from "@/lib/config/env";
 
 export const metadata: Metadata = {
   title: "Your Zoom Registration | CMDT Live Overview",
@@ -35,6 +36,8 @@ export default async function WebinarRegistrationPage({
   const capitalBand = bridgeCapitalBand(lead.initial_liquid_capital);
   const under25 = capitalBand === "under-25k";
   const closeToMinimum = capitalBand === "25k-49k";
+  const fastTrack = ["100k-249k", "250k-499k", "500k-plus"].includes(lead.initial_liquid_capital ?? "");
+  const calendarUrl = getCalendarEmbedUrl();
 
   return (
     <main className="min-h-screen bg-surface px-4 py-10 text-foreground sm:px-6 sm:py-16">
@@ -50,7 +53,7 @@ export default async function WebinarRegistrationPage({
                 ? `Thanks, ${lead.first_name} — here’s where things stand`
                 : closeToMinimum
                   ? `${lead.first_name}, you may be close to CMDT’s initial financial requirements`
-                  : `${lead.first_name}, let’s complete your Compass profile`}
+                : `${lead.first_name}, let’s learn more about CMDT`}
           </h1>
           <p className="mx-auto mt-4 max-w-[640px] text-base leading-relaxed text-muted-foreground">
             {zoomEligible
@@ -59,18 +62,23 @@ export default async function WebinarRegistrationPage({
                 ? "Based on the information you provided, you do not currently appear to meet CMDT’s minimum liquid-capital requirement of $50,000."
                 : closeToMinimum
                   ? "CMDT currently requires at least $50,000 in liquid capital. You may not yet meet that threshold, but we’d like to understand your situation more clearly."
-                  : "Complete the detailed Compass profile so we can evaluate your goals, experience, and fit."}
+                  : "Watch the short CMDT overview to learn how the business works and what we look for in a potential owner."}
           </p>
         </header>
 
         {zoomEligible ? <section aria-label="Register for the live overview" className="mt-8">
           <ZoomRegistrationCard token={token} firstName={lead.first_name} lastName={lead.last_name} email={lead.email} fallbackUrl={CMDT_OVERVIEW_REGISTRATION_URL} />
+          {fastTrack && calendarUrl && <div className="mt-6 rounded-md border border-border bg-card px-5 py-5 text-center">
+            <p className="font-serif text-xl text-sidebar">Want to move faster?</p>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">If you would prefer to speak with Darko directly, you can reserve a private conversation.</p>
+            <a href={calendarUrl} className="mt-4 inline-flex min-h-11 items-center justify-center rounded-md border border-sidebar/40 px-5 text-sm font-semibold text-sidebar hover:bg-surface">Talk with Darko</a>
+          </div>}
         </section> : <section className="mx-auto mt-8 max-w-[760px] rounded-card border border-border bg-card p-7 text-center shadow-card sm:p-10">
           <h2 className="font-serif text-2xl text-sidebar">Want to understand CMDT better?</h2>
           <p className="mx-auto mt-3 max-w-xl text-base leading-relaxed text-muted-foreground">Watch the short overview to learn how the business model works, what franchise owners do, who CMDT serves, and what we look for in a potential owner.</p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <a href={`/watch/${token}`} className="inline-flex min-h-11 items-center justify-center rounded-md bg-sidebar px-6 text-sm font-semibold text-white hover:bg-sidebar/90">Watch the CMDT overview</a>
-            {under25 ? <a href={`/p/${token}/opportunity`} className="inline-flex min-h-11 items-center justify-center rounded-md border border-sidebar/40 px-6 text-sm font-semibold text-sidebar hover:bg-surface">Learn more about CMDT</a> : <a href={`/p/${token}/questionnaire`} className="inline-flex min-h-11 items-center justify-center rounded-md border border-sidebar/40 px-6 text-sm font-semibold text-sidebar hover:bg-surface">Complete my Compass profile</a>}
+            {under25 ? <a href={`/p/${token}/opportunity`} className="inline-flex min-h-11 items-center justify-center rounded-md border border-sidebar/40 px-6 text-sm font-semibold text-sidebar hover:bg-surface">Learn more about CMDT</a> : closeToMinimum ? <a href={`/p/${token}/financial-clarification`} className="inline-flex min-h-11 items-center justify-center rounded-md border border-sidebar/40 px-6 text-sm font-semibold text-sidebar hover:bg-surface">Complete the short financial profile</a> : <a href={`/p/${token}/questionnaire`} className="inline-flex min-h-11 items-center justify-center rounded-md border border-sidebar/40 px-6 text-sm font-semibold text-sidebar hover:bg-surface">Complete my Compass profile</a>}
           </div>
         </section>}
       </div>
