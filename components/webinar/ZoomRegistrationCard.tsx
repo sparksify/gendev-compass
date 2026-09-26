@@ -59,7 +59,7 @@ export function ZoomRegistrationCard({ token, firstName, lastName, email, fallba
   if (joinUrl || alreadyRegistered) {
     return (
       <div className="rounded-card border border-success/30 bg-success/5 p-6 text-center sm:p-10">
-        <Image src="/zoom-logo.svg" alt="Zoom" width={88} height={28} className="mx-auto" />
+        <Image src="/zoom-logo.svg" alt="Zoom" width={132} height={37} className="mx-auto" />
         <CheckCircle2 className="mx-auto mt-5 size-11 text-success" aria-hidden="true" />
         <h2 className="mt-4 font-serif text-2xl text-sidebar">You’re registered for Zoom</h2>
         <p className="mx-auto mt-2 max-w-lg text-base leading-relaxed text-muted-foreground">{alreadyRegistered ? "This email is already registered for the live overview. " : "Zoom will email your personal link and calendar options to "}<strong className="text-foreground">{email}</strong>.</p>
@@ -70,7 +70,7 @@ export function ZoomRegistrationCard({ token, firstName, lastName, email, fallba
 
   return (
     <div className="rounded-card border border-border bg-card p-5 shadow-card sm:p-8">
-      <div className="flex items-center gap-3 border-b border-border pb-5"><Image src="/zoom-logo.svg" alt="Zoom" width={88} height={28} /><div className="h-7 w-px bg-border" /><h2 className="font-serif text-xl text-sidebar">Choose your live overview</h2></div>
+      <div className="flex items-center gap-3 border-b border-border pb-5"><Image src="/zoom-logo.svg" alt="Zoom" width={132} height={37} /><div className="h-7 w-px bg-border" /><h2 className="font-serif text-xl text-sidebar">Choose your live overview</h2></div>
       {loading ? <div className="flex min-h-40 items-center justify-center gap-2 text-muted-foreground"><Loader2 className="size-5 animate-spin" aria-hidden="true" /> Loading upcoming Zoom sessions…</div> : error && !meeting ? <div className="py-8 text-center"><p className="text-sm text-destructive">{error}</p><a href={fallbackUrl} target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-md bg-[#2D8CFF] px-5 text-sm font-semibold text-white">Open Zoom registration <ExternalLink className="size-4" /></a></div> : (
         <div className="pt-6">
           <fieldset><legend className="text-sm font-semibold text-sidebar">Select a date and time</legend><div className="mt-3 space-y-2">{(meeting?.occurrences ?? []).slice(0, showMore ? undefined : 3).map((occurrence) => <label key={occurrence.occurrenceId} className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-md border px-4 py-3 transition-colors ${selected === occurrence.occurrenceId ? "border-[#2D8CFF] bg-[#2D8CFF]/5" : "border-border hover:border-[#2D8CFF]/50"}`}><input type="radio" name="occurrence" value={occurrence.occurrenceId} checked={selected === occurrence.occurrenceId} onChange={() => setSelected(occurrence.occurrenceId)} className="size-4 accent-[#2D8CFF]" /><span className="text-sm font-medium text-foreground">{sessionLabel(occurrence.startTime)}</span></label>)}</div></fieldset>
