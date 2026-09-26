@@ -31,7 +31,10 @@ export default async function QuestionnairePage({ params }: { params: Promise<{ 
   const context = await loadPortalContext(token);
   if (!context) return <InvalidPortal />;
   const { lead, state } = context;
-  if (state.questionnaireCompleted || state.booked) redirect(`/p/${token}/schedule`);
+  if (state.booked) redirect(`/p/${token}/schedule`);
+  if (state.questionnaireCompleted) {
+    redirect(state.qualified ? `/webinar/${token}` : `/p/${token}/qualification-review`);
+  }
   await trackEvent(lead, "questionnaire_opened", null, "questionnaire");
   // Restore any autosaved draft on top of the application pre-fills. The
   // accuracy confirmation is deliberately never restored — the prospect

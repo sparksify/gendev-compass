@@ -9,7 +9,6 @@ import {
   LIQUID_CAPITAL_ORDER,
   MIN_QUALIFYING_LIQUID_CAPITAL,
   SCORE_WEIGHTS,
-  bridgeCapitalMeetsMinimum,
   cashContributionMeetsMinimum,
   getScoreThreshold,
 } from "@/lib/config/qualification";
@@ -112,7 +111,7 @@ export function evaluateQualification(
 /** Access to the group Zoom may come from the bridge route or a completed
  * full qualification. This is used by both the page and API route. */
 export function hasZoomAccess(lead: LeadRecord): boolean {
-  return lead.qualification_result === "qualified" || bridgeCapitalMeetsMinimum(lead.initial_liquid_capital);
+  return lead.qualification_result === "qualified";
 }
 
 export interface FundingReadinessProfile {

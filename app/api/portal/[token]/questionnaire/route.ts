@@ -44,7 +44,9 @@ export async function POST(
     return NextResponse.json({
       success: true,
       qualified: lead.qualification_result === "qualified",
-      nextUrl: `${base}/schedule`,
+      nextUrl: lead.qualification_result === "qualified"
+        ? `/webinar/${lead.portal_token}`
+        : `${base}/qualification-review`,
       alreadySubmitted: true,
     });
   }
@@ -190,12 +192,13 @@ export async function POST(
       await trackEvent(lead, "funding_assistance_requested", null);
     }
 
-    // Every prospect proceeds directly to scheduling — the qualification
-    // result is internal context for the advisor, not an approval gate.
+    const nextUrl = qualification.qualified
+      ? `/webinar/${lead.portal_token}`
+      : `${base}/qualification-review`;
     return NextResponse.json({
       success: true,
       qualified: qualification.qualified,
-      nextUrl: `${base}/schedule`,
+      nextUrl,
       tracking: [
         { eventId: submittedTracking.eventId, dataLayerPayload: submittedTracking.dataLayerPayload, metaPixelBrowser: submittedTracking.metaPixelBrowser },
         { eventId: qualificationTracking.eventId, dataLayerPayload: qualificationTracking.dataLayerPayload, metaPixelBrowser: qualificationTracking.metaPixelBrowser },

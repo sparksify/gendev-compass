@@ -17,11 +17,11 @@ export default async function QualificationReviewPage({ params }: { params: Prom
       <div>
         <p className="text-sm font-semibold uppercase tracking-[0.12em] text-accent-gold">Next step</p>
         <h1 className="mt-3 font-serif text-4xl leading-tight text-sidebar">Let’s learn a little more about your goals</h1>
-        <p className="mt-4 text-base leading-relaxed text-muted-foreground">Thanks, {lead.first_name}. We have your responses. Before opening a private conversation, we want to help you review the opportunity and understand the resources that may be available to fund it.</p>
+        <p className="mt-4 text-base leading-relaxed text-muted-foreground">Thanks, {lead.first_name}. We have your responses. Before opening a private conversation, we want to make sure the opportunity and your goals are aligned.</p>
       </div>
       <Card><CardContent className="space-y-4 p-6 sm:p-8">
         <h2 className="font-serif text-2xl text-sidebar">Explore your options</h2>
-        <p className="text-sm leading-relaxed text-muted-foreground">Candidates may use a combination of savings, financing, retirement assets, home equity, a business partner, or other resources. Your situation may change, so this is not a permanent rejection.</p>
+        <p className="text-sm leading-relaxed text-muted-foreground">This is not a permanent rejection. Review the opportunity at your own pace, and revisit your profile if your situation or goals change.</p>
         <a href={`/p/${token}/questionnaire`} className="inline-flex min-h-11 items-center justify-center rounded-md bg-sidebar px-5 text-sm font-semibold text-white hover:bg-sidebar/90">Complete the detailed profile</a>
       </CardContent></Card>
     </div>

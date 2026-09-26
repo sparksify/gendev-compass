@@ -22,6 +22,15 @@ export const BRIDGE_LIQUID_CAPITAL_ORDER = [
   "500k-plus",
 ] as const;
 
+export type BridgeCapitalBand = "under-25k" | "25k-49k" | "50k-plus" | "unknown";
+
+export function bridgeCapitalBand(value: string | null | undefined): BridgeCapitalBand {
+  if (value === "lt-25k") return "under-25k";
+  if (value === "25k-49k") return "25k-49k";
+  if (bridgeCapitalMeetsMinimum(value)) return "50k-plus";
+  return "unknown";
+}
+
 export function bridgeCapitalMeetsMinimum(value: string | null | undefined): boolean {
   return value === "50k-99k" || value === "100k-249k" || value === "250k-499k" || value === "500k-plus";
 }
