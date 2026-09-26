@@ -34,6 +34,18 @@ export interface TrackingSettingsRecord {
   meta_capi_access_token_ciphertext: string | null;
   meta_test_event_code: string | null;
 
+  meta_reporting_enabled: boolean;
+  meta_reporting_ad_account_id: string | null;
+  /** Encrypted server-side; never returned to browser clients. */
+  meta_reporting_access_token_ciphertext: string | null;
+  meta_reporting_timezone: string;
+  meta_reporting_currency: string;
+  meta_reporting_attribution_window: string;
+  meta_reporting_last_sync_attempt_at: string | null;
+  meta_reporting_last_sync_success_at: string | null;
+  meta_reporting_last_sync_status: string | null;
+  meta_reporting_last_sync_error: string | null;
+
   consent_required: boolean;
   marketing_tracking_default: MarketingDefault;
 
@@ -60,6 +72,16 @@ export type TrackingSettingsPatch = Partial<
     | "meta_pixel_id"
     | "meta_capi_enabled"
     | "meta_test_event_code"
+    | "meta_reporting_enabled"
+    | "meta_reporting_ad_account_id"
+    | "meta_reporting_access_token_ciphertext"
+    | "meta_reporting_timezone"
+    | "meta_reporting_currency"
+    | "meta_reporting_attribution_window"
+    | "meta_reporting_last_sync_attempt_at"
+    | "meta_reporting_last_sync_success_at"
+    | "meta_reporting_last_sync_status"
+    | "meta_reporting_last_sync_error"
     | "consent_required"
     | "marketing_tracking_default"
     | "event_overrides"

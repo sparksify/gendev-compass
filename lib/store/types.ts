@@ -3,6 +3,11 @@ import type { LeadRecord, LeadStatus } from "@/types/lead";
 import type { QuestionnaireRecord } from "@/types/questionnaire";
 import type { VideoProgressRecord } from "@/types/portal";
 import type { PortalEventRecord } from "@/types/analytics";
+import type {
+  MetaAdDailyStatRecord,
+  MetaStatsFilter,
+  UpsertMetaAdDailyStatInput,
+} from "@/types/analyticsReporting";
 import type { OwnershipProfileDbRecord } from "@/types/ownershipProfile";
 import type {
   CreateNotificationDeliveryInput,
@@ -566,6 +571,7 @@ export interface PortalStore {
   /** Anonymous bridge page opens. Both are fire-safe: a missing table logs and degrades to a null count. */
   recordBridgeVisit(input: BridgeVisitInput): Promise<void>;
   countBridgeVisitsSince(sinceIso: string): Promise<number | null>;
+  countBridgeVisitsBetween(startIso: string, endIso: string): Promise<number | null>;
 
   // -------------------------------------------------------------------------
   // Platform domain (organizations / clients / opportunities). Brands are
@@ -745,6 +751,10 @@ export interface PortalStore {
   insertConsent(input: CreateConsentInput): Promise<ConsentRecord>;
   /** Most recent consent decision for this lead/token, or null if none recorded. */
   getLatestConsent(args: { leadId?: string; portalToken?: string }): Promise<ConsentRecord | null>;
+
+  /** Canonical local cache for Meta Insights. Rows are unique per day/ad/account/brand. */
+  upsertMetaAdDailyStats(rows: UpsertMetaAdDailyStatInput[]): Promise<void>;
+  listMetaAdDailyStats(filter: MetaStatsFilter): Promise<MetaAdDailyStatRecord[]>;
 }
 
 /** Forward-only ordering used to avoid regressing a lead's status. */

@@ -5,6 +5,7 @@ import type { LeadRecord } from "@/types/lead";
 import type { QuestionnaireRecord } from "@/types/questionnaire";
 import type { VideoProgressRecord } from "@/types/portal";
 import type { PortalEventRecord } from "@/types/analytics";
+import type { MetaAdDailyStatRecord } from "@/types/analyticsReporting";
 import type { FddAuditInsert, FddAuditRecord } from "@/types/fdd";
 import type {
   AdvisorNoteRecord,
@@ -669,6 +670,19 @@ export function createSupabaseStore(): PortalStore {
         .from("bridge_visits")
         .select("id", { count: "exact", head: true })
         .gte("created_at", sinceIso);
+      if (error) {
+        console.error(`Failed to count bridge visits: ${error.message}`);
+        return null;
+      }
+      return count ?? 0;
+    },
+
+    async countBridgeVisitsBetween(startIso: string, endIso: string): Promise<number | null> {
+      const { count, error } = await db
+        .from("bridge_visits")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", startIso)
+        .lt("created_at", endIso);
       if (error) {
         console.error(`Failed to count bridge visits: ${error.message}`);
         return null;
@@ -1704,6 +1718,29 @@ export function createSupabaseStore(): PortalStore {
       const { data, error } = await query.maybeSingle();
       if (error) throw new Error(`Failed to load consent: ${error.message}`);
       return (data as ConsentRecord | null) ?? null;
+    },
+
+    async upsertMetaAdDailyStats(rows): Promise<void> {
+      if (rows.length === 0) return;
+      const payload = rows.map((row) => ({ ...row, synced_at: nowIso() }));
+      const { error } = await db.from("meta_ad_daily_stats").upsert(payload, {
+        onConflict: "brand_id,date,ad_account_id,ad_id",
+      });
+      if (error) throw new Error(`Failed to cache Meta insights: ${error.message}`);
+    },
+
+    async listMetaAdDailyStats(filter): Promise<MetaAdDailyStatRecord[]> {
+      let query = db
+        .from("meta_ad_daily_stats")
+        .select()
+        .gte("date", filter.startDate)
+        .lte("date", filter.endDate)
+        .order("date", { ascending: true });
+      if (filter.brandId === null) query = query.is("brand_id", null);
+      else if (filter.brandId) query = query.eq("brand_id", filter.brandId);
+      const { data, error } = await query;
+      if (error) throw new Error(`Failed to load Meta insights: ${error.message}`);
+      return (data as MetaAdDailyStatRecord[]) ?? [];
     },
   };
 }

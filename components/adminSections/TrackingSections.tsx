@@ -9,6 +9,7 @@ import {
   type TrackingSettingsApi,
 } from "@/components/adminSections/TrackingAdminSections";
 import { TrackingDiagnostics } from "@/components/adminSections/TrackingDiagnostics";
+import { MetaReportingConfig } from "@/components/analytics/MetaReportingConfig";
 
 /**
  * Tracking & Pixels (handoff mock 8b): the provider setting cards on the
@@ -50,6 +51,7 @@ export function TrackingSections({ authHeaders }: { authHeaders: Record<string, 
         <TrackingAdminSections authHeaders={authHeaders} onReady={onReady} />
         <TrackingDiagnostics authHeaders={authHeaders} />
       </div>
+      <MetaReportingConfig />
     </V3Page>
   );
 }

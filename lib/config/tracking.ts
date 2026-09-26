@@ -29,6 +29,15 @@ export function getMetaTestEventCodeEnvFallback(): string | null {
   return process.env.META_TEST_EVENT_CODE ?? null;
 }
 
+/** Read-only Marketing API token fallback for Ads Insights reporting. */
+export function getMetaReportingAccessTokenEnvFallback(): string | null {
+  return process.env.META_ADS_ACCESS_TOKEN ?? null;
+}
+
+export function getMetaReportingAdAccountIdEnvFallback(): string | null {
+  return process.env.META_AD_ACCOUNT_ID ?? null;
+}
+
 /**
  * 32-byte key (base64 or hex, 32 raw bytes either way) used to encrypt the
  * Meta CAPI access token at rest (lib/tracking/crypto.ts). Without this set,
@@ -45,4 +54,5 @@ export function trackingDebugEnabled(): boolean {
   return process.env.TRACKING_DEBUG === "true";
 }
 
-export const META_GRAPH_API_VERSION = "v21.0";
+/** Current Graph/Marketing API generation as of September 2026. */
+export const META_GRAPH_API_VERSION = "v26.0";

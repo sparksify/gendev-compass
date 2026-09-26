@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   ClipboardCheck,
   ClipboardList,
+  BarChart3,
   LayoutGrid,
   Map as MapIcon,
   PanelsTopLeft,
@@ -55,6 +56,7 @@ function navItems(isAdmin: boolean, counts: AdvisorNavCounts): NavItem[][] {
   return [
     main,
     [
+      { href: "/advisor/analytics", label: "Analytics", icon: BarChart3 },
       { href: "/advisor/territories", label: "Territories", icon: MapIcon },
       { href: "/advisor/platform", label: "Platform", icon: LayoutGrid },
     ],

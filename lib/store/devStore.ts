@@ -41,6 +41,7 @@ import type {
   TrackingSettingsRecord,
 } from "@/types/tracking";
 import type { PortalEventRecord } from "@/types/analytics";
+import type { MetaAdDailyStatRecord } from "@/types/analyticsReporting";
 import type { FddAuditInsert, FddAuditRecord } from "@/types/fdd";
 import type {
   AdvisorNoteRecord,
@@ -127,6 +128,7 @@ interface DevData {
   tracking_settings: TrackingSettingsRecord[];
   tracking_deliveries: TrackingDeliveryRecord[];
   portal_consent: ConsentRecord[];
+  meta_ad_daily_stats: MetaAdDailyStatRecord[];
 }
 
 const DATA_DIR = path.join(process.cwd(), ".dev-data");
@@ -171,6 +173,7 @@ const EMPTY: DevData = {
   tracking_settings: [],
   tracking_deliveries: [],
   portal_consent: [],
+  meta_ad_daily_stats: [],
 };
 
 /**
@@ -203,6 +206,19 @@ const CHILD_LINK_DEFAULTS = {
   organization_id: null,
   client_id: null,
   opportunity_id: null,
+};
+
+const TRACKING_REPORTING_DEFAULTS = {
+  meta_reporting_enabled: false,
+  meta_reporting_ad_account_id: null,
+  meta_reporting_access_token_ciphertext: null,
+  meta_reporting_timezone: "America/Chicago",
+  meta_reporting_currency: "USD",
+  meta_reporting_attribution_window: "account_default",
+  meta_reporting_last_sync_attempt_at: null,
+  meta_reporting_last_sync_success_at: null,
+  meta_reporting_last_sync_status: null,
+  meta_reporting_last_sync_error: null,
 };
 
 /** Default FDD workflow fields for new and reset leads. */
@@ -243,6 +259,9 @@ async function readData(): Promise<DevData> {
     );
     data.video_progress = data.video_progress.map((v) =>
       Object.assign({}, CHILD_LINK_DEFAULTS, { brand_id: null }, v),
+    );
+    data.tracking_settings = data.tracking_settings.map((settings) =>
+      Object.assign({}, TRACKING_REPORTING_DEFAULTS, settings),
     );
     data.fdd_audit_log = data.fdd_audit_log.map((f) =>
       Object.assign({}, { organization_id: null, opportunity_id: null, fdd_workflow_id: null }, f),
@@ -974,6 +993,12 @@ export function createDevStore(): PortalStore {
 
     async countBridgeVisitsSince(sinceIso: string): Promise<number | null> {
       return (await readData()).bridge_visits.filter((v) => v.created_at >= sinceIso).length;
+    },
+
+    async countBridgeVisitsBetween(startIso: string, endIso: string): Promise<number | null> {
+      return (await readData()).bridge_visits.filter(
+        (visit) => visit.created_at >= startIso && visit.created_at < endIso,
+      ).length;
     },
 
     // -----------------------------------------------------------------------
@@ -2031,6 +2056,7 @@ export function createDevStore(): PortalStore {
             meta_capi_enabled: false,
             meta_capi_access_token_ciphertext: null,
             meta_test_event_code: null,
+            ...TRACKING_REPORTING_DEFAULTS,
             consent_required: false,
             marketing_tracking_default: "denied",
             event_overrides: {},
@@ -2148,6 +2174,33 @@ export function createDevStore(): PortalStore {
         .filter((c) => (args.leadId ? c.lead_id === args.leadId : c.portal_token === args.portalToken))
         .sort((a, b) => b.created_at.localeCompare(a.created_at));
       return rows[0] ?? null;
+    },
+
+    async upsertMetaAdDailyStats(rows): Promise<void> {
+      await withLock(async () => {
+        const data = await readData();
+        for (const row of rows) {
+          const existing = data.meta_ad_daily_stats.find(
+            (item) =>
+              item.brand_id === row.brand_id &&
+              item.date === row.date &&
+              item.ad_account_id === row.ad_account_id &&
+              item.ad_id === row.ad_id,
+          );
+          if (existing) Object.assign(existing, row, { synced_at: nowIso() });
+          else data.meta_ad_daily_stats.push({ id: randomUUID(), ...row, synced_at: nowIso() });
+        }
+        await writeData(data);
+      });
+    },
+
+    async listMetaAdDailyStats(filter): Promise<MetaAdDailyStatRecord[]> {
+      return (await readData()).meta_ad_daily_stats.filter(
+        (row) =>
+          row.date >= filter.startDate &&
+          row.date <= filter.endDate &&
+          (filter.brandId === undefined || row.brand_id === filter.brandId),
+      );
     },
   };
 }

@@ -5,6 +5,8 @@ import {
   getMetaCapiAccessTokenEnvFallback,
   getMetaPixelIdEnvFallback,
   getMetaTestEventCodeEnvFallback,
+  getMetaReportingAccessTokenEnvFallback,
+  getMetaReportingAdAccountIdEnvFallback,
 } from "@/lib/config/tracking";
 import type { TrackingSettingsRecord } from "@/types/tracking";
 
@@ -57,6 +59,35 @@ export function resolveMetaCapiAccessToken(settings: TrackingSettingsRecord): st
     if (decrypted) return decrypted;
   }
   return getMetaCapiAccessTokenEnvFallback();
+}
+
+export function resolveMetaReportingAccessToken(settings: TrackingSettingsRecord): string | null {
+  if (settings.meta_reporting_access_token_ciphertext) {
+    const decrypted = decryptSecret(settings.meta_reporting_access_token_ciphertext);
+    if (decrypted) return decrypted;
+  }
+  return getMetaReportingAccessTokenEnvFallback();
+}
+
+export function resolveMetaReportingAdAccountId(settings: TrackingSettingsRecord): string | null {
+  return settings.meta_reporting_ad_account_id ?? getMetaReportingAdAccountIdEnvFallback();
+}
+
+export async function saveMetaReportingAccessToken(settingsId: string, plaintextToken: string): Promise<void> {
+  if (!trackingEncryptionAvailable()) {
+    throw new Error(
+      "TRACKING_ENCRYPTION_KEY is not configured — cannot encrypt the Meta Ads reporting token.",
+    );
+  }
+  await getStore().updateTrackingSettings(settingsId, {
+    meta_reporting_access_token_ciphertext: encryptSecret(plaintextToken),
+  });
+}
+
+export async function clearMetaReportingAccessToken(settingsId: string): Promise<void> {
+  await getStore().updateTrackingSettings(settingsId, {
+    meta_reporting_access_token_ciphertext: null,
+  });
 }
 
 /** Encrypts and saves a new Meta CAPI access token. Throws if TRACKING_ENCRYPTION_KEY is not configured. */

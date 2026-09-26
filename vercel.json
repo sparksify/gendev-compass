@@ -19,6 +19,10 @@
     {
       "path": "/api/cron/compass-sync",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/meta-reporting",
+      "schedule": "17 * * * *"
     }
   ]
 }
