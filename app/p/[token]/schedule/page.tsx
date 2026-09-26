@@ -39,6 +39,9 @@ export default async function SchedulePage({ params }: { params: Promise<{ token
   if (!state.questionnaireCompleted && !state.booked) {
     redirect(state.videoCompleted ? `/p/${token}/questionnaire` : `/p/${token}/overview`);
   }
+  if (!state.booked && !state.qualified) {
+    redirect(`/p/${token}/qualification-review`);
+  }
 
   if (!state.booked && !lead.calendar_viewed_at) {
     await getStore().updateLead(lead.id, {

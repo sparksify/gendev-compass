@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireLead } from "@/lib/portal/api";
 import { getCmdtZoomMeeting, registerCmdtZoomAttendee } from "@/lib/zoom/api";
+import { hasZoomAccess } from "@/lib/portal/qualification";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,9 @@ export async function GET(
   const { token } = await params;
   const resolved = await requireLead(token);
   if ("response" in resolved) return resolved.response;
+  if (!hasZoomAccess(resolved.lead)) {
+    return NextResponse.json({ success: false, error: "Please review the preparation resources before registering for the live overview." }, { status: 403 });
+  }
   try {
     const meeting = await getCmdtZoomMeeting();
     return NextResponse.json({ success: true, meeting });
@@ -35,6 +39,9 @@ export async function POST(
   const { token } = await params;
   const resolved = await requireLead(token);
   if ("response" in resolved) return resolved.response;
+  if (!hasZoomAccess(resolved.lead)) {
+    return NextResponse.json({ success: false, error: "Please review the preparation resources before registering for the live overview." }, { status: 403 });
+  }
   const parsed = registrationSchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) {
     return NextResponse.json({ success: false, error: "Choose a valid Zoom session." }, { status: 400 });

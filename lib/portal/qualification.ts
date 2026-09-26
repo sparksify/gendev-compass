@@ -9,6 +9,8 @@ import {
   LIQUID_CAPITAL_ORDER,
   MIN_QUALIFYING_LIQUID_CAPITAL,
   SCORE_WEIGHTS,
+  bridgeCapitalMeetsMinimum,
+  cashContributionMeetsMinimum,
   getScoreThreshold,
 } from "@/lib/config/qualification";
 
@@ -76,7 +78,13 @@ export function evaluateQualification(
   // overview is an educational path, not a qualification requirement —
   // experienced investors may fast-track directly to the questionnaire.
   // Video completion still contributes to the informational score above.
-  const qualified = capitalMeetsMinimum && timelineAcceptable;
+  const cashContributionMeetsMinimumForCalendar = cashContributionMeetsMinimum(
+    questionnaire.availableCashContribution,
+  );
+  if (!cashContributionMeetsMinimumForCalendar) {
+    reasons.push("Available cash contribution is below the $50,000 minimum");
+  }
+  const qualified = capitalMeetsMinimum && cashContributionMeetsMinimumForCalendar && timelineAcceptable;
 
   // Informational readiness scores (v1.1) — advisor context only, never a
   // gate. Self-reported credit and financing need do not disqualify anyone.
@@ -99,6 +107,12 @@ export function evaluateQualification(
     score,
     reasons,
   };
+}
+
+/** Access to the group Zoom may come from the bridge route or a completed
+ * full qualification. This is used by both the page and API route. */
+export function hasZoomAccess(lead: LeadRecord): boolean {
+  return lead.qualification_result === "qualified" || bridgeCapitalMeetsMinimum(lead.initial_liquid_capital);
 }
 
 export interface FundingReadinessProfile {

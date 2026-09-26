@@ -42,10 +42,10 @@ describe("bridge fit assessment", () => {
 
   it("calls a strong fit only with qualifying capital and a near-term timeline", () => {
     expect(assessFit({ liquidCapital: "250k-499k", timeline: "asap" })).toBe("strong");
-    expect(assessFit({ liquidCapital: "500k-999k", timeline: "3-6-months" })).toBe("strong");
-    expect(assessFit({ liquidCapital: "100k-249k", timeline: "asap" })).toBe("standard");
+    expect(assessFit({ liquidCapital: "500k-plus", timeline: "3-6-months" })).toBe("strong");
+    expect(assessFit({ liquidCapital: "25k-49k", timeline: "asap" })).toBe("standard");
     expect(assessFit({ liquidCapital: "250k-499k", timeline: "researching" })).toBe("standard");
-    expect(assessFit({ liquidCapital: "prefer-private", timeline: "asap" })).toBe("standard");
+    expect(assessFit({ liquidCapital: "not-sure", timeline: "asap" })).toBe("standard");
   });
 
   it("snapshots every answer with its question and human label", () => {

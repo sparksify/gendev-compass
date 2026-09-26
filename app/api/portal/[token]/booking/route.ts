@@ -45,6 +45,12 @@ export async function POST(
       { status: 403 },
     );
   }
+  if (lead.qualification_result !== "qualified") {
+    return NextResponse.json(
+      { success: false, error: "Private consultations are available after qualification review." },
+      { status: 403 },
+    );
+  }
 
   const body = await request.json().catch(() => ({}));
   const parsed = bookingSchema.safeParse(body);

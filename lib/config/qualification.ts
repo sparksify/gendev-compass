@@ -6,8 +6,30 @@ import type { InvestmentTimeline, LiquidCapitalRange, BusinessOwnership } from "
  * variables where noted.
  */
 
-/** Minimum liquid capital range that passes the hard qualification rule. */
-export const MIN_QUALIFYING_LIQUID_CAPITAL: LiquidCapitalRange = "250k-499k";
+/** Minimum legacy questionnaire range; the cash-contribution check below
+ * supplies the more precise $50,000 floor. */
+export const MIN_QUALIFYING_LIQUID_CAPITAL: LiquidCapitalRange = "lt-100k";
+
+/** Bridge/Facebook routing brackets. These are intentionally separate from
+ * the legacy questionnaire brackets so the front-end can distinguish the
+ * $25k and $50k decision points without changing stored questionnaire data. */
+export const BRIDGE_LIQUID_CAPITAL_ORDER = [
+  "lt-25k",
+  "25k-49k",
+  "50k-99k",
+  "100k-249k",
+  "250k-499k",
+  "500k-plus",
+] as const;
+
+export function bridgeCapitalMeetsMinimum(value: string | null | undefined): boolean {
+  return value === "50k-99k" || value === "100k-249k" || value === "250k-499k" || value === "500k-plus";
+}
+
+/** The private advisor calendar requires at least $50k available cash. */
+export function cashContributionMeetsMinimum(value: string | null | undefined): boolean {
+  return value === "50k-99k" || value === "100k-149k" || value === "150k-249k" || value === "250k-499k" || value === "500k-plus";
+}
 
 /** Ordered from lowest to highest so ranges can be compared by index. */
 export const LIQUID_CAPITAL_ORDER: LiquidCapitalRange[] = [

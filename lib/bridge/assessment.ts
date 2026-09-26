@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { LIQUID_CAPITAL_RANGES } from "@/types/questionnaire";
-import { LIQUID_CAPITAL_ORDER, MIN_QUALIFYING_LIQUID_CAPITAL } from "@/lib/config/qualification";
+import { bridgeCapitalMeetsMinimum } from "@/lib/config/qualification";
 import { US_STATES } from "@/lib/geocoding/states";
 
 /**
@@ -61,8 +60,13 @@ export const INVESTMENT_LEVEL_OPTIONS = [
  * and can be carried onto the lead as initial_liquid_capital.
  */
 export const LIQUID_CAPITAL_OPTIONS = [
-  ...LIQUID_CAPITAL_RANGES,
-  { value: "prefer-private", label: "Prefer to discuss this privately" },
+  { value: "lt-25k", label: "Less than $25,000" },
+  { value: "25k-49k", label: "$25,000–$49,999" },
+  { value: "50k-99k", label: "$50,000–$99,999" },
+  { value: "100k-249k", label: "$100,000–$249,999" },
+  { value: "250k-499k", label: "$250,000–$499,999" },
+  { value: "500k-plus", label: "$500,000 or more" },
+  { value: "not-sure", label: "I’m not sure yet" },
 ] as const;
 
 export const PRIORITY_OPTIONS = [
@@ -229,7 +233,7 @@ export const BRIDGE_STEPS: readonly BridgeStep[] = [
   {
     kind: "choice",
     key: "liquidCapital",
-    prompt: "Approximately how much liquid capital could you make available for the right opportunity?",
+    prompt: "Approximately how much capital could you potentially make available toward a business investment?",
     options: LIQUID_CAPITAL_OPTIONS,
   },
   {
@@ -265,11 +269,7 @@ export type FitLevel = "strong" | "standard";
  * "Prefer to discuss privately" is neutral, never a disqualifier.
  */
 export function assessFit(answers: Pick<BridgeAssessmentInput, "liquidCapital" | "timeline">): FitLevel {
-  const capitalIndex = LIQUID_CAPITAL_ORDER.indexOf(
-    answers.liquidCapital as (typeof LIQUID_CAPITAL_ORDER)[number],
-  );
-  const floorIndex = LIQUID_CAPITAL_ORDER.indexOf(MIN_QUALIFYING_LIQUID_CAPITAL);
-  const capitalOk = capitalIndex >= 0 && capitalIndex >= floorIndex;
+  const capitalOk = bridgeCapitalMeetsMinimum(answers.liquidCapital);
   const timelineOk = ["asap", "within-3-months", "3-6-months"].includes(answers.timeline);
   return capitalOk && timelineOk ? "strong" : "standard";
 }

@@ -64,6 +64,7 @@ export async function applyAssessmentToLead(
   const nowIso = new Date().toISOString();
   const fit = assessFit(input);
   const isPortalCapitalRange = LIQUID_CAPITAL_RANGES.some((r) => r.value === input.liquidCapital);
+  const hasBridgeCapitalAnswer = input.liquidCapital !== "not-sure";
 
   const seed = {
     city: input.city,
@@ -77,7 +78,7 @@ export async function applyAssessmentToLead(
     updated = await store.updateLead(lead.id, {
       last_activity_at: nowIso,
       ...(lead.state ? {} : { state: input.state }),
-      ...(!lead.initial_liquid_capital && isPortalCapitalRange
+      ...(!lead.initial_liquid_capital && hasBridgeCapitalAnswer
         ? { initial_liquid_capital: input.liquidCapital }
         : {}),
       ...(lead.questionnaire_completed_at
