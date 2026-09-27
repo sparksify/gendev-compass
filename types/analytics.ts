@@ -12,6 +12,7 @@ export type PortalEventName =
   | "portal_opened"
   | "overview_page_opened"
   | "opportunity_overview_opened"
+  | "financial_education_opened"
   | "faq_opened"
   | "resources_opened"
   | "ownership_profile_opened"
