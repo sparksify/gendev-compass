@@ -6,7 +6,6 @@ import { noteHtml, projectIntelligence, questionnaireNotes } from "./project";
 import type { IntelligenceState } from "./types";
 
 type Note = { id: string; body: string };
-type Task = { id: string; title: string; body?: string; completed: boolean; dueDate?: string; assignedTo?: string };
 
 export async function syncIntelligence(claim: IntelligenceState, client = new GhlClient()) {
   const store = getStore();
@@ -78,46 +77,6 @@ export async function syncIntelligence(claim: IntelligenceState, client = new Gh
     external.questionnaireNoteIds = ids; await checkpoint();
   }
 
-  const tasks = (await client.request<{ tasks: Task[] }>(`${base}/tasks`)).tasks;
-  const marker = `[Compass follow-up ${lead.id}]`;
-  const matches = tasks.filter(t => t.body?.includes(marker));
-  if (matches.length > 1) throw new Error("Duplicate Compass follow-up tasks require reconciliation");
-  const task = matches[0];
-  if (external.taskId && !task) throw new Error("Known Compass task is missing; reconcile before creating another");
-  if (projection.booked) {
-    if (task && !task.completed) await client.request(`${base}/tasks/${task.id}`, "PUT", {
-      title: task.title, body: `${marker}\nSuppressed: appointment booked. Review answers before the appointment.`,
-      completed: true, dueDate: task.dueDate ?? new Date().toISOString(), assignedTo: task.assignedTo,
-    });
-    external.taskSuppressed = true;
-  } else if (projection.taskLevel && (!task || !task.completed || projection.taskLevel > (external.taskLevel ?? 0) || external.taskSuppressed)) {
-    const policy = process.env.GHL_COMPASS_OWNER_POLICY ?? "contact-owner";
-    if (!["contact-owner", "darko"].includes(policy)) throw new Error("GHL_COMPASS_OWNER_POLICY must be contact-owner or darko");
-    const owner = policy === "darko" ? process.env.GHL_COMPASS_DARKO_USER_ID : contact.assignedTo || process.env.GHL_COMPASS_DARKO_USER_ID;
-    if (!owner) throw new Error("Configure a HighLevel task owner (contact owner or Darko user ID)");
-    const users = await client.request<{ users: Array<{ id: string }> }>(`/users/?locationId=${client.locationId}`);
-    if (!users.users.some(u => u.id === owner)) throw new Error("Configured task owner is not a user in this location");
-    const upgraded = projection.taskLevel > (external.taskLevel ?? 0);
-    const body = {
-      title: projection.taskTitle,
-      body: `${marker}\n${projection.fields["contact.compass_why_this_lead_matters"]}\nFull short answers: Compass Answers / Compass Bridge Answers and Compass bridge note. Full investor questionnaire: Compass questionnaire notes and CQ Upload when verified.`,
-      completed: false, assignedTo: owner,
-      dueDate: !upgraded && task?.dueDate ? task.dueDate : new Date(Date.now() + (projection.taskLevel >= 2 ? 0 : 86400_000)).toISOString(),
-    };
-    if (task) {
-      // Preserve the completed state on replays; only a new milestone or a
-      // cancelled booking can reopen this integration's own follow-up task.
-      await client.request(`${base}/tasks/${task.id}`, "PUT", body);
-      external.taskId = task.id;
-    } else {
-      const created = await createOnce<{ task: Task }>(marker, `${base}/tasks`, body);
-      if (!created.task?.id) throw new Error("HighLevel task response missing ID");
-      external.taskId = created.task.id;
-    }
-    delete external.pendingCreates![marker];
-    external.taskLevel = projection.taskLevel; external.taskSuppressed = false;
-  }
-  if (task) { external.taskId = task.id; delete external.pendingCreates![marker]; }
   await checkpoint();
 
   if (projection.tags.length) await client.request(`${base}/tags`, "POST", { tags: projection.tags });

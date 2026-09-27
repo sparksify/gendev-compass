@@ -35,20 +35,18 @@ The summary includes separate bridge fit and investor qualification results, plu
 
 The long questionnaire gets titled native notes containing **every** immutable snapshot question and display answer, including conditional/not-asked values. Long content splits at answer boundaries into numbered parts. Notes are reconciled by stable markers and updated, not appended again on retries. Prospect HTML is escaped. The PDF now renders the immutable snapshot rather than current catalog wording.
 
-## Behavior and tasks
+## Behavior and task policy
 
-| Evidence | Engagement status | Task / next action |
+| Evidence | Engagement status | Next action |
 |---|---|---|
 | No meaningful activity | New | None |
 | Identified first open or unique video watch | Engaged | None; video alone never creates an urgent task |
-| Successfully persisted short assessment | Fit Assessment Complete | One `Follow up — Bridge fit assessment complete` task, due within 24 hours |
-| Short assessment plus >=30% unique watch on an allowed overview media | High Intent | Upgrade the same task to `CALL NOW — Bridge assessment + overview engagement`, due now |
-| Canonical investor questionnaire and complete versioned answer archive | Questionnaire Complete | Create/upgrade to `REVIEW / CALL — Investor questionnaire complete`, due now |
-| Current scheduled/rescheduled booking | Keep achieved status | `Appointment booked`; suppress new call tasks and complete only the integration's existing task |
+| Successfully persisted short assessment | Fit Assessment Complete | Follow up is represented in Compass fields and notes only |
+| Short assessment plus >=30% unique watch on an allowed overview media | High Intent | `Call now` is represented in Compass fields and notes only |
+| Canonical investor questionnaire and complete versioned answer archive | Questionnaire Complete | Review/call next action is represented in Compass fields and notes only |
+| Current scheduled/rescheduled booking | Keep achieved status | `Appointment booked`; no CRM task is created or changed |
 
-A cancelled booking allows follow-up again. Completed advisor tasks remain completed on replay; a genuinely higher milestone can reopen the same task. Unknown-time booking records suppress calls conservatively. No HighLevel opportunity/pipeline API is called. Existing advisor notification rules and Darko's questionnaire CC remain in place; this integration sends no additional email alerts.
-
-Owner policy: `GHL_COMPASS_OWNER_POLICY=contact-owner` uses the existing contact owner, falling back to `GHL_COMPASS_DARKO_USER_ID`. `darko` always uses that configured ID. The worker validates membership in the configured HighLevel location and fails visibly rather than assigning an unowned task.
+A cancelled booking does not create a follow-up task. No HighLevel task API, opportunity API, or pipeline API is called by this integration. Existing advisor notification rules and Darko's questionnaire CC remain in place; this integration sends no additional task or email alerts.
 
 Namespaced tags defined in code and applied through the dedicated add-tags API:
 

@@ -140,23 +140,22 @@ describe("CRM worker replay and recovery", () => {
   });
   it("creates one assessment-only follow-up, upgrades it, and preserves other tags and fields", async () => {
     const h = harness(); await syncIntelligence(h.claim,h.client); await syncIntelligence(h.claim,h.client);
-    expect(h.tasks).toHaveLength(1); expect(h.notes).toHaveLength(1);
-    expect(h.tasks[0].title).toContain("Follow up");
+    expect(h.tasks).toHaveLength(0); expect(h.notes).toHaveLength(1);
     h.source.video=video(); await syncIntelligence(h.claim,h.client);
-    expect(h.tasks).toHaveLength(1); expect(h.tasks[0].title).toContain("CALL NOW");
+    expect(h.tasks).toHaveLength(0);
     expect(h.writes.filter(w=>w.path==="/contacts/crm-1").every(w=>Object.keys(w.body).join()==="customFields")).toBe(true);
     expect(h.writes.some(w=>w.path.includes("opportunities"))).toBe(false);
     expect(h.notes[0].body).toContain("&lt;script&gt;");
-    h.tasks[0].completed=true; await syncIntelligence(h.claim,h.client); expect(h.tasks[0].completed).toBe(true);
+    await syncIntelligence(h.claim,h.client); expect(h.tasks).toHaveLength(0);
   });
   it("reconciles a successful note POST whose reply was lost without duplicate creation", async () => {
     const h=harness(); h.loseNoteReply(); await expect(syncIntelligence(h.claim,h.client)).rejects.toThrow("Lost response");
-    await syncIntelligence(h.claim,h.client); expect(h.notes).toHaveLength(1); expect(h.tasks).toHaveLength(1);
+    await syncIntelligence(h.claim,h.client); expect(h.notes).toHaveLength(1); expect(h.tasks).toHaveLength(0);
   });
-  it("books without new task and closes the integration task if booking arrives later", async () => {
+  it("never creates or updates HighLevel tasks, including after booking changes", async () => {
     const h=harness(); booking(h.source); await syncIntelligence(h.claim,h.client); expect(h.tasks).toHaveLength(0);
-    h.source.appointments=[]; await syncIntelligence(h.claim,h.client); expect(h.tasks).toHaveLength(1);
-    booking(h.source); await syncIntelligence(h.claim,h.client); expect(h.tasks[0].completed).toBe(true);
+    h.source.appointments=[]; await syncIntelligence(h.claim,h.client); expect(h.tasks).toHaveLength(0);
+    booking(h.source); await syncIntelligence(h.claim,h.client); expect(h.tasks).toHaveLength(0);
   });
   it("publishes every questionnaire answer despite PDF failure, marks pending, then retries the PDF", async () => {
     const h=harness(); questionnaire(h.source); mocks.upload.mockResolvedValueOnce({ok:false,error:"HTTP 503"});
@@ -164,7 +163,7 @@ describe("CRM worker replay and recovery", () => {
     const archive=h.notes.map(n=>n.body).join(); for(const a of h.source.submissions[0].answers) expect(archive).toContain(a.answer_display_value);
     expect(JSON.stringify(h.writes.at(-1))).toContain("pending / retrying");
     const count=h.notes.length; await syncIntelligence(h.claim,h.client);
-    expect(h.notes).toHaveLength(count); expect(h.tasks).toHaveLength(1); expect(h.claim.external.pdfSubmissionId).toBe("submission-1");
+    expect(h.notes).toHaveLength(count); expect(h.tasks).toHaveLength(0); expect(h.claim.external.pdfSubmissionId).toBe("submission-1");
     await syncIntelligence(h.claim,h.client); expect(mocks.upload).toHaveBeenCalledTimes(2);
   });
   it("records failures and returns them to the durable retry queue", async () => {
