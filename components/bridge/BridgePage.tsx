@@ -7,14 +7,13 @@ import { BridgeVideo } from "@/components/bridge/BridgeVideo";
 import { BridgeVideoProvider } from "@/components/bridge/BridgeVideoContext";
 import { CloseBotTracking } from "@/components/bridge/CloseBotTracking";
 import { FitAssessment, type KnownBridgeLead } from "@/components/bridge/FitAssessment";
-import { ProofStrip } from "@/components/bridge/ProofStrip";
 import { ScrollToAssessment } from "@/components/bridge/ScrollToAssessment";
 
 /**
  * The bridge page body, shared by the anonymous route (/watch) and the
  * tokenized one (/watch/[token]).
  *
- *   headline → 3-minute video → "See if CMDT fits me" → four proof points
+ *   headline → 3-minute video → "See if CMDT fits me"
  *   → 2-minute assessment → Research Center or Book a Call
  *
  * With a known lead the greeting is personal, the video reports to the
@@ -40,10 +39,6 @@ export function BridgePage({ mediaId, known }: { mediaId: string; known?: KnownB
                 See How Complete Mobile Drug Testing Works
                 <span className="block text-accent-gold">&mdash; In 3 Minutes</span>
               </h1>
-              <p className="mx-auto mt-5 max-w-[560px] text-[15.5px] leading-[1.6] text-muted-foreground sm:text-[16px]">
-                A quick, no-pressure look at the business model, what owners do, and why companies
-                use these services.
-              </p>
             </header>
 
             <Card className="mt-10 overflow-hidden sm:mt-12">
@@ -67,9 +62,6 @@ export function BridgePage({ mediaId, known }: { mediaId: string; known?: KnownB
               </p>
             </div>
 
-            <div className="mt-12 sm:mt-14">
-              <ProofStrip />
-            </div>
           </div>
         </section>
 
