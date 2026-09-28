@@ -7,7 +7,6 @@ import { BridgeVideo } from "@/components/bridge/BridgeVideo";
 import { BridgeVideoProvider } from "@/components/bridge/BridgeVideoContext";
 import { CloseBotTracking } from "@/components/bridge/CloseBotTracking";
 import { FitAssessment, type KnownBridgeLead } from "@/components/bridge/FitAssessment";
-import { ScrollToAssessment } from "@/components/bridge/ScrollToAssessment";
 
 /**
  * The bridge page body, shared by the anonymous route (/watch) and the
@@ -54,13 +53,6 @@ export function BridgePage({ mediaId, known }: { mediaId: string; known?: KnownB
                 <span>No sales call required.</span>
               </div>
             </Card>
-
-            <div className="mt-8 flex flex-col items-center gap-3 text-center">
-              <ScrollToAssessment />
-              <p className="text-[13px] text-muted-foreground">
-                Answer a few quick questions. Takes about 2 minutes.
-              </p>
-            </div>
 
           </div>
         </section>
