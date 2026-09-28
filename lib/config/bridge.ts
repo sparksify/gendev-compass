@@ -9,7 +9,7 @@
  */
 
 /** The 3-minute bridge cut. The hashed ID is public (it ships to the browser). */
-const DEFAULT_BRIDGE_WISTIA_MEDIA_ID = "th7ve390tt";
+const DEFAULT_BRIDGE_WISTIA_MEDIA_ID = "iydjintvm6";
 
 /**
  * The bridge video's hashed Wistia media ID. Overridable per environment;
