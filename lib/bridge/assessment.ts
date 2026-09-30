@@ -49,7 +49,8 @@ export const TIMELINE_OPTIONS = [
 export const LIQUID_CAPITAL_OPTIONS = [
   { value: "lt-25k", label: "Less than $25,000" },
   { value: "25k-49k", label: "$25,000–$49,999" },
-  { value: "50k-99k", label: "$50,000–$99,999" },
+  { value: "50k-74k", label: "$50,000–$74,999" },
+  { value: "75k-99k", label: "$75,000–$99,999" },
   { value: "100k-249k", label: "$100,000–$249,999" },
   { value: "250k-499k", label: "$250,000–$499,999" },
   { value: "500k-plus", label: "$500,000 or more" },

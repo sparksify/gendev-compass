@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { getStore } from "@/lib/store";
 import { CMDT_OVERVIEW_REGISTRATION_URL } from "@/lib/config/webinar";
 import { InvalidPortal } from "@/components/portal/InvalidPortal";
@@ -34,8 +35,15 @@ export default async function WebinarRegistrationPage({
 
   const zoomEligible = hasZoomAccess(lead);
   const capitalBand = bridgeCapitalBand(lead.initial_liquid_capital);
+  if (!zoomEligible) {
+    redirect(
+      capitalBand === "under-25k"
+        ? `/p/${token}/financial-education`
+        : `/p/${token}/financial-clarification`,
+    );
+  }
   const under25 = capitalBand === "under-25k";
-  const closeToMinimum = capitalBand === "25k-49k";
+  const closeToMinimum = capitalBand === "25k-49k" || capitalBand === "50k-74k";
   const fastTrack = ["100k-249k", "250k-499k", "500k-plus"].includes(lead.initial_liquid_capital ?? "");
   const calendarUrl = getCalendarEmbedUrl();
 
@@ -59,9 +67,9 @@ export default async function WebinarRegistrationPage({
             {zoomEligible
               ? "You meet the initial financial requirement. Choose a live Zoom session below to continue."
               : under25
-                ? "Based on the information you provided, you do not currently appear to meet CMDT’s minimum liquid-capital requirement of $50,000."
+                ? "Based on the information you provided, you do not currently appear to meet CMDT’s minimum liquid-capital requirement of $75,000."
                 : closeToMinimum
-                  ? "CMDT currently requires at least $50,000 in liquid capital. You may not yet meet that threshold, but we’d like to understand your situation more clearly."
+                  ? "CMDT currently requires at least $75,000 in liquid capital. You may not yet meet that threshold, but we’d like to understand your situation more clearly."
                   : "Watch the short CMDT overview to learn how the business works and what we look for in a potential owner."}
           </p>
         </header>

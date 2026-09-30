@@ -212,7 +212,7 @@ export const CMDT_PROFILE: OpportunityProfile = {
   snapshot: {
     entries: [
       { key: "investment", label: "Investment", value: "$67,850–$287,650", emphasize: true },
-      { key: "liquidity", label: "Minimum Liquidity", value: "$50,000", emphasize: true },
+      { key: "liquidity", label: "Minimum Liquidity", value: "$75,000", emphasize: true },
       { key: "model", label: "Business Model", value: "Mobile / Home-Based / Office" },
       { key: "industry", label: "Industry", value: "Medical" },
       { key: "net-worth", label: "Minimum Net Worth", value: "$200,000", emphasize: true },

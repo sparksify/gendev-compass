@@ -25,7 +25,7 @@ export default async function FinancialEducationPage({
         <p className="text-sm font-semibold uppercase tracking-[0.12em] text-accent-gold">Your next step</p>
         <h1 className="mt-3 font-serif text-4xl leading-tight text-foreground sm:text-[42px]">Thanks, {context.lead.first_name} — let’s make the path clear</h1>
         <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
-          CMDT currently requires prospective franchise owners to have at least $50,000 in qualifying liquid capital. Based on your current response, you may not yet meet that requirement. That does not mean you have to stop learning.
+          CMDT currently requires prospective franchise owners to have at least $75,000 in qualifying liquid capital. Based on your current response, you may not yet meet that requirement. That does not mean you have to stop learning.
         </p>
       </div>
 
@@ -33,7 +33,7 @@ export default async function FinancialEducationPage({
         <h2 className="font-serif text-2xl text-sidebar">Where you are now</h2>
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <div className="rounded-md bg-surface p-4"><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Your response</p><p className="mt-2 text-lg font-semibold text-foreground">{capitalLabel}</p></div>
-          <div className="rounded-md bg-surface p-4"><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">CMDT starting point</p><p className="mt-2 text-lg font-semibold text-foreground">$50,000 qualifying liquid capital</p></div>
+          <div className="rounded-md bg-surface p-4"><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">CMDT starting point</p><p className="mt-2 text-lg font-semibold text-foreground">$75,000 qualifying liquid capital</p></div>
         </div>
         <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
           {capitalBand === "under-25k"

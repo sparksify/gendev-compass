@@ -6,33 +6,47 @@ import type { InvestmentTimeline, LiquidCapitalRange, BusinessOwnership } from "
  * variables where noted.
  */
 
-/** Minimum legacy questionnaire range; the cash-contribution check below
- * supplies the more precise $50,000 floor. */
+/** Minimum legacy questionnaire range; the bridge assessment below supplies
+ * the precise $75,000 liquid-capital floor for the /watch funnel. */
 export const MIN_QUALIFYING_LIQUID_CAPITAL: LiquidCapitalRange = "lt-100k";
 
 /** Bridge/Facebook routing brackets. These are intentionally separate from
  * the legacy questionnaire brackets so the front-end can distinguish the
- * $25k and $50k decision points without changing stored questionnaire data. */
+ * $25k, $50k, and $75k decision points without changing stored questionnaire data. */
 export const BRIDGE_LIQUID_CAPITAL_ORDER = [
   "lt-25k",
   "25k-49k",
-  "50k-99k",
+  "50k-74k",
+  "75k-99k",
   "100k-249k",
   "250k-499k",
   "500k-plus",
 ] as const;
 
-export type BridgeCapitalBand = "under-25k" | "25k-49k" | "50k-plus" | "unknown";
+export type BridgeCapitalBand = "under-25k" | "25k-49k" | "50k-74k" | "75k-plus" | "unknown";
 
 export function bridgeCapitalBand(value: string | null | undefined): BridgeCapitalBand {
   if (value === "lt-25k") return "under-25k";
   if (value === "25k-49k") return "25k-49k";
-  if (bridgeCapitalMeetsMinimum(value)) return "50k-plus";
+  if (value === "50k-74k" || value === "50k-99k") return "50k-74k";
+  if (bridgeCapitalMeetsMinimum(value)) return "75k-plus";
   return "unknown";
 }
 
 export function bridgeCapitalMeetsMinimum(value: string | null | undefined): boolean {
-  return value === "50k-99k" || value === "100k-249k" || value === "250k-499k" || value === "500k-plus";
+  return value === "75k-99k" || value === "100k-249k" || value === "250k-499k" || value === "500k-plus";
+}
+
+export type BridgeCapitalDestination = "webinar" | "financial-clarification" | "financial-education";
+
+/** Route the initial /watch answer. Clarification gets one chance to surface
+ * omitted household or partner resources; a still-low answer then moves to
+ * the education path. */
+export function bridgeCapitalDestination(value: string | null | undefined): BridgeCapitalDestination {
+  const band = bridgeCapitalBand(value);
+  if (band === "75k-plus") return "webinar";
+  if (band === "under-25k") return "financial-education";
+  return "financial-clarification";
 }
 
 /** The private advisor calendar requires at least $50k available cash. */

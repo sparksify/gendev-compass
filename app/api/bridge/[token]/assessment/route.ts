@@ -4,7 +4,7 @@ import { getCalendarEmbedUrl } from "@/lib/config/env";
 import { clientIpFrom, rateLimit } from "@/lib/rateLimit";
 import { knownLeadAssessmentSchema } from "@/lib/bridge/assessment";
 import { applyAssessmentToLead } from "@/lib/bridge/lead";
-import { bridgeCapitalBand } from "@/lib/config/qualification";
+import { bridgeCapitalDestination } from "@/lib/config/qualification";
 
 export const dynamic = "force-dynamic";
 
@@ -49,12 +49,10 @@ export async function POST(
 
   try {
     const applied = await applyAssessmentToLead(lead, parsed.data);
-    const capitalBand = bridgeCapitalBand(parsed.data.liquidCapital);
-    const nextUrl = capitalBand === "50k-plus"
+    const capitalDestination = bridgeCapitalDestination(parsed.data.liquidCapital);
+    const nextUrl = capitalDestination === "webinar"
       ? `/webinar/${applied.lead.portal_token}`
-      : capitalBand === "25k-49k" || capitalBand === "unknown"
-        ? `/p/${applied.lead.portal_token}/financial-clarification`
-        : `/webinar/${applied.lead.portal_token}`;
+      : `/p/${applied.lead.portal_token}/${capitalDestination}`;
     return NextResponse.json({
       success: true,
       firstName: applied.lead.first_name,

@@ -12,7 +12,7 @@ import { bridgeAssessmentSchema } from "@/lib/bridge/assessment";
 import { applyAssessmentToLead } from "@/lib/bridge/lead";
 import { applyVideoProgress } from "@/lib/portal/progress";
 import { getBridgeWistiaMediaId } from "@/lib/config/bridge";
-import { bridgeCapitalBand } from "@/lib/config/qualification";
+import { bridgeCapitalDestination } from "@/lib/config/qualification";
 
 export const dynamic = "force-dynamic";
 
@@ -141,12 +141,10 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     const applied = await applyAssessmentToLead(lead, input);
     lead = applied.lead;
-    const capitalBand = bridgeCapitalBand(input.liquidCapital);
-    const nextUrl = capitalBand === "50k-plus"
+    const capitalDestination = bridgeCapitalDestination(input.liquidCapital);
+    const nextUrl = capitalDestination === "webinar"
       ? `/webinar/${lead.portal_token}`
-      : capitalBand === "25k-49k" || capitalBand === "unknown"
-        ? `/p/${lead.portal_token}/financial-clarification`
-        : `/webinar/${lead.portal_token}`;
+      : `/p/${lead.portal_token}/${capitalDestination}`;
 
     return NextResponse.json({
       success: true,

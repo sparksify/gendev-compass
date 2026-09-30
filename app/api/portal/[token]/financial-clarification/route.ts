@@ -40,9 +40,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     });
   }
 
+  const qualified = bridgeCapitalMeetsMinimum(updatedLead.initial_liquid_capital);
   return NextResponse.json({
     success: true,
-    qualified: bridgeCapitalMeetsMinimum(updatedLead.initial_liquid_capital),
-    nextUrl: `/webinar/${token}`,
+    qualified,
+    nextUrl: qualified ? `/webinar/${token}` : `/p/${token}/financial-education`,
   });
 }

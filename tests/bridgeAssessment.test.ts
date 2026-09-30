@@ -5,6 +5,11 @@ import {
   assessFit,
   bridgeAssessmentSchema,
 } from "@/lib/bridge/assessment";
+import {
+  bridgeCapitalBand,
+  bridgeCapitalDestination,
+  bridgeCapitalMeetsMinimum,
+} from "@/lib/config/qualification";
 
 const valid = {
   goal: "replace-income",
@@ -42,9 +47,26 @@ describe("bridge fit assessment", () => {
   it("calls a strong fit only with qualifying capital and a near-term timeline", () => {
     expect(assessFit({ liquidCapital: "250k-499k", timeline: "asap" })).toBe("strong");
     expect(assessFit({ liquidCapital: "500k-plus", timeline: "3-6-months" })).toBe("strong");
+    expect(assessFit({ liquidCapital: "50k-74k", timeline: "asap" })).toBe("standard");
+    expect(assessFit({ liquidCapital: "75k-99k", timeline: "asap" })).toBe("strong");
     expect(assessFit({ liquidCapital: "25k-49k", timeline: "asap" })).toBe("standard");
     expect(assessFit({ liquidCapital: "250k-499k", timeline: "researching" })).toBe("standard");
     expect(assessFit({ liquidCapital: "not-sure", timeline: "asap" })).toBe("standard");
+  });
+
+  it("routes the $75,000 capital boundary conservatively", () => {
+    expect(bridgeCapitalBand("50k-74k")).toBe("50k-74k");
+    expect(bridgeCapitalMeetsMinimum("50k-74k")).toBe(false);
+    expect(bridgeCapitalDestination("50k-74k")).toBe("financial-clarification");
+    expect(bridgeCapitalBand("75k-99k")).toBe("75k-plus");
+    expect(bridgeCapitalMeetsMinimum("75k-99k")).toBe(true);
+    expect(bridgeCapitalDestination("75k-99k")).toBe("webinar");
+    expect(bridgeCapitalDestination("lt-25k")).toBe("financial-education");
+    expect(bridgeCapitalDestination("not-sure")).toBe("financial-clarification");
+    // Older records used a single $50k–$99k value. They cannot prove the
+    // new floor, so they return to clarification rather than advancing.
+    expect(bridgeCapitalBand("50k-99k")).toBe("50k-74k");
+    expect(bridgeCapitalMeetsMinimum("50k-99k")).toBe(false);
   });
 
   it("snapshots every answer with its question and human label", () => {
